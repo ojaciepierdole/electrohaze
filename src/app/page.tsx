@@ -14,6 +14,7 @@ import {
   Tooltip,
 } from 'recharts';
 import { funnyMessages, getRandomMessage } from '@/lib/funny-messages';
+import { SupplierLogo } from '@/components/SupplierLogo';
 
 // Interfejs dla logów analizy
 interface AnalysisLog {
@@ -394,47 +395,51 @@ export default function Home() {
         )}
 
         {analysisResult && (
-          <div 
-            className={`p-4 rounded-lg space-y-4 shadow-md ${
-              error 
-                ? 'bg-red-50' 
-                : 'bg-gray-50 shadow-sm hover:shadow-lg transition-shadow'
-            }`}
-          >
-            <p className="font-bold text-lg">Wyniki analizy dokumentu:</p>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="font-bold">{displayLabels.supplierName}: </p>
-                <p className="normal-case">{analysisResult.supplierName || 'Nie znaleziono'}</p>
-              </div>
-
-              {analysisResult.customer && (
+          <div className="p-6 rounded-lg space-y-6 shadow-md bg-white">
+            <p className="font-bold text-lg border-b pb-2">Wyniki analizy dokumentu:</p>
+            
+            {/* Sekcja sprzedawcy */}
+            {analysisResult.supplierName && (
+              <div className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
+                <SupplierLogo supplierName={analysisResult.supplierName} size={48} />
                 <div>
-                  <p className="font-bold">{displayLabels.customer.title}: </p>
-                  <p className="normal-case">{analysisResult.customer.fullName || 'Nie znaleziono'}</p>
-                  <p className="text-sm text-gray-600 normal-case">{analysisResult.customer.address || 'Brak adresu'}</p>
+                  <p className="text-sm text-gray-500">{displayLabels.supplierName}</p>
+                  <p className="font-medium text-lg">{analysisResult.supplierName}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Grid z pozostałymi danymi */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+              {analysisResult.customer && (
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="font-medium text-gray-700">{displayLabels.customer.title}</p>
+                  <p className="mt-2">{analysisResult.customer.fullName || 'Nie znaleziono'}</p>
+                  <p className="text-sm text-gray-600 mt-1">{analysisResult.customer.address || 'Brak adresu'}</p>
                 </div>
               )}
 
               {analysisResult.correspondenceAddress && (
-                <div>
-                  <p className="font-bold">{displayLabels.correspondenceAddress.title}: </p>
-                  <p className="normal-case">{analysisResult.correspondenceAddress.fullName || 'Nie znaleziono'}</p>
-                  <p className="text-sm text-gray-600 normal-case">{analysisResult.correspondenceAddress.address || 'Brak adresu'}</p>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="font-medium text-gray-700">{displayLabels.correspondenceAddress.title}</p>
+                  <p className="mt-2">{analysisResult.correspondenceAddress.fullName || 'Nie znaleziono'}</p>
+                  <p className="text-sm text-gray-600 mt-1">{analysisResult.correspondenceAddress.address || 'Brak adresu'}</p>
                 </div>
               )}
 
               {analysisResult.deliveryPoint && (
-                <div>
-                  <p className="font-bold">{displayLabels.deliveryPoint.title}: </p>
-                  <p className="text-sm text-gray-600 normal-case">
-                    <span className="font-bold">Adres: </span>
-                    {analysisResult.deliveryPoint.address || 'Brak adresu'}
-                  </p>
-                  <p className="text-sm text-gray-600 normal-case">
-                    <span className="font-bold">Numer PPE: </span>
-                    {analysisResult.deliveryPoint.ppeNumber || 'Nie znaleziono'}
-                  </p>
+                <div className="p-4 bg-gray-50 rounded-lg col-span-full">
+                  <p className="font-medium text-gray-700">{displayLabels.deliveryPoint.title}</p>
+                  <div className="mt-2 space-y-2">
+                    <p className="text-sm">
+                      <span className="font-medium">Adres: </span>
+                      {analysisResult.deliveryPoint.address || 'Brak adresu'}
+                    </p>
+                    <p className="text-sm">
+                      <span className="font-medium">Numer PPE: </span>
+                      {analysisResult.deliveryPoint.ppeNumber || 'Nie znaleziono'}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -491,20 +496,25 @@ export default function Home() {
                     array.length > 1 && index !== array.length - 1 ? 'border-b pb-2' : 'pb-2'
                   } ${log.invoiceIssuer === 'Nie znaleziono' ? 'bg-red-50 rounded p-2' : ''}`}
                 >
-                  <div className="flex items-center min-w-0 flex-1">
-                    <span className="font-medium bg-gray-100 px-2 py-1 rounded mr-2 shrink-0">
-                      {log.invoiceIssuer.split(' ')[0]}
-                    </span>
-                    <div className="flex flex-col">
-                      <span className="text-gray-600 truncate max-w-[50%]">
-                        {log.fileName}
-                      </span>
+                  <div className="flex items-center min-w-0 flex-1 gap-3">
+                    <div className="shrink-0">
+                      <SupplierLogo supplierName={log.invoiceIssuer} size={24} />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium bg-gray-100 px-2 py-1 rounded text-xs">
+                          {log.invoiceIssuer.split(' ')[0]}
+                        </span>
+                        <span className="text-gray-600 truncate">
+                          {log.fileName}
+                        </span>
+                      </div>
                       <span className="text-xs text-gray-400">
                         {formatDate(log.startTime)} • {formatTimestamp(log.startTime)}
                       </span>
                     </div>
                   </div>
-                  <span className="text-gray-500 shrink-0">
+                  <span className="text-gray-500 shrink-0 ml-4">
                     {(log.duration / 1000).toFixed(2)}s
                   </span>
                 </div>
