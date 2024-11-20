@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef, TouchEvent } from 'react';
 import Image from 'next/image';
 import { DisplayInvoiceData } from '@/types/compose2';
 import { displayLabels, formatAmount } from '@/lib/compose2-helpers';
-import { Search, Download, Trophy } from 'lucide-react';
+import { Search, Download, Trophy, Upload } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -364,8 +364,15 @@ export default function Home() {
                   <p className="text-base sm:text-lg text-gray-500 hover:text-gray-700 transition-colors">
                     Przeciągnij i upuść plik tutaj
                   </p>
-                  <div className="flex gap-2 w-full sm:w-auto">
-                    <label htmlFor="file-upload" className="cursor-pointer w-full sm:w-auto">
+                  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                    <button
+                      onClick={() => setIsScannerOpen(true)}
+                      className="md:hidden px-4 py-3 text-sm rounded bg-black text-white hover:bg-gray-900 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Camera size={18} className="text-white" />
+                      <span>Zrób zdjęcie</span>
+                    </button>
+                    <label htmlFor="file-upload" className="cursor-pointer w-full">
                       <input
                         id="file-upload"
                         type="file"
@@ -374,22 +381,22 @@ export default function Home() {
                         onChange={handleFileChange}
                       />
                       <span
-                        className={`px-3 py-1.5 text-sm rounded transition-colors block sm:inline-block w-full sm:w-auto text-center ${
-                          selectedFile 
+                        className={`
+                          px-4 py-3 text-sm rounded transition-colors
+                          flex items-center justify-center gap-2
+                          w-full
+                          ${selectedFile 
                             ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                             : 'bg-blue-500 text-white hover:bg-blue-600'
-                        }`}
+                          }
+                          sm:inline-flex sm:min-w-[160px] sm:justify-start
+                          lg:min-w-[180px]
+                        `}
                       >
-                        Wybierz z dysku
+                        <Upload size={18} className="shrink-0" />
+                        <span className="whitespace-nowrap">Wybierz z dysku</span>
                       </span>
                     </label>
-                    <button
-                      onClick={() => setIsScannerOpen(true)}
-                      className="px-3 py-1.5 text-sm rounded bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors flex items-center gap-2"
-                    >
-                      <Camera size={16} />
-                      <span className="hidden sm:inline">Skanuj</span>
-                    </button>
                   </div>
                 </>
               )}

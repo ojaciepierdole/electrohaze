@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { Camera, X, Plus, Send, ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
+import { motion, AnimatePresence } from 'framer-motion';
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { PDFDocument } from 'pdf-lib';
 
 interface ScannedPage {
   id: string;
@@ -19,6 +22,11 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
   const [draggedItem, setDraggedItem] = useState<ScannedPage | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [showCaptureFlash, setShowCaptureFlash] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState('');
 
   useEffect(() => {
     return () => {
@@ -30,31 +38,44 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
 
   const startScanning = async () => {
     try {
-      const constraints = {
+      setError(null);
+      setIsScanning(true);
+      
+      const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: { ideal: 'environment' },
+          facingMode: 'environment',
           width: { ideal: 1920 },
           height: { ideal: 1080 }
-        }
-      };
+        },
+        audio: false
+      });
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play().catch(e => console.error('Error playing video:', e));
+        try {
+          await videoRef.current.play();
+        } catch (e) {
+          console.error('Error playing video:', e);
+          setError('Nie udało się uruchomić kamery');
+          setIsScanning(false);
+        }
       }
-      
-      setIsScanning(true);
     } catch (error) {
       console.error('Error accessing camera:', error);
+      setError('Brak dostępu do kamery');
+      setIsScanning(false);
     }
   };
 
   const stopScanning = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
     setIsScanning(false);
   };
@@ -62,13 +83,24 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
   const captureImage = async () => {
     if (!videoRef.current) return;
 
+    setIsCapturing(true);
+    setShowCaptureFlash(true);
+
+    const video = videoRef.current;
     const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.drawImage(videoRef.current, 0, 0);
+    if (video.style.transform.includes('scaleX(-1)')) {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
+
+    ctx.drawImage(video, 0, 0);
     
     canvas.toBlob((blob) => {
       if (!blob) return;
@@ -80,7 +112,14 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
       };
       
       setScannedPages(prev => [...prev, newPage]);
-      stopScanning();
+      
+      const newCount = scannedPages.length + 1;
+      showToast(`Zrobiono zdjęcie (${newCount})`);
+
+      setTimeout(() => {
+        setShowCaptureFlash(false);
+        setIsCapturing(false);
+      }, 200);
     }, 'image/jpeg', 0.8);
   };
 
@@ -108,115 +147,258 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
     setScannedPages(prev => prev.filter(page => page.id !== pageId));
   };
 
+  const createPDFFromImages = async (pages: ScannedPage[]): Promise<File> => {
+    setProcessingStatus('Tworzenie dokumentu PDF...');
+    const pdfDoc = await PDFDocument.create();
+    
+    for (const page of pages) {
+      setProcessingStatus(`Dodawanie strony ${page.order + 1}...`);
+      const response = await fetch(page.imageUrl);
+      const imageBytes = await response.arrayBuffer();
+      const image = await pdfDoc.embedJpg(imageBytes);
+      
+      const pageWidth = image.width;
+      const pageHeight = image.height;
+      const pdfPage = pdfDoc.addPage([pageWidth, pageHeight]);
+      
+      pdfPage.drawImage(image, {
+        x: 0,
+        y: 0,
+        width: pageWidth,
+        height: pageHeight,
+      });
+    }
+
+    setProcessingStatus('Finalizowanie dokumentu...');
+    const pdfBytes = await pdfDoc.save();
+    return new File([pdfBytes], 'scanned_document.pdf', { type: 'application/pdf' });
+  };
+
   const handleComplete = async () => {
-    const files = await Promise.all(
-      scannedPages.map(async (page) => {
-        const response = await fetch(page.imageUrl);
-        const blob = await response.blob();
-        return new File([blob], `scan-${page.order + 1}.jpg`, { type: 'image/jpeg' });
-      })
-    );
-    onScanComplete(files);
+    try {
+      setIsProcessing(true);
+      const pdfFile = await createPDFFromImages(scannedPages);
+      onScanComplete([pdfFile]);
+    } catch (error) {
+      console.error('Error creating PDF:', error);
+      setError('Nie udało się utworzyć dokumentu PDF');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const [toast, setToast] = useState<string | null>(null);
+  const showToast = (message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 2000);
+  };
+
+  const onDragEnd = (result: any) => {
+    if (!result.destination) return;
+
+    const items = Array.from(scannedPages);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    // Aktualizuj numerację
+    const updatedItems = items.map((item, index) => ({
+      ...item,
+      order: index + 1
+    }));
+
+    setScannedPages(updatedItems);
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
-      {isScanning ? (
-        <div className="relative w-full h-full">
+      {error ? (
+        <div className="flex-1 flex items-center justify-center flex-col gap-4 p-4">
+          <p className="text-white text-lg">{error}</p>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-white rounded text-black"
+          >
+            Zamknij
+          </button>
+        </div>
+      ) : isScanning ? (
+        <div className="relative w-full h-full bg-black">
+          <button
+            onClick={() => {
+              stopScanning();
+              setIsScanning(false);
+            }}
+            className="absolute top-4 left-1/2 transform -translate-x-1/2 px-4 py-2 bg-red-500 text-white rounded-full z-10 flex items-center gap-2 hover:bg-red-600 transition-colors"
+          >
+            <X size={16} />
+            Zakończ
+          </button>
+
           <video
             ref={videoRef}
             autoPlay
             playsInline
             muted
-            className="w-full h-full object-contain bg-black"
-            onLoadedMetadata={(e) => {
-              const video = e.currentTarget;
-              video.play().catch(err => console.error('Error playing video:', err));
-            }}
-            style={{ 
-              transform: 'scaleX(-1)',
-              maxWidth: '100%',
-              maxHeight: '100vh'
-            }}
+            className="absolute inset-0 w-full h-full object-cover"
           />
-          <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center gap-4 bg-gradient-to-t from-black to-transparent">
-            <button
-              onClick={stopScanning}
-              className="p-3 rounded-full bg-red-500 text-white"
-              aria-label="Anuluj"
-            >
-              <X />
-            </button>
-            <button
+          
+          {showCaptureFlash && (
+            <div className="absolute inset-0 bg-white animate-flash" />
+          )}
+
+          <AnimatePresence>
+            {scannedPages.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                className="absolute bottom-28 inset-x-0 flex justify-center"
+              >
+                <div className="bg-black/75 text-white px-4 py-2 rounded-full">
+                  {scannedPages.length} {scannedPages.length === 1 ? 'zdjęcie' : 'zdjęcia'}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center">
+            <motion.button
               onClick={captureImage}
-              className="p-3 rounded-full bg-white"
+              disabled={isCapturing}
+              whileTap={{ scale: 0.9 }}
+              className={`p-4 rounded-full transition-all ${
+                isCapturing 
+                  ? 'bg-gray-300' 
+                  : 'bg-white hover:bg-gray-100'
+              }`}
               aria-label="Zrób zdjęcie"
             >
-              <Camera className="text-black" />
-            </button>
+              <Camera 
+                className={`text-black transition-colors ${
+                  isCapturing ? 'opacity-50' : ''
+                }`} 
+                size={24} 
+              />
+            </motion.button>
           </div>
         </div>
       ) : (
-        <div className="flex-1 p-4 overflow-y-auto">
+        <div className="flex-1 p-4 overflow-y-auto bg-gray-900">
           <div className="flex items-center justify-between mb-4">
             <button
               onClick={onClose}
-              className="p-2 rounded-full bg-gray-800 text-white"
+              className="p-2 rounded-full bg-gray-800 text-white hover:bg-gray-700 transition-colors"
             >
               <ArrowLeft size={20} />
             </button>
             <h2 className="text-white text-lg font-medium">
               Zeskanowane strony ({scannedPages.length})
             </h2>
-            <div className="w-8" /> {/* Spacer */}
+            <div className="w-8" />
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            {scannedPages.map((page) => (
-              <div
-                key={page.id}
-                draggable
-                onDragStart={() => handleDragStart(page)}
-                onDragOver={(e) => handleDragOver(e, page)}
-                className="relative aspect-[3/4] bg-gray-800 rounded-lg overflow-hidden"
-              >
-                <Image
-                  src={page.imageUrl}
-                  alt={`Strona ${page.order + 1}`}
-                  fill
-                  className="object-cover"
-                />
-                <button
-                  onClick={() => handleDelete(page.id)}
-                  className="absolute top-2 right-2 p-1 rounded-full bg-red-500 text-white"
+          <DragDropContext onDragEnd={onDragEnd}>
+            <Droppable droppableId="scanned-pages">
+              {(provided) => (
+                <div
+                  {...provided.droppableProps}
+                  ref={provided.innerRef}
+                  className="grid grid-cols-2 gap-4 mb-4"
                 >
-                  <X size={16} />
-                </button>
-                <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black bg-opacity-50 text-white text-sm">
-                  {page.order + 1}
+                  {scannedPages.map((page, index) => (
+                    <Draggable
+                      key={page.id}
+                      draggableId={page.id}
+                      index={index}
+                    >
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          {...provided.dragHandleProps}
+                          className={`relative aspect-[3/4] bg-gray-800 rounded-lg overflow-hidden ${
+                            snapshot.isDragging ? 'ring-2 ring-blue-500 shadow-lg' : ''
+                          }`}
+                        >
+                          <Image
+                            src={page.imageUrl}
+                            alt={`Strona ${page.order + 1}`}
+                            fill
+                            className="object-cover"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/50 opacity-0 hover:opacity-100 transition-opacity">
+                            <div className="absolute top-2 right-2 flex gap-2">
+                              <button
+                                onClick={() => handleDelete(page.id)}
+                                className="p-1.5 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                            <div className="absolute bottom-2 left-2 flex items-center gap-2">
+                              <span className="px-2 py-1 rounded bg-black/75 text-white text-sm font-medium">
+                                Strona {index + 1}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                  <button
+                    onClick={startScanning}
+                    className="aspect-[3/4] border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:text-white hover:border-white transition-colors group"
+                  >
+                    <Plus size={24} className="group-hover:scale-110 transition-transform" />
+                    <span className="mt-2 text-sm">Dodaj stronę</span>
+                  </button>
                 </div>
-              </div>
-            ))}
-            <button
-              onClick={startScanning}
-              className="aspect-[3/4] border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:text-white hover:border-white transition-colors"
-            >
-              <Plus size={24} />
-              <span className="mt-2 text-sm">Dodaj stronę</span>
-            </button>
-          </div>
+              )}
+            </Droppable>
+          </DragDropContext>
 
           {scannedPages.length > 0 && (
-            <button
-              onClick={handleComplete}
-              className="w-full py-3 bg-blue-500 text-white rounded-lg flex items-center justify-center gap-2 hover:bg-blue-600 transition-colors"
-            >
-              <Send size={20} />
-              Wyślij do analizy
-            </button>
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-gray-900">
+              <AnimatePresence>
+                {isProcessing && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    className="mb-4 text-center text-white text-sm"
+                  >
+                    {processingStatus}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              <button
+                onClick={handleComplete}
+                disabled={isProcessing}
+                className={`w-full py-3 rounded-lg flex items-center justify-center gap-2 transition-colors ${
+                  isProcessing
+                    ? 'bg-blue-400 text-white/80'
+                    : 'bg-blue-500 text-white hover:bg-blue-600'
+                }`}
+              >
+                <Send size={20} />
+                {isProcessing ? 'Przygotowywanie dokumentu...' : 'Wyślij do analizy'}
+              </button>
+            </div>
           )}
         </div>
       )}
+
+      <style jsx>{`
+        @keyframes flash {
+          0% { opacity: 0; }
+          50% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        .animate-flash {
+          animation: flash 200ms ease-out;
+        }
+      `}</style>
     </div>
   );
 } 
