@@ -65,38 +65,57 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
   const frameRef = useRef<HTMLDivElement>(null);
   const processingRef = useRef(false);
   const [isOpenCVReady, setIsOpenCVReady] = useState(false);
+  const [initProgress, setInitProgress] = useState(0);
 
+  // Automatycznie uruchamiamy skaner po załadowaniu
   useEffect(() => {
     let mounted = true;
 
-    const initOpenCV = async () => {
+    const initScanner = async () => {
       try {
+        setInitProgress(10);
         await loadOpenCV();
-        if (mounted) {
-          setIsOpenCVReady(true);
-        }
+        if (!mounted) return;
+        setInitProgress(50);
+        
+        await startScanning();
+        if (!mounted) return;
+        setInitProgress(80);
+        
+        setIsOpenCVReady(true);
+        setInitProgress(100);
       } catch (error) {
-        console.error('Failed to initialize OpenCV:', error);
+        console.error('Failed to initialize scanner:', error);
         if (mounted) {
           setError('Nie udało się zainicjalizować skanera');
         }
       }
     };
 
-    initOpenCV();
+    initScanner();
 
     return () => {
       mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (isScanning && videoRef.current && isOpenCVReady) {
+      const processFrame = () => {
+        if (videoRef.current && !processingRef.current) {
+          detectDocument(videoRef.current);
+        }
+        if (isScanning) {
+          requestAnimationFrame(processFrame);
+        }
+      };
+
+      requestAnimationFrame(processFrame);
+    }
+  }, [isScanning, isOpenCVReady]);
 
   const startScanning = async () => {
     try {
@@ -368,16 +387,6 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
     frameRef.current.style.clipPath = `path('${path}')`;
   };
 
-  useEffect(() => {
-    if (isScanning && videoRef.current) {
-      const interval = setInterval(() => {
-        detectDocument(videoRef.current!);
-      }, 100); // Sprawdzamy co 100ms
-
-      return () => clearInterval(interval);
-    }
-  }, [isScanning]);
-
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
       {error ? (
@@ -474,6 +483,31 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
               />
             </motion.button>
           </div>
+
+          {/* Ramka dokumentu */}
+          <div className="absolute inset-4 border-2 border-white/50 rounded-lg pointer-events-none">
+            <div className="absolute -left-2 -top-2 w-4 h-4 border-t-2 border-l-2 border-white" />
+            <div className="absolute -right-2 -top-2 w-4 h-4 border-t-2 border-r-2 border-white" />
+            <div className="absolute -left-2 -bottom-2 w-4 h-4 border-b-2 border-l-2 border-white" />
+            <div className="absolute -right-2 -bottom-2 w-4 h-4 border-b-2 border-r-2 border-white" />
+          </div>
+
+          {/* Wskaźnik wykrycia dokumentu */}
+          <AnimatePresence>
+            {isDocumentDetected && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                className="absolute bottom-32 inset-x-0 flex justify-center"
+              >
+                <div className="bg-green-500/80 text-white px-4 py-2 rounded-full flex items-center gap-2">
+                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                  Dokument gotowy do zeskanowania
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       ) : (
         <div className="flex-1 p-4 overflow-y-auto bg-gray-900">
@@ -592,10 +626,26 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
           animation: flash 200ms ease-out;
         }
       `}</style>
-      {isScanning && !isOpenCVReady && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-          <div className="text-white text-center">
-            <p>Inicjalizacja skanera...</p>
+      {!isOpenCVReady && !error && (
+        <div className="absolute inset-0 bg-black flex items-center justify-center">
+          <div className="w-64 space-y-4">
+            <div className="text-white text-center mb-6">
+              <p className="text-lg font-medium mb-2">Inicjalizacja skanera</p>
+              <p className="text-sm text-gray-400">Przygotowywanie modułów...</p>
+            </div>
+            
+            <div className="relative h-2 bg-white/20 rounded-full overflow-hidden">
+              <motion.div
+                className="absolute inset-y-0 left-0 bg-white rounded-full"
+                initial={{ width: "0%" }}
+                animate={{ width: `${initProgress}%` }}
+                transition={{ duration: 0.3 }}
+              />
+            </div>
+            
+            <p className="text-center text-white/60 text-sm">
+              {initProgress}%
+            </p>
           </div>
         </div>
       )}
