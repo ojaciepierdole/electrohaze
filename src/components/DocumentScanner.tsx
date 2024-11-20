@@ -129,6 +129,11 @@ const performDeskew = async (imageBlob: Blob): Promise<Blob> => {
   });
 };
 
+interface DetectedDocument {
+  corners: { x: number; y: number }[];
+  isGoodPerspective: boolean;
+}
+
 export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [scannedPages, setScannedPages] = useState<ScannedPage[]>([]);
@@ -146,6 +151,8 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
   const processingRef = useRef(false);
   const [isOpenCVReady, setIsOpenCVReady] = useState(false);
   const [initProgress, setInitProgress] = useState(0);
+  const [detectedDocument, setDetectedDocument] = useState<DetectedDocument | null>(null);
+  const lastGoodDetection = useRef<DetectedDocument | null>(null);
 
   // Automatycznie uruchamiamy skaner po załadowaniu
   useEffect(() => {
@@ -380,9 +387,10 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
   };
 
   const detectDocument = (video: HTMLVideoElement) => {
-    if (!canvasRef.current || processingRef.current || !isOpenCVReady || !window.cv) return;
+    if (!canvasRef.current || processingRef.current || !window.cv) return;
     processingRef.current = true;
 
+    const cv = window.cv;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -392,34 +400,28 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
     ctx.drawImage(video, 0, 0);
 
     try {
-      // @ts-ignore
-      const cv = window.cv;
-      // Konwertujemy obraz do formatu OpenCV
       const src = cv.imread(canvas);
       const dst = new cv.Mat();
       
-      // Konwertujemy do skali szarości
+      // Konwertuj do skali szarości
       cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
-      
-      // Stosujemy rozmycie Gaussa
       cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0);
-      
-      // Wykrywamy krawędzie
       cv.Canny(dst, dst, 75, 200);
       
-      // Znajdujemy kontury
+      // Znajdź kontury
       const contours = new cv.MatVector();
       const hierarchy = new cv.Mat();
       cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
       let maxArea = 0;
       let maxContourIndex = -1;
+      const totalArea = canvas.width * canvas.height;
 
-      // Szukamy największego konturu (prawdopodobnie dokument)
+      // Znajdź największy kontur
       for (let i = 0; i < contours.size(); i++) {
         const contour = contours.get(i);
         const area = cv.contourArea(contour);
-        if (area > maxArea) {
+        if (area > maxArea && area < totalArea * 0.95) { // Ignoruj zbyt duże kontury
           maxArea = area;
           maxContourIndex = i;
         }
@@ -431,28 +433,33 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
         const approx = new cv.Mat();
         cv.approxPolyDP(contour, approx, 0.02 * perimeter, true);
 
-        // Jeśli mamy czworokąt, prawdopodobnie znaleźliśmy dokument
         if (approx.rows === 4) {
-          // Aktualizujemy ramkę pomocniczą
-          if (frameRef.current) {
-            const points = [];
-            for (let i = 0; i < 4; i++) {
-              points.push({
-                x: approx.data32S[i * 2] / canvas.width * 100,
-                y: approx.data32S[i * 2 + 1] / canvas.height * 100
-              });
-            }
-            updateFrame(points);
-            setIsDocumentDetected(true);
+          // Konwertuj punkty na format { x, y }
+          const corners = [];
+          for (let i = 0; i < 4; i++) {
+            corners.push({
+              x: approx.data32S[i * 2] / canvas.width * 100,
+              y: approx.data32S[i * 2 + 1] / canvas.height * 100
+            });
+          }
+
+          // Sprawdź czy perspektywa jest dobra
+          const isGoodPerspective = checkPerspective(corners, canvas.width, canvas.height);
+          
+          const detection = { corners, isGoodPerspective };
+          setDetectedDocument(detection);
+          
+          if (isGoodPerspective) {
+            lastGoodDetection.current = detection;
           }
         } else {
-          setIsDocumentDetected(false);
+          setDetectedDocument(null);
         }
 
         approx.delete();
       }
 
-      // Zwalniamy pamięć
+      // Zwolnij pamięć
       src.delete();
       dst.delete();
       contours.delete();
@@ -464,16 +471,48 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
     processingRef.current = false;
   };
 
-  const updateFrame = (points: Array<{ x: number, y: number }>) => {
-    if (!frameRef.current) return;
+  const checkPerspective = (
+    corners: { x: number; y: number }[],
+    width: number,
+    height: number
+  ): boolean => {
+    // Sortuj narożniki według pozycji
+    const sortedCorners = [...corners].sort((a, b) => {
+      if (Math.abs(a.y - b.y) < 10) return a.x - b.x;
+      return a.y - b.y;
+    });
 
-    // Tworzymy ścieżkę SVG z punktów
-    const path = `M ${points[0].x},${points[0].y} 
-                  L ${points[1].x},${points[1].y} 
-                  L ${points[2].x},${points[2].y} 
-                  L ${points[3].x},${points[3].y} Z`;
+    // Sprawdź czy dokument jest wystarczająco duży
+    const minArea = width * height * 0.2; // Minimum 20% ekranu
+    const documentArea = calculateQuadArea(sortedCorners);
+    if (documentArea < minArea) return false;
 
-    frameRef.current.style.clipPath = `path('${path}')`;
+    // Sprawdź czy kąty są zbliżone do 90 stopni
+    const angles = calculateQuadAngles(sortedCorners);
+    return angles.every(angle => Math.abs(angle - 90) < 20);
+  };
+
+  const calculateQuadArea = (corners: { x: number; y: number }[]): number => {
+    // Implementacja obliczania pola czworokąta
+    return Math.abs(
+      (corners[0].x * corners[1].y + corners[1].x * corners[2].y +
+       corners[2].x * corners[3].y + corners[3].x * corners[0].y) -
+      (corners[1].x * corners[0].y + corners[2].x * corners[1].y +
+       corners[3].x * corners[2].y + corners[0].x * corners[3].y)
+    ) / 2;
+  };
+
+  const calculateQuadAngles = (corners: { x: number; y: number }[]): number[] => {
+    // Implementacja obliczania kątów czworokąta
+    return corners.map((corner, i) => {
+      const prev = corners[(i + 3) % 4];
+      const next = corners[(i + 1) % 4];
+      
+      const angle = Math.atan2(next.y - corner.y, next.x - corner.x) -
+                   Math.atan2(prev.y - corner.y, prev.x - corner.x);
+      
+      return Math.abs(angle * 180 / Math.PI);
+    });
   };
 
   return (
@@ -584,6 +623,49 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
           {/* Wskaźnik wykrycia dokumentu */}
           <AnimatePresence>
             {isDocumentDetected && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                className="absolute bottom-32 inset-x-0 flex justify-center"
+              >
+                <div className="bg-green-500/80 text-white px-4 py-2 rounded-full flex items-center gap-2">
+                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                  Dokument gotowy do zeskanowania
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Ramka dokumentu */}
+          {detectedDocument && (
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.5))' }}
+            >
+              <path
+                d={`M ${detectedDocument.corners.map(c => `${c.x}% ${c.y}%`).join(' L ')} Z`}
+                fill="none"
+                strokeWidth="2"
+                stroke={detectedDocument.isGoodPerspective ? '#22c55e' : '#3b82f6'}
+                className="transition-colors duration-200"
+              />
+              {detectedDocument.corners.map((corner, i) => (
+                <circle
+                  key={i}
+                  cx={`${corner.x}%`}
+                  cy={`${corner.y}%`}
+                  r="4"
+                  fill={detectedDocument.isGoodPerspective ? '#22c55e' : '#3b82f6'}
+                  className="transition-colors duration-200"
+                />
+              ))}
+            </svg>
+          )}
+
+          {/* Wskaźnik gotowości do zdjęcia */}
+          <AnimatePresence>
+            {detectedDocument?.isGoodPerspective && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
