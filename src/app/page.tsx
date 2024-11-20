@@ -5,8 +5,17 @@ import Image from 'next/image';
 import { DisplayInvoiceData } from '@/types/compose2';
 import { displayLabels, formatAmount } from '@/lib/compose2-helpers';
 import { Search, Download, Trophy } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+} from 'recharts';
+import { funnyMessages, getRandomMessage } from '@/lib/funny-messages';
 
+// Interfejs dla logów analizy
 interface AnalysisLog {
   fileName: string;
   startTime: Date;
@@ -15,164 +24,11 @@ interface AnalysisLog {
   invoiceIssuer: string;
 }
 
-const funnyMessages = [
-  "Rebootowanie hamsterów w kołowrotkach...",
-  "Kalibrowanie poziomu biurokracji...",
-  "Optymalizowanie stosu papierologii...",
-  "Liczenie elektronów w dokumencie...",
-  "Negocjowanie z AI o szybsze przetwarzanie...",
-  "Składanie origami z bitów...",
-  "Motywowanie leniwych pikseli...",
-  "Przeprogramowywanie matrixa...",
-  "Debugowanie rzeczywistości...",
-  "Synchronizowanie kwantowych długopisów...",
-  "Rozwiązywanie równań biurokratycznych...",
-  "Formatowanie cyfrowej herbaty...",
-  "Kompilowanie marzeń urzędników...",
-  "Defragmentacja szuflad wirtualnych...",
-  "Aktualizowanie przestarzałych przepisów...",
-  "Instalowanie łatek do dziur w logice...",
-  "Przetwarzanie kawy na kod binarny...",
-  "Obliczanie sensu życia dokumentów...",
-  "Renderowanie wirtualnej cierpliwości...",
-  "Optymalizowanie chaosu biurowego...",
-  "Skanowanie wymiarów równoległych...",
-  "Indeksowanie wspomnień serwera...",
-  "Kompresowanie nieskończoności...",
-  "Debugowanie paradoksów czasowych...",
-  "Kalibrowanie detektora absurdów...",
-  "Ładowanie sztucznej inteligencji emocjonalnej...",
-  "Synchronizowanie zegarów kwantowych...",
-  "Przetwarzanie marzeń sennych AI...",
-  "Kompilowanie wirtualnej rzeczywistości...",
-  "Optymalizowanie przepływu czasu...",
-  "Defragmentacja bazy danych marzeń...",
-  "Instalowanie sterowników do wyobraźni...",
-  "Aktualizowanie definicji niemożliwego...",
-  "Renderowanie alternatywnych rzeczywistości...",
-  "Konfigurowanie generatora wymówek...",
-  "Debugowanie ludzkiej logiki...",
-  "Indeksowanie zbiorowej nieświadomości...",
-  "Kompresowanie nieskończonych możliwości...",
-  "Optymalizowanie przypadkowych zbiegów okoliczności...",
-  "Kalibrowanie detektora nonsensu...",
-  "Przetwarzanie cyfrowych déjà vu...",
-  "Synchronizowanie równoległych wszechświatów...",
-  "Kompilowanie abstrakcyjnych koncepcji...",
-  "Renderowanie wirtualnych możliwości...",
-  "Instalowanie łatek do rzeczywistości...",
-  "Aktualizowanie bazy danych paradoksów...",
-  "Debugowanie teorii spiskowych...",
-  "Indeksowanie kolektywnej wyobraźni...",
-  "Optymalizowanie przypadkowych koincydencji...",
-  "Kalibrowanie generatora szczęśliwych zbiegów okoliczności...",
-  "Przetwarzanie cyfrowych przepowiedni...",
-  "Synchronizowanie międzywymiarowych portali...",
-  "Kompilowanie snów elektronicznych...",
-  "Renderowanie alternatywnych linii czasowych...",
-  "Instalowanie poprawek do praw fizyki...",
-  "Aktualizowanie matrycy prawdopodobieństwa...",
-  "Debugowanie kosmicznych anomalii...",
-  "Indeksowanie biblioteki nieskończoności...",
-  "Optymalizowanie kwantowej biurokracji...",
-  "Kalibrowanie międzygalaktycznych formularzy...",
-  "Przetwarzanie cyfrowej karmy...",
-  "Synchronizowanie baz danych z przyszłością...",
-  "Kompilowanie wirtualnych przepowiedni...",
-  "Renderowanie cyfrowych horoskopów...",
-  "Instalowanie sterowników do szczęścia...",
-  "Aktualizowanie definicji przypadku...",
-  "Debugowanie efektu motyla...",
-  "Indeksowanie cyfrowego przeznaczenia...",
-  "Optymalizowanie losowych zbiegów okoliczności...",
-  "Kalibrowanie generatora cudów...",
-  "Przetwarzanie międzywymiarowej korespondencji...",
-  "Przekonywanie pikseli do współpracy...",
-  "Obliczanie prawdopodobieństwa zagubionego długopisu...",
-  "Symulowanie biurowej rzeczywistości...",
-  "Kalibrowanie poziomu kawy w systemie...",
-  "Dostrajanie częstotliwości narzekania...",
-  "Optymalizowanie wydajności papierologii...",
-  "Synchronizowanie zegarów z rzeczywistością równoległą...",
-  "Analizowanie wzorców w chaosie biurowym...",
-  "Przetwarzanie marzeń o weekendzie...",
-  "Kompilowanie wymówek na poniedziałek...",
-  "Defragmentacja służbowego chaosu...",
-  "Indeksowanie biurowych plotek...",
-  "Renderowanie wirtualnej cierpliwości urzędnika...",
-  "Kalibrowanie detektora absurdów biurowych...",
-  "Optymalizowanie czasu do przerwy na kawę...",
-  "Analizowanie wzorców w stosie dokumentów...",
-  "Przetwarzanie biurowych legend miejskich...",
-  "Synchronizowanie zegarów z czasem obiadowym...",
-  "Kompresowanie nieskończonej biurokracji...",
-  "Debugowanie ludzkiej logiki w papierach...",
-  "Instalowanie łatek do przepisów prawnych...",
-  "Aktualizowanie bazy danych wymówek...",
-  "Renderowanie wirtualnych kolejek...",
-  "Optymalizowanie procesu picia kawy...",
-  "Kalibrowanie poziomu stresu w systemie...",
-  "Analizowanie wzorców w zachowaniu drukarki...",
-  "Przetwarzanie marzeń o urlopie...",
-  "Synchronizowanie deadlinów z rzeczywistością...",
-  "Kompilowanie biurowych żartów...",
-  "Debugowanie relacji międzyludzkich...",
-  "Instalowanie sterowników do motywacji...",
-  "Aktualizowanie definicji weekendu...",
-  "Renderowanie wirtualnego spokoju...",
-  "Optymalizowanie czasu do końca pracy...",
-  "Kalibrowanie detektora wymówek...",
-  "Analizowanie wzorców w spóźnieniach...",
-  "Przetwarzanie służbowych plotek...",
-  "Synchronizowanie przerw na kawę...",
-  "Kompilowanie wymówek o korku...",
-  "Debugowanie służbowego humoru...",
-  "Instalowanie łatek do regulaminu...",
-  "Aktualizowanie bazy danych usprawiedliwień...",
-  "Renderowanie wirtualnych nadgodzin...",
-  "Optymalizowanie procesu narzekania...",
-  "Kalibrowanie poziomu entuzjazmu...",
-  "Analizowanie wzorców w znikającej kawie...",
-  "Przetwarzanie teorii spiskowych o drukarce...",
-  "Synchronizowanie zegarów z czasem kawy...",
-  "Kompilowanie biurowych mitów...",
-  "Debugowanie służbowej etykiety...",
-  "Instalowanie sterowników do drukarki (znowu)...",
-  "Aktualizowanie definicji deadline'u...",
-  "Renderowanie wirtualnego weekendu...",
-  "Optymalizowanie czasu do przerwy...",
-  "Kalibrowanie detektora nudy...",
-  "Analizowanie wzorców w znikających długopisach...",
-  "Przetwarzanie wymówek o korku (wersja 2.0)...",
-  "Synchronizowanie zegarów z czasem do domu...",
-  "Kompilowanie historii o drukarce...",
-  "Debugowanie służbowego eteru...",
-  "Instalowanie łatek do motywacji...",
-  "Aktualizowanie bazy danych spóźnień...",
-  "Renderowanie wirtualnej produktywności...",
-  "Optymalizowanie procesu prokrastynacji...",
-  "Kalibrowanie poziomu chaosu...",
-  "Analizowanie wzorców w znikających spinaczach...",
-  "Przetwarzanie biurowych urban legend...",
-  "Synchronizowanie deadline'ów z rzeczywistością...",
-  "Kompilowanie wymówek na jutro...",
-  "Debugowanie międzywydziałowej komunikacji...",
-  "Instalowanie sterowników do efektywności...",
-  "Aktualizowanie definicji 'na wczoraj'...",
-  "Renderowanie wirtualnego porządku...",
-  "Optymalizowanie czasu do weekendu...",
-  "Kalibrowanie detektora wymówek 2.0...",
-  "Analizowanie wzorców w znikającym czasie...",
-  "Przetwarzanie biurowych przepowiedni...",
-  "Synchronizowanie zegarów ze światem zewnętrznym...",
-  "Kompilowanie historii o nadgodzinach...",
-  "Debugowanie służbowej rzeczywistości...",
-  "Instalowanie łatek do systemu motywacyjnego...",
-  "Aktualizowanie bazy danych biurowych mitów...",
-  "Renderowanie wirtualnej efektywności...",
-  "Optymalizowanie procesu delegowania zadań...",
-  "Kalibrowanie poziomu biurowego absurdu..."
-];
+// Typy dla danych wykresu
+interface ChartData {
+  name: string;
+  avgTime: number;
+}
 
 export default function Home() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -230,13 +86,7 @@ export default function Home() {
   useEffect(() => {
     if (isAnalyzing) {
       const interval = setInterval(() => {
-        setCurrentMessage(prev => {
-          let next;
-          do {
-            next = Math.floor(Math.random() * funnyMessages.length);
-          } while (next === prev); // Upewniamy się, że nie powtórzymy tego samego komunikatu
-          return next;
-        });
+        setCurrentMessage(prev => getRandomMessage(prev));
       }, 2000);
       return () => clearInterval(interval);
     }
@@ -403,16 +253,26 @@ export default function Home() {
               <div className="flex justify-center">
                 {preview ? (
                   <div className="relative w-48 h-48">
-                    <img
+                    <Image
                       src={preview}
                       alt="Preview"
-                      className="object-contain w-full h-full"
+                      width={192}
+                      height={192}
+                      className="object-contain"
+                      unoptimized
+                      priority
                     />
                     <button
                       onClick={() => window.open(URL.createObjectURL(selectedFile!), '_blank')}
                       className="absolute top-2 right-2 p-2 bg-white rounded-full shadow hover:bg-gray-50"
                     >
-                      <Image src="/magnifier.svg" alt="Zoom" width={20} height={20} />
+                      <Image 
+                        src="/magnifier.svg" 
+                        alt="Zoom" 
+                        width={20} 
+                        height={20}
+                        priority
+                      />
                     </button>
                   </div>
                 ) : (
@@ -422,7 +282,9 @@ export default function Home() {
               {isAnalyzing ? (
                 <div className="space-y-2">
                   <p className="text-lg">Analiza dokumentu</p>
-                  <p className="text-gray-500 text-sm mt-2 italic">{funnyMessages[currentMessage]}</p>
+                  <p className="text-gray-500 text-sm mt-2 italic">
+                    {funnyMessages[currentMessage]}
+                  </p>
                   <p className="text-gray-500">{analysisProgress}%</p>
                 </div>
               ) : (
@@ -569,7 +431,9 @@ export default function Home() {
               <div className="flex gap-2">
                 <select 
                   value={sortField}
-                  onChange={(e) => setSortField(e.target.value as 'time' | 'duration')}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
+                    setSortField(e.target.value as 'time' | 'duration')
+                  }
                   className="text-sm border rounded p-1"
                 >
                   <option value="time">Sortuj po czasie</option>
@@ -733,7 +597,11 @@ export default function Home() {
                         >
                           <div className="flex items-center gap-3">
                             {analysisLogs.length >= 3 && index === 0 && (
-                              <Trophy className="text-yellow-500" size={20} />
+                              <Trophy 
+                                className="text-yellow-500" 
+                                size={20}
+                                aria-label="Trophy icon"
+                              />
                             )}
                             <span className="font-medium text-sm text-gray-500">#{index + 1}</span>
                             <span className="font-medium">{supplier}</span>
@@ -778,24 +646,19 @@ export default function Home() {
                         <XAxis 
                           dataKey="name"
                           angle={-45}
-                          textAnchor="end"
                           height={60}
                         />
                         <YAxis 
                           label={{ 
                             value: 'Średni czas (s)', 
                             angle: -90, 
-                            position: 'insideLeft',
-                            style: { textAnchor: 'middle' }
+                            position: 'insideLeft'
                           }}
                         />
-                        <Tooltip 
-                          formatter={(value: number) => [`${value}s`, 'Średni czas']}
-                        />
+                        <Tooltip />
                         <Bar 
                           dataKey="avgTime" 
                           fill="#3b82f6"
-                          radius={[4, 4, 0, 0]}
                         />
                       </BarChart>
                     </ResponsiveContainer>
