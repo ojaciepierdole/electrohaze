@@ -9,6 +9,7 @@ const SUPPLIER_MAPPINGS: Record<string, string> = {
   'ORANGE': 'orange.pl',
   'POLENERGIA': 'polenergia.pl',
   'POLKOMTEL': 'grupapolsatplus.pl',
+  'GREEN': 'greensa.pl',
   // Dodaj więcej mapowań według potrzeb
 };
 

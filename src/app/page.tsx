@@ -12,9 +12,14 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  BarProps,
 } from 'recharts';
 import { funnyMessages, getRandomMessage } from '@/lib/funny-messages';
 import { SupplierLogo } from '@/components/SupplierLogo';
+import { ColorPalette, extractColorsFromLogo, getSupplierColors } from '@/lib/color-helpers';
+import { getSupplierDomain } from '@/lib/logo-helpers';
+import { DocumentScanner } from '@/components/DocumentScanner';
+import { Camera } from 'lucide-react';
 
 // Interfejs dla logów analizy
 interface AnalysisLog {
@@ -26,8 +31,9 @@ interface AnalysisLog {
 }
 
 // Typy dla danych wykresu
-interface ChartData {
+interface ChartDataItem {
   name: string;
+  domain: string;
   avgTime: number;
 }
 
@@ -49,6 +55,21 @@ const formatDate = (date: Date) => {
   ].join('.');
 };
 
+// Aktualizujemy interfejs BarProps
+interface BarCustomProps {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  value: number;
+  index: number;
+  payload: {
+    name: string;
+    domain: string;
+    avgTime: number;
+  };
+}
+
 export default function Home() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -67,6 +88,8 @@ export default function Home() {
   const [currentMessage, setCurrentMessage] = useState(() => 
     Math.floor(Math.random() * funnyMessages.length)
   );
+  const [supplierColors, setSupplierColors] = useState<Record<string, ColorPalette>>({});
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   const sortedLogs = useMemo(() => {
     return [...analysisLogs].sort((a, b) => {
@@ -251,6 +274,65 @@ export default function Home() {
     }
   };
 
+  const fetchSupplierColors = async (domain: string) => {
+    try {
+      const response = await fetch(`/api/logo/colors?domain=${domain}`);
+      if (!response.ok) throw new Error('Failed to fetch colors');
+      const colors = await response.json();
+      setSupplierColors(prev => ({
+        ...prev,
+        [domain]: colors
+      }));
+    } catch (error) {
+      console.error('Error fetching supplier colors:', error);
+    }
+  };
+
+  const chartData = useMemo(() => {
+    return Object.entries(
+      analysisLogs
+        .filter(log => log.invoiceIssuer && log.invoiceIssuer !== 'Nie znaleziono')
+        .reduce((acc, log) => {
+          const supplier = log.invoiceIssuer.split(' ')[0];
+          const domain = getSupplierDomain(supplier);
+          
+          // Pobierz kolory dla dostawcy jeśli jeszcze nie mamy
+          if (!supplierColors[domain]) {
+            fetchSupplierColors(domain);
+          }
+
+          if (!acc[supplier]) {
+            acc[supplier] = {
+              name: supplier,
+              domain: domain,
+              avgTime: 0,
+              count: 0,
+              totalTime: 0
+            };
+          }
+          acc[supplier].count++;
+          acc[supplier].totalTime += log.duration;
+          acc[supplier].avgTime = acc[supplier].totalTime / acc[supplier].count;
+          return acc;
+        }, {} as Record<string, { name: string; domain: string; avgTime: number; count: number; totalTime: number }>)
+    )
+      .map(([_, stats]) => ({
+        name: stats.name,
+        domain: stats.domain,
+        avgTime: Number((stats.avgTime / 1000).toFixed(2))
+      }))
+      .sort((a, b) => a.avgTime - b.avgTime);
+  }, [analysisLogs, supplierColors]);
+
+  const handleScanComplete = async (scannedFiles: File[]) => {
+    if (scannedFiles.length === 0) return;
+    
+    setIsScannerOpen(false);
+    // Używamy pierwszego pliku jako głównego
+    setSelectedFile(scannedFiles[0]);
+    await handleAnalyze(scannedFiles[0]);
+  };
+
   return (
     <main className="min-h-screen p-8">
       <div className="max-w-2xl mx-auto space-y-8">
@@ -267,37 +349,8 @@ export default function Home() {
             />
           )}
           
-          <div className="p-8 text-center">
-            <div className="space-y-4">
-              <div className="flex justify-center">
-                {preview ? (
-                  <div className="relative w-48 h-48">
-                    <Image
-                      src={preview}
-                      alt="Preview"
-                      width={192}
-                      height={192}
-                      className="object-contain"
-                      unoptimized
-                      priority
-                    />
-                    <button
-                      onClick={() => window.open(URL.createObjectURL(selectedFile!), '_blank')}
-                      className="absolute top-2 right-2 p-2 bg-white rounded-full shadow hover:bg-gray-50"
-                    >
-                      <Image 
-                        src="/magnifier.svg" 
-                        alt="Zoom" 
-                        width={20} 
-                        height={20}
-                        priority
-                      />
-                    </button>
-                  </div>
-                ) : (
-                  <Image src="/file.svg" alt="Upload icon" width={48} height={48} />
-                )}
-              </div>
+          <div className="p-4 text-center">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8">
               {isAnalyzing ? (
                 <div className="space-y-2">
                   <p className="text-lg">Analiza dokumentu</p>
@@ -307,29 +360,39 @@ export default function Home() {
                   <p className="text-gray-500">{analysisProgress}%</p>
                 </div>
               ) : (
-                <p className="text-lg">
-                  Przeciągnij i upuść plik tutaj
-                </p>
+                <>
+                  <p className="text-base sm:text-lg text-gray-500 hover:text-gray-700 transition-colors">
+                    Przeciągnij i upuść plik tutaj
+                  </p>
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <label htmlFor="file-upload" className="cursor-pointer w-full sm:w-auto">
+                      <input
+                        id="file-upload"
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,image/*"
+                        onChange={handleFileChange}
+                      />
+                      <span
+                        className={`px-3 py-1.5 text-sm rounded transition-colors block sm:inline-block w-full sm:w-auto text-center ${
+                          selectedFile 
+                            ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                            : 'bg-blue-500 text-white hover:bg-blue-600'
+                        }`}
+                      >
+                        Wybierz z dysku
+                      </span>
+                    </label>
+                    <button
+                      onClick={() => setIsScannerOpen(true)}
+                      className="px-3 py-1.5 text-sm rounded bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors flex items-center gap-2"
+                    >
+                      <Camera size={16} />
+                      <span className="hidden sm:inline">Skanuj</span>
+                    </button>
+                  </div>
+                </>
               )}
-              <button
-                onClick={() => {
-                  const input = document.querySelector<HTMLInputElement>('input[type="file"]');
-                  if (input) input.click();
-                }}
-                className={`px-4 py-2 rounded transition-colors ${
-                  selectedFile 
-                    ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                    : 'bg-blue-500 text-white hover:bg-blue-600'
-                }`}
-              >
-                Wybierz z dysku
-              </button>
-              <input
-                type="file"
-                className="hidden"
-                accept=".pdf,image/*"
-                onChange={handleFileChange}
-              />
             </div>
           </div>
           
@@ -505,7 +568,7 @@ export default function Home() {
                         <span className="font-medium bg-gray-100 px-2 py-1 rounded text-xs">
                           {log.invoiceIssuer.split(' ')[0]}
                         </span>
-                        <span className="text-gray-600 truncate">
+                        <span className="text-gray-600 truncate max-w-[30%]">
                           {log.fileName}
                         </span>
                       </div>
@@ -656,31 +719,7 @@ export default function Home() {
                   <div className="h-64 mt-6">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
-                        data={Object.entries(
-                          analysisLogs
-                            .filter(log => log.invoiceIssuer && log.invoiceIssuer !== 'Nie znaleziono')
-                            .reduce((acc, log) => {
-                              const supplier = log.invoiceIssuer.split(' ')[0];
-                              if (!acc[supplier]) {
-                                acc[supplier] = {
-                                  name: supplier,
-                                  avgTime: 0,
-                                  count: 0,
-                                  totalTime: 0
-                                };
-                              }
-                              acc[supplier].count++;
-                              acc[supplier].totalTime += log.duration;
-                              acc[supplier].avgTime = acc[supplier].totalTime / acc[supplier].count;
-                              return acc;
-                            }, {} as Record<string, { name: string; avgTime: number; count: number; totalTime: number }>)
-                        )
-                          .map(([_, stats]) => ({
-                            name: stats.name,
-                            avgTime: Number((stats.avgTime / 1000).toFixed(2))
-                          }))
-                          .sort((a, b) => a.avgTime - b.avgTime)
-                        }
+                        data={chartData}
                         margin={{ top: 20, right: 30, left: 0, bottom: 20 }}
                       >
                         <XAxis 
@@ -703,17 +742,12 @@ export default function Home() {
                         />
                         <Bar 
                           dataKey="avgTime"
-                          shape={(props: {
-                            x: number;
-                            y: number;
-                            width: number;
-                            height: number;
-                            index: number;
-                            value: number;
-                          }) => {
-                            const { x, y, width, height, index, value } = props;
+                          shape={(props) => {
+                            // Rzutujemy payload na nasz typ
+                            const payload = (props as any).payload as ChartDataItem;
+                            const { x, y, width, height, value, index } = props;
                             const cornerRadius = 4;
-                            const fill = index === 0 ? '#fbbf24' : '#3b82f6';
+                            const color = supplierColors[payload.domain]?.primary || '#3b82f6';
                             
                             return (
                               <g>
@@ -727,7 +761,7 @@ export default function Home() {
                                     L${x + width},${y + height}
                                     Z
                                   `}
-                                  fill={fill}
+                                  fill={color}
                                 />
                                 <g style={{ transform: `translate(${x + width/2}px, ${y + height/2}px)` }}>
                                   <rect
@@ -785,6 +819,13 @@ export default function Home() {
               </>
             )}
           </div>
+        )}
+
+        {isScannerOpen && (
+          <DocumentScanner
+            onScanComplete={handleScanComplete}
+            onClose={() => setIsScannerOpen(false)}
+          />
         )}
       </div>
     </main>
