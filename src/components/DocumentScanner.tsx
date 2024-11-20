@@ -49,6 +49,86 @@ const loadOpenCV = async () => {
   return window.cvLoading;
 };
 
+const performDeskew = async (imageBlob: Blob): Promise<Blob> => {
+  const cv = window.cv;
+  if (!cv) throw new Error('OpenCV not loaded');
+
+  // Konwertuj blob na canvas
+  const imageUrl = URL.createObjectURL(imageBlob);
+  const img = document.createElement('img');
+  
+  await new Promise((resolve) => {
+    img.onload = resolve;
+    img.src = imageUrl;
+  });
+
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Failed to get canvas context');
+  
+  ctx.drawImage(img, 0, 0);
+  URL.revokeObjectURL(imageUrl);
+
+  // Konwertuj do formatu OpenCV
+  const src = cv.imread(canvas);
+  const dst = new cv.Mat();
+  
+  // Konwertuj do skali szarości
+  cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
+  
+  // Wykryj krawędzie
+  cv.Canny(dst, dst, 50, 150, 3);
+  
+  // Znajdź linie używając transformacji Hougha
+  const lines = new cv.Mat();
+  cv.HoughLines(dst, lines, 1, Math.PI / 180, 150);
+  
+  // Oblicz dominujący kąt
+  let angle = 0;
+  let count = 0;
+  
+  for (let i = 0; i < lines.rows; i++) {
+    const rho = lines.data32F[i * 2];
+    const theta = lines.data32F[i * 2 + 1];
+    const degrees = theta * 180 / Math.PI - 90;
+    
+    // Bierzemy pod uwagę tylko kąty w zakresie ±45 stopni
+    if (Math.abs(degrees) < 45) {
+      angle += degrees;
+      count++;
+    }
+  }
+  
+  // Oblicz średni kąt
+  if (count > 0) {
+    angle /= count;
+  }
+
+  // Obróć obraz
+  const center = new cv.Point(src.cols / 2, src.rows / 2);
+  const rotationMatrix = cv.getRotationMatrix2D(center, -angle, 1.0);
+  cv.warpAffine(src, src, rotationMatrix, new cv.Size(src.cols, src.rows));
+
+  // Konwertuj z powrotem na canvas
+  const outputCanvas = document.createElement('canvas');
+  cv.imshow(outputCanvas, src);
+
+  // Zwolnij pamięć
+  src.delete();
+  dst.delete();
+  lines.delete();
+  rotationMatrix.delete();
+
+  // Konwertuj canvas na blob
+  return new Promise((resolve) => {
+    outputCanvas.toBlob((blob) => {
+      resolve(blob!);
+    }, 'image/jpeg', 0.8);
+  });
+};
+
 export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [scannedPages, setScannedPages] = useState<ScannedPage[]>([]);
@@ -167,41 +247,50 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
     setIsCapturing(true);
     setShowCaptureFlash(true);
 
-    const video = videoRef.current;
-    const canvas = document.createElement('canvas');
-    
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    if (video.style.transform.includes('scaleX(-1)')) {
-      ctx.translate(canvas.width, 0);
-      ctx.scale(-1, 1);
-    }
-
-    ctx.drawImage(video, 0, 0);
-    
-    canvas.toBlob((blob) => {
-      if (!blob) return;
+    try {
+      const video = videoRef.current;
+      const canvas = document.createElement('canvas');
       
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      if (video.style.transform.includes('scaleX(-1)')) {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+      }
+
+      ctx.drawImage(video, 0, 0);
+      
+      // Najpierw konwertuj canvas na blob
+      const initialBlob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob((blob) => resolve(blob!), 'image/jpeg', 0.8);
+      });
+
+      // Wykonaj deskew
+      setProcessingStatus('Prostowanie dokumentu...');
+      const processedBlob = await performDeskew(initialBlob);
+
       const newPage: ScannedPage = {
         id: Date.now().toString(),
-        imageUrl: URL.createObjectURL(blob),
+        imageUrl: URL.createObjectURL(processedBlob),
         order: scannedPages.length
       };
       
       setScannedPages(prev => [...prev, newPage]);
-      
-      const newCount = scannedPages.length + 1;
-      showToast(`Zrobiono zdjęcie (${newCount})`);
-
+      showToast(`Zrobiono zdjęcie (${scannedPages.length + 1})`);
+    } catch (error) {
+      console.error('Error capturing image:', error);
+      showToast('Błąd podczas przetwarzania zdjęcia');
+    } finally {
       setTimeout(() => {
         setShowCaptureFlash(false);
         setIsCapturing(false);
+        setProcessingStatus('');
       }, 200);
-    }, 'image/jpeg', 0.8);
+    }
   };
 
   const handleDragStart = (page: ScannedPage) => {
