@@ -266,7 +266,10 @@ export default function Home() {
     await handleAnalyze(file);
   };
 
-  const handleAnalyze = async (file: File) => {
+  const handleAnalyze = async (fileOrEvent: File | React.MouseEvent) => {
+    const file = fileOrEvent instanceof File ? fileOrEvent : selectedFile;
+    if (!file) return;
+
     setIsAnalyzing(true);
     setAnalysisProgress(0);
     setError(null);
@@ -289,7 +292,6 @@ export default function Home() {
       const data = await response.json();
       const endTime = new Date();
       
-      // Dodaj log analizy
       const newLog: AnalysisLog = {
         fileName: file.name,
         startTime,
@@ -298,7 +300,7 @@ export default function Home() {
         invoiceIssuer: data.result.supplierName || 'Nie znaleziono'
       };
       
-      setAnalysisLogs(prev => [...prev, newLog]);
+      setAnalysisLogs(prev => [newLog, ...prev]);
       setAnalysisResult(data.result);
       setAnalysisProgress(100);
     } catch (err) {
