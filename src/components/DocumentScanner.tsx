@@ -16,6 +16,39 @@ interface DocumentScannerProps {
   onClose: () => void;
 }
 
+// Dodajemy zmienną globalną dla śledzenia stanu ładowania OpenCV
+declare global {
+  interface Window {
+    cv: any;
+    cvLoading?: Promise<void>;
+  }
+}
+
+// Funkcja do ładowania OpenCV (poza komponentem)
+const loadOpenCV = async () => {
+  if (window.cv) return Promise.resolve();
+  if (window.cvLoading) return window.cvLoading;
+
+  window.cvLoading = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://docs.opencv.org/4.5.4/opencv.js';
+    script.async = true;
+    script.onload = () => {
+      if (window.cv) {
+        window.cv.onRuntimeInitialized = () => {
+          resolve();
+        };
+      } else {
+        reject(new Error('OpenCV load failed'));
+      }
+    };
+    script.onerror = () => reject(new Error('Failed to load OpenCV script'));
+    document.body.appendChild(script);
+  });
+
+  return window.cvLoading;
+};
+
 export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [scannedPages, setScannedPages] = useState<ScannedPage[]>([]);
@@ -27,6 +60,35 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
   const [showCaptureFlash, setShowCaptureFlash] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('');
+  const [isDocumentDetected, setIsDocumentDetected] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const processingRef = useRef(false);
+  const [isOpenCVReady, setIsOpenCVReady] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const initOpenCV = async () => {
+      try {
+        await loadOpenCV();
+        if (mounted) {
+          setIsOpenCVReady(true);
+        }
+      } catch (error) {
+        console.error('Failed to initialize OpenCV:', error);
+        if (mounted) {
+          setError('Nie udało się zainicjalizować skanera');
+        }
+      }
+    };
+
+    initOpenCV();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -209,6 +271,113 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
     setScannedPages(updatedItems);
   };
 
+  const detectDocument = (video: HTMLVideoElement) => {
+    if (!canvasRef.current || processingRef.current || !isOpenCVReady || !window.cv) return;
+    processingRef.current = true;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+
+    try {
+      // @ts-ignore
+      const cv = window.cv;
+      // Konwertujemy obraz do formatu OpenCV
+      const src = cv.imread(canvas);
+      const dst = new cv.Mat();
+      
+      // Konwertujemy do skali szarości
+      cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
+      
+      // Stosujemy rozmycie Gaussa
+      cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0);
+      
+      // Wykrywamy krawędzie
+      cv.Canny(dst, dst, 75, 200);
+      
+      // Znajdujemy kontury
+      const contours = new cv.MatVector();
+      const hierarchy = new cv.Mat();
+      cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+      let maxArea = 0;
+      let maxContourIndex = -1;
+
+      // Szukamy największego konturu (prawdopodobnie dokument)
+      for (let i = 0; i < contours.size(); i++) {
+        const contour = contours.get(i);
+        const area = cv.contourArea(contour);
+        if (area > maxArea) {
+          maxArea = area;
+          maxContourIndex = i;
+        }
+      }
+
+      if (maxContourIndex !== -1) {
+        const contour = contours.get(maxContourIndex);
+        const perimeter = cv.arcLength(contour, true);
+        const approx = new cv.Mat();
+        cv.approxPolyDP(contour, approx, 0.02 * perimeter, true);
+
+        // Jeśli mamy czworokąt, prawdopodobnie znaleźliśmy dokument
+        if (approx.rows === 4) {
+          // Aktualizujemy ramkę pomocniczą
+          if (frameRef.current) {
+            const points = [];
+            for (let i = 0; i < 4; i++) {
+              points.push({
+                x: approx.data32S[i * 2] / canvas.width * 100,
+                y: approx.data32S[i * 2 + 1] / canvas.height * 100
+              });
+            }
+            updateFrame(points);
+            setIsDocumentDetected(true);
+          }
+        } else {
+          setIsDocumentDetected(false);
+        }
+
+        approx.delete();
+      }
+
+      // Zwalniamy pamięć
+      src.delete();
+      dst.delete();
+      contours.delete();
+      hierarchy.delete();
+    } catch (error) {
+      console.error('Error detecting document:', error);
+    }
+
+    processingRef.current = false;
+  };
+
+  const updateFrame = (points: Array<{ x: number, y: number }>) => {
+    if (!frameRef.current) return;
+
+    // Tworzymy ścieżkę SVG z punktów
+    const path = `M ${points[0].x},${points[0].y} 
+                  L ${points[1].x},${points[1].y} 
+                  L ${points[2].x},${points[2].y} 
+                  L ${points[3].x},${points[3].y} Z`;
+
+    frameRef.current.style.clipPath = `path('${path}')`;
+  };
+
+  useEffect(() => {
+    if (isScanning && videoRef.current) {
+      const interval = setInterval(() => {
+        detectDocument(videoRef.current!);
+      }, 100); // Sprawdzamy co 100ms
+
+      return () => clearInterval(interval);
+    }
+  }, [isScanning]);
+
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
       {error ? (
@@ -245,6 +414,30 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
           {showCaptureFlash && (
             <div className="absolute inset-0 bg-white animate-flash" />
           )}
+
+          <canvas ref={canvasRef} className="hidden" />
+
+          <div
+            ref={frameRef}
+            className={`absolute inset-0 border-2 transition-colors duration-200 ${
+              isDocumentDetected ? 'border-green-500' : 'border-white'
+            }`}
+          />
+
+          <AnimatePresence>
+            {isDocumentDetected && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+              >
+                <div className="bg-green-500/50 text-white px-4 py-2 rounded-full">
+                  Dokument wykryty
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <AnimatePresence>
             {scannedPages.length > 0 && (
@@ -399,6 +592,13 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
           animation: flash 200ms ease-out;
         }
       `}</style>
+      {isScanning && !isOpenCVReady && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+          <div className="text-white text-center">
+            <p>Inicjalizacja skanera...</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

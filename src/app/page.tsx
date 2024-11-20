@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, TouchEvent } from 'react';
+import type { DragEvent } from 'react';
 import Image from 'next/image';
 import { DisplayInvoiceData } from '@/types/compose2';
 import { displayLabels, formatAmount } from '@/lib/compose2-helpers';
@@ -260,7 +261,7 @@ export default function Home() {
   };
 
   const handleTouchEnd = () => {
-    const swipeThreshold = 50; // minimalna odległość swipe'a
+    const swipeThreshold = 50; // minimalna odległo��ć swipe'a
     const diff = touchStartX.current - touchEndX.current;
 
     if (Math.abs(diff) > swipeThreshold) {
@@ -333,6 +334,48 @@ export default function Home() {
     await handleAnalyze(scannedFiles[0]);
   };
 
+  // Na początku komponentu dodaj detekcję urządzenia mobilnego
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+
+  // Dodaj obsługę drag & drop tylko dla desktopa
+  useEffect(() => {
+    if (isMobile) return;
+
+    const handleDragOver = (e: DragEvent) => {
+      if (!(e instanceof DragEvent)) return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    const handleDrop = (e: DragEvent) => {
+      if (!(e instanceof DragEvent)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const files = e.dataTransfer?.files;
+      if (files && files[0]) {
+        const file = files[0];
+        if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+          setSelectedFile(file);
+          void handleDroppedFile(file);
+        }
+      }
+    };
+
+    const handleDroppedFile = async (file: File) => {
+      await handleAnalyze(file);
+    };
+
+    // Używamy type assertion dla funkcji obsługi zdarzeń
+    document.addEventListener('dragover', handleDragOver as unknown as EventListener);
+    document.addEventListener('drop', handleDrop as unknown as EventListener);
+
+    return () => {
+      document.removeEventListener('dragover', handleDragOver as unknown as EventListener);
+      document.removeEventListener('drop', handleDrop as unknown as EventListener);
+    };
+  }, [isMobile]);
+
   return (
     <main className="min-h-screen p-8">
       <div className="max-w-2xl mx-auto space-y-8">
@@ -361,13 +404,13 @@ export default function Home() {
                 </div>
               ) : (
                 <>
-                  <p className="text-base sm:text-lg text-gray-500 hover:text-gray-700 transition-colors">
+                  <p className="hidden sm:block text-base sm:text-lg text-gray-500 hover:text-gray-700 transition-colors">
                     Przeciągnij i upuść plik tutaj
                   </p>
-                  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                  <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs sm:max-w-none">
                     <button
                       onClick={() => setIsScannerOpen(true)}
-                      className="md:hidden px-4 py-3 text-sm rounded bg-black text-white hover:bg-gray-900 transition-colors flex items-center justify-center gap-2"
+                      className="md:hidden order-first px-4 py-3 text-sm rounded bg-black text-white hover:bg-gray-900 transition-colors flex items-center justify-center gap-2 shadow-lg active:shadow-sm active:transform active:translate-y-px"
                     >
                       <Camera size={18} className="text-white" />
                       <span>Zrób zdjęcie</span>
@@ -382,9 +425,10 @@ export default function Home() {
                       />
                       <span
                         className={`
-                          px-4 py-3 text-sm rounded transition-colors
+                          px-4 py-3 text-sm rounded transition-all
                           flex items-center justify-center gap-2
-                          w-full
+                          w-full shadow-lg active:shadow-sm
+                          active:transform active:translate-y-px
                           ${selectedFile 
                             ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                             : 'bg-blue-500 text-white hover:bg-blue-600'
