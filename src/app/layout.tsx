@@ -2,20 +2,41 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "PDF Analyzer",
+  title: "Analizator Faktur",
   description: "Analiza dokumentów PDF z wykorzystaniem Azure Document Intelligence",
+  openGraph: {
+    title: "Analizator Faktur",
+    description: "Analiza dokumentów PDF z wykorzystaniem Azure Document Intelligence",
+    images: [
+      {
+        url: "public/iconapp.png",
+        width: 1200,
+        height: 630,
+        alt: "Ikona aplikacji"
+      }
+    ],
+    locale: "pl_PL",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Nazwa Twojego Projektu",
+    description: "Analiza dokumentów PDF z wykorzystaniem Azure Document Intelligence",
+    images: ["public/iconapp.png"],
+  },
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: {
+  children: React.ReactNode
+}) {
   return (
     <html lang="pl">
-      <body className="antialiased">
-        {children}
-      </body>
+      <head>
+        <link rel="icon" href="/favicon.ico" />
+      </head>
+      <body>{children}</body>
     </html>
   );
 }
