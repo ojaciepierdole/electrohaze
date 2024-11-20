@@ -34,18 +34,12 @@ export function getSupplierDomain(supplierName: string): string {
     .trim() + '.pl';
 }
 
-export function getLogoUrl(supplierName: string, token?: string): string {
+export function getLogoUrl(supplierName: string): string {
   const domain = getSupplierDomain(supplierName);
-  const baseUrl = `https://img.logo.dev/${domain}`;
-  
   const params = new URLSearchParams({
-    format: 'png',
+    domain: domain,
     size: '200'
   });
 
-  if (token) {
-    params.append('token', token);
-  }
-
-  return `${baseUrl}?${params.toString()}`;
+  return `/api/logo?${params.toString()}`;
 } 

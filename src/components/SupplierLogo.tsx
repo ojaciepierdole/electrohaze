@@ -9,9 +9,7 @@ interface SupplierLogoProps {
 
 export function SupplierLogo({ supplierName, size = 40 }: SupplierLogoProps) {
   const logoUrl = useMemo(() => {
-    // Możesz dodać token z process.env jeśli potrzebujesz
-    const token = process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN;
-    return getLogoUrl(supplierName, token);
+    return getLogoUrl(supplierName);
   }, [supplierName]);
 
   return (
@@ -23,12 +21,12 @@ export function SupplierLogo({ supplierName, size = 40 }: SupplierLogoProps) {
         height={size}
         className="rounded-md object-contain"
         onError={(e) => {
-          // Fallback w przypadku błędu ładowania logo lub przekroczenia limitu
           const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(supplierName)}&background=random&size=${size * 2}`;
           if (e.currentTarget.src !== fallbackUrl) {
             e.currentTarget.src = fallbackUrl;
           }
         }}
+        unoptimized
       />
     </div>
   );
