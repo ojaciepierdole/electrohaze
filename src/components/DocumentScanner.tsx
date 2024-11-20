@@ -153,6 +153,7 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
   const [initProgress, setInitProgress] = useState(0);
   const [detectedDocument, setDetectedDocument] = useState<DetectedDocument | null>(null);
   const lastGoodDetection = useRef<DetectedDocument | null>(null);
+  const [processingPages, setProcessingPages] = useState<Set<string>>(new Set());
 
   // Automatycznie uruchamiamy skaner po załadowaniu
   useEffect(() => {
@@ -262,67 +263,57 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Failed to get canvas context');
 
-      // Zapisujemy aktualny stan detekcji dokumentu
-      const currentDetection = detectedDocument;
-      
-      // Wyłączamy detekcję na czas robienia zdjęcia
-      setDetectedDocument(null);
-
-      // Krótki flash
+      // Efekt flash
       const flashElement = document.createElement('div');
       flashElement.className = 'absolute inset-0 bg-white/75 z-50';
       video.parentElement?.appendChild(flashElement);
 
-      // Czekamy na następną klatkę przed zrobieniem zdjęcia
-      await new Promise(requestAnimationFrame);
-      
       // Robimy zdjęcie
       ctx.drawImage(video, 0, 0);
-
-      // Usuwamy flash po krótkiej chwili
-      setTimeout(() => {
-        flashElement.remove();
-      }, 100);
+      
+      // Usuwamy flash
+      setTimeout(() => flashElement.remove(), 100);
 
       // Konwertujemy na blob
       const blob = await new Promise<Blob>((resolve) => {
         canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.8);
       });
 
-      // Przywracamy detekcję dokumentu
-      setDetectedDocument(currentDetection);
+      // Dodajemy surowe zdjęcie do galerii
+      const pageId = Date.now().toString();
+      const newPage: ScannedPage = {
+        id: pageId,
+        imageUrl: URL.createObjectURL(blob),
+        order: scannedPages.length
+      };
+      
+      setScannedPages(prev => [...prev, newPage]);
+      showToast(`Zrobiono zdjęcie (${scannedPages.length + 1})`);
 
-      // Jeśli mamy dobry kąt widzenia dokumentu, prostujemy go
-      if (currentDetection?.isGoodPerspective) {
-        setProcessingStatus('Prostowanie dokumentu...');
-        const processedBlob = await performDeskew(blob);
-        
-        const newPage: ScannedPage = {
-          id: Date.now().toString(),
-          imageUrl: URL.createObjectURL(processedBlob),
-          order: scannedPages.length
-        };
-        
-        setScannedPages(prev => [...prev, newPage]);
-        showToast(`Zrobiono zdjęcie (${scannedPages.length + 1})`);
-      } else {
-        // Jeśli nie mamy dobrego kąta, używamy oryginalnego zdjęcia
-        const newPage: ScannedPage = {
-          id: Date.now().toString(),
-          imageUrl: URL.createObjectURL(blob),
-          order: scannedPages.length
-        };
-        
-        setScannedPages(prev => [...prev, newPage]);
-        showToast(`Zrobiono zdjęcie (${scannedPages.length + 1})`);
-      }
+      // Rozpoczynamy przetwarzanie w tle
+      setProcessingPages(prev => new Set(prev).add(pageId));
+      
+      // Przetwarzamy zdjęcie w tle
+      const processedBlob = await performDeskew(blob);
+      
+      // Aktualizujemy zdjęcie w galerii
+      setScannedPages(prev => prev.map(page => 
+        page.id === pageId 
+          ? { ...page, imageUrl: URL.createObjectURL(processedBlob) }
+          : page
+      ));
+      
+      setProcessingPages(prev => {
+        const next = new Set(prev);
+        next.delete(pageId);
+        return next;
+      });
 
     } catch (error) {
       console.error('Error capturing image:', error);
       showToast('Błąd podczas przetwarzania zdjęcia');
     } finally {
       setIsCapturing(false);
-      setProcessingStatus('');
     }
   };
 
@@ -460,26 +451,9 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
         cv.approxPolyDP(contour, approx, 0.02 * perimeter, true);
 
         if (approx.rows === 4) {
-          // Konwertuj punkty na format { x, y }
-          const corners = [];
-          for (let i = 0; i < 4; i++) {
-            corners.push({
-              x: approx.data32S[i * 2] / canvas.width * 100,
-              y: approx.data32S[i * 2 + 1] / canvas.height * 100
-            });
-          }
-
-          // Sprawdź czy perspektywa jest dobra
-          const isGoodPerspective = checkPerspective(corners, canvas.width, canvas.height);
-          
-          const detection = { corners, isGoodPerspective };
-          setDetectedDocument(detection);
-          
-          if (isGoodPerspective) {
-            lastGoodDetection.current = detection;
-          }
+          setIsDocumentDetected(true);
         } else {
-          setDetectedDocument(null);
+          setIsDocumentDetected(false);
         }
 
         approx.delete();
@@ -720,17 +694,9 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
           <DragDropContext onDragEnd={onDragEnd}>
             <Droppable droppableId="scanned-pages">
               {(provided) => (
-                <div
-                  {...provided.droppableProps}
-                  ref={provided.innerRef}
-                  className="grid grid-cols-2 gap-4 mb-4"
-                >
+                <div {...provided.droppableProps} ref={provided.innerRef} className="grid grid-cols-2 gap-4 mb-4">
                   {scannedPages.map((page, index) => (
-                    <Draggable
-                      key={page.id}
-                      draggableId={page.id}
-                      index={index}
-                    >
+                    <Draggable key={page.id} draggableId={page.id} index={index}>
                       {(provided, snapshot) => (
                         <div
                           ref={provided.innerRef}
@@ -746,6 +712,14 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
                             fill
                             className="object-cover"
                           />
+                          {processingPages.has(page.id) && (
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                              <div className="text-white text-center">
+                                <div className="animate-spin rounded-full h-8 w-8 border-2 border-white border-t-transparent mb-2" />
+                                <p className="text-sm">Przetwarzanie...</p>
+                              </div>
+                            </div>
+                          )}
                           <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/50 opacity-0 hover:opacity-100 transition-opacity">
                             <div className="absolute top-2 right-2 flex gap-2">
                               <button
