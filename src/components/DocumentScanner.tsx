@@ -50,96 +50,117 @@ const loadOpenCV = async () => {
 };
 
 const performDeskew = async (imageBlob: Blob): Promise<Blob> => {
-  console.log('Rozpoczynam performDeskew');
-  const cv = window.cv;
-  if (!cv) {
-    console.error('OpenCV nie jest załadowane');
-    throw new Error('OpenCV not loaded');
-  }
+  return new Promise(async (resolve, reject) => {
+    try {
+      const cv = window.cv;
+      if (!cv) throw new Error('OpenCV not loaded');
 
-  try {
-    // Konwertuj blob na canvas
-    console.log('Konwertuję blob na canvas');
-    const imageUrl = URL.createObjectURL(imageBlob);
-    const img = document.createElement('img');
-    
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-      img.src = imageUrl;
-    });
-
-    const canvas = document.createElement('canvas');
-    canvas.width = img.width;
-    canvas.height = img.height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Failed to get canvas context');
-    
-    ctx.drawImage(img, 0, 0);
-    URL.revokeObjectURL(imageUrl);
-
-    console.log('Rozpoczynam przetwarzanie OpenCV');
-    // Konwertuj do formatu OpenCV
-    const src = cv.imread(canvas);
-    const dst = new cv.Mat();
-    
-    // Konwertuj do skali szarości
-    cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
-    
-    // Wykryj krawędzie
-    cv.Canny(dst, dst, 50, 150, 3);
-    
-    // Znajdź linie używając transformacji Hougha
-    const lines = new cv.Mat();
-    cv.HoughLines(dst, lines, 1, Math.PI / 180, 150);
-    
-    // Oblicz dominujący kąt
-    let angle = 0;
-    let count = 0;
-    
-    for (let i = 0; i < lines.rows; i++) {
-      const rho = lines.data32F[i * 2];
-      const theta = lines.data32F[i * 2 + 1];
-      const degrees = theta * 180 / Math.PI - 90;
+      // Konwertuj blob na canvas
+      const imageUrl = URL.createObjectURL(imageBlob);
+      const img = document.createElement('img');
       
-      if (Math.abs(degrees) < 45) {
-        angle += degrees;
-        count++;
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = imageUrl;
+      });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Failed to get canvas context');
+      
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(imageUrl);
+
+      // Konwertuj do formatu OpenCV
+      const src = cv.imread(canvas);
+      const dst = new cv.Mat();
+      
+      // Konwertuj do skali szarości
+      cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
+      
+      // Wykryj krawędzie
+      cv.Canny(dst, dst, 50, 150, 3);
+      
+      // Znajdź kontury
+      const contours = new cv.MatVector();
+      const hierarchy = new cv.Mat();
+      cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+      let maxArea = 0;
+      let maxContourIndex = -1;
+
+      // Znajdź największy kontur
+      for (let i = 0; i < contours.size(); i++) {
+        const contour = contours.get(i);
+        const area = cv.contourArea(contour);
+        if (area > maxArea) {
+          maxArea = area;
+          maxContourIndex = i;
+        }
       }
-    }
-    
-    if (count > 0) {
-      angle /= count;
-      console.log('Wykryty kąt obrotu:', angle);
-    }
 
-    // Obróć obraz
-    const center = new cv.Point(src.cols / 2, src.rows / 2);
-    const rotationMatrix = cv.getRotationMatrix2D(center, -angle, 1.0);
-    cv.warpAffine(src, src, rotationMatrix, new cv.Size(src.cols, src.rows));
+      if (maxContourIndex === -1) {
+        throw new Error('No document contour found');
+      }
 
-    console.log('Konwertuję wynik na canvas');
-    // Konwertuj z powrotem na canvas
-    const outputCanvas = document.createElement('canvas');
-    cv.imshow(outputCanvas, src);
+      // Znajdź punkty narożne dokumentu
+      const contour = contours.get(maxContourIndex);
+      const perimeter = cv.arcLength(contour, true);
+      const approx = new cv.Mat();
+      cv.approxPolyDP(contour, approx, 0.02 * perimeter, true);
 
-    // Zwolnij pamięć
-    src.delete();
-    dst.delete();
-    lines.delete();
-    rotationMatrix.delete();
+      // Prostowanie dokumentu
+      if (approx.rows === 4) {
+        // Sortuj punkty
+        const points = [];
+        for (let i = 0; i < 4; i++) {
+          points.push({
+            x: approx.data32S[i * 2],
+            y: approx.data32S[i * 2 + 1]
+          });
+        }
 
-    // Konwertuj canvas na blob
-    return new Promise((resolve) => {
+        // Transformacja perspektywy
+        const dstPoints = cv.matFromArray(4, 1, cv.CV_32FC2, [
+          0, 0,
+          src.cols, 0,
+          src.cols, src.rows,
+          0, src.rows
+        ]);
+        const srcPoints = cv.matFromArray(4, 1, cv.CV_32FC2, points.flatMap(p => [p.x, p.y]));
+        const matrix = cv.getPerspectiveTransform(srcPoints, dstPoints);
+        cv.warpPerspective(src, src, matrix, new cv.Size(src.cols, src.rows));
+
+        // Zwolnij pamięć
+        dstPoints.delete();
+        srcPoints.delete();
+        matrix.delete();
+      }
+
+      // Konwertuj wynik na canvas
+      const outputCanvas = document.createElement('canvas');
+      cv.imshow(outputCanvas, src);
+
+      // Zwolnij pamięć
+      src.delete();
+      dst.delete();
+      contours.delete();
+      hierarchy.delete();
+      approx.delete();
+
+      // Konwertuj canvas na blob
       outputCanvas.toBlob((blob) => {
-        console.log('Zakończono przetwarzanie');
-        resolve(blob!);
-      }, 'image/jpeg', 0.8);
-    });
-  } catch (error) {
-    console.error('Błąd w performDeskew:', error);
-    throw error;
-  }
+        if (blob) resolve(blob);
+        else reject(new Error('Failed to create blob'));
+      }, 'image/jpeg', 0.95);
+
+    } catch (error) {
+      reject(error);
+    }
+  });
 };
 
 interface DetectedDocument {
@@ -268,6 +289,13 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
     try {
       setIsCapturing(true);
       
+      // Sprawdzamy czy OpenCV jest dostępne
+      if (!window.cv) {
+        console.error('OpenCV is not available');
+        showToast('Błąd inicjalizacji skanera');
+        return;
+      }
+
       // Tworzymy kopię obrazu z kamery
       const video = videoRef.current;
       const canvas = document.createElement('canvas');
@@ -289,10 +317,10 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
 
       // Konwertujemy na blob
       const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.8);
+        canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.95); // Zwiększamy jakość
       });
 
-      // Dodajemy surowe zdjęcie do galerii z oznaczeniem przetwarzania
+      // Dodajemy surowe zdjęcie do galerii
       const pageId = Date.now().toString();
       const newPage: ScannedPage = {
         id: pageId,
@@ -301,17 +329,21 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
       };
       
       setScannedPages(prev => [...prev, newPage]);
-      showToast(`Zrobiono zdjęcie (${scannedPages.length + 1})`);
+      showToast('Przetwarzanie dokumentu...');
 
       // Rozpoczynamy przetwarzanie w tle
-      console.log('Rozpoczynam przetwarzanie strony:', pageId);
       setProcessingPages(prev => new Set(prev).add(pageId));
 
+      // Przetwarzamy zdjęcie w osobnym bloku try-catch
       try {
-        console.log('Rozpoczynam deskew dla strony:', pageId);
-        const processedBlob = await performDeskew(blob);
-        console.log('Zakończono deskew dla strony:', pageId);
+        // Czekamy na załadowanie OpenCV jeśli potrzeba
+        if (!isOpenCVReady) {
+          await loadOpenCV();
+          setIsOpenCVReady(true);
+        }
 
+        const processedBlob = await performDeskew(blob);
+        
         // Aktualizujemy zdjęcie w galerii
         setScannedPages(prev => prev.map(page => 
           page.id === pageId 
@@ -319,11 +351,10 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
             : page
         ));
         
-        console.log('Zaktualizowano zdjęcie w galerii:', pageId);
-        showToast('Dokument wyprostowany');
+        showToast('Dokument przetworzony');
       } catch (error) {
-        console.error('Błąd podczas przetwarzania strony:', pageId, error);
-        showToast('Błąd podczas prostowania dokumentu');
+        console.error('Błąd podczas przetwarzania:', error);
+        showToast('Błąd przetwarzania dokumentu');
       } finally {
         setProcessingPages(prev => {
           const next = new Set(prev);
@@ -334,7 +365,7 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
 
     } catch (error) {
       console.error('Error capturing image:', error);
-      showToast('Błąd podczas przetwarzania zdjęcia');
+      showToast('Błąd podczas robienia zdjęcia');
     } finally {
       setIsCapturing(false);
     }
