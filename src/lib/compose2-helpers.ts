@@ -11,6 +11,11 @@ function formatText(text: string): string {
   return text;
 }
 
+function cleanText(text?: string): string {
+  if (!text) return '';
+  return text.replace(/,\s*,+/g, ',').replace(/\s*,\s*/g, ', ').trim();
+}
+
 export function mapToDisplayData(result: Compose2Result): DisplayInvoiceData {
   console.log("Nabywca street:", result.street?.content);
   console.log("PA street:", result.paStreet?.content);
@@ -103,19 +108,19 @@ function formatAddress(
   
   if (street || building) {
     const streetPart = [street, building].filter(Boolean).join(' ');
-    if (streetPart) addressParts.push(streetPart);
+    if (streetPart) addressParts.push(cleanText(streetPart));
   }
   
   if (unit) {
-    addressParts.push(`m. ${unit}`);
+    addressParts.push(`m. ${cleanText(unit)}`);
   }
   
   if (postalCode || city) {
     const locationPart = [postalCode, city].filter(Boolean).join(' ');
-    if (locationPart) addressParts.push(locationPart);
+    if (locationPart) addressParts.push(cleanText(locationPart));
   }
   
-  return addressParts.join(', ');
+  return cleanText(addressParts.join(', '));
 }
 
 function formatFullName(firstName?: string, lastName?: string): string {

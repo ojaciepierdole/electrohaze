@@ -30,6 +30,24 @@ interface ChartData {
   avgTime: number;
 }
 
+// Funkcja formatująca timestamp
+const formatTimestamp = (date: Date) => {
+  return [
+    date.getHours().toString().padStart(2, '0'),
+    date.getMinutes().toString().padStart(2, '0'),
+    date.getSeconds().toString().padStart(2, '0')
+  ].join('.');
+};
+
+// Funkcja formatująca datę
+const formatDate = (date: Date) => {
+  return [
+    date.getDate().toString().padStart(2, '0'),
+    (date.getMonth() + 1).toString().padStart(2, '0'),
+    date.getFullYear()
+  ].join('.');
+};
+
 export default function Home() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -466,7 +484,7 @@ export default function Home() {
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
             >
-              {paginatedLogs.slice().reverse().map((log, index, array) => (
+              {paginatedLogs.map((log, index, array) => (
                 <div 
                   key={log.startTime.getTime()} 
                   className={`text-sm flex justify-between items-center ${
@@ -477,7 +495,14 @@ export default function Home() {
                     <span className="font-medium bg-gray-100 px-2 py-1 rounded mr-2 shrink-0">
                       {log.invoiceIssuer.split(' ')[0]}
                     </span>
-                    <span className="text-gray-600 truncate max-w-[50%]">{log.fileName}</span>
+                    <div className="flex flex-col">
+                      <span className="text-gray-600 truncate max-w-[50%]">
+                        {log.fileName}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {formatDate(log.startTime)} • {formatTimestamp(log.startTime)}
+                      </span>
+                    </div>
                   </div>
                   <span className="text-gray-500 shrink-0">
                     {(log.duration / 1000).toFixed(2)}s
@@ -569,7 +594,7 @@ export default function Home() {
                   <div className="space-y-4">
                     {Object.entries(
                       analysisLogs
-                        .filter(log => log.invoiceIssuer !== 'Nie znaleziono') // Filtrujemy nieudane analizy z rankingu
+                        .filter(log => log.invoiceIssuer && log.invoiceIssuer !== 'Nie znaleziono') // Filtrujemy nieudane analizy
                         .reduce((acc, log) => {
                           const supplier = log.invoiceIssuer.split(' ')[0];
                           if (!acc[supplier]) {
@@ -622,44 +647,127 @@ export default function Home() {
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={Object.entries(
-                          analysisLogs.reduce((acc, log) => {
-                            const supplier = log.invoiceIssuer.split(' ')[0];
-                            if (!acc[supplier]) {
-                              acc[supplier] = {
-                                name: supplier,
-                                avgTime: 0,
-                                count: 0,
-                                totalTime: 0
-                              };
-                            }
-                            acc[supplier].count++;
-                            acc[supplier].totalTime += log.duration;
-                            acc[supplier].avgTime = acc[supplier].totalTime / acc[supplier].count;
-                            return acc;
-                          }, {} as Record<string, { name: string; avgTime: number; count: number; totalTime: number }>)
-                        ).map(([_, stats]) => ({
-                          name: stats.name,
-                          avgTime: Number((stats.avgTime / 1000).toFixed(2))
-                        }))}
-                        margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
+                          analysisLogs
+                            .filter(log => log.invoiceIssuer && log.invoiceIssuer !== 'Nie znaleziono')
+                            .reduce((acc, log) => {
+                              const supplier = log.invoiceIssuer.split(' ')[0];
+                              if (!acc[supplier]) {
+                                acc[supplier] = {
+                                  name: supplier,
+                                  avgTime: 0,
+                                  count: 0,
+                                  totalTime: 0
+                                };
+                              }
+                              acc[supplier].count++;
+                              acc[supplier].totalTime += log.duration;
+                              acc[supplier].avgTime = acc[supplier].totalTime / acc[supplier].count;
+                              return acc;
+                            }, {} as Record<string, { name: string; avgTime: number; count: number; totalTime: number }>)
+                        )
+                          .map(([_, stats]) => ({
+                            name: stats.name,
+                            avgTime: Number((stats.avgTime / 1000).toFixed(2))
+                          }))
+                          .sort((a, b) => a.avgTime - b.avgTime)
+                        }
+                        margin={{ top: 20, right: 30, left: 0, bottom: 20 }}
                       >
                         <XAxis 
                           dataKey="name"
-                          angle={-45}
-                          height={60}
+                          height={40}
+                          tickMargin={10}
+                          interval={0}
                         />
                         <YAxis 
                           label={{ 
                             value: 'Średni czas (s)', 
                             angle: -90, 
-                            position: 'insideLeft'
+                            position: 'insideLeft',
+                            offset: -5
                           }}
                         />
-                        <Tooltip />
-                        <Bar 
-                          dataKey="avgTime" 
-                          fill="#3b82f6"
+                        <Tooltip 
+                          formatter={(value: number) => [`${value}s`, 'Średni czas']}
+                          cursor={{ fill: 'transparent' }}
                         />
+                        <Bar 
+                          dataKey="avgTime"
+                          shape={(props: {
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                            index: number;
+                            value: number;
+                          }) => {
+                            const { x, y, width, height, index, value } = props;
+                            const cornerRadius = 4;
+                            const fill = index === 0 ? '#fbbf24' : '#3b82f6';
+                            
+                            return (
+                              <g>
+                                <path
+                                  d={`
+                                    M${x},${y + height}
+                                    L${x},${y + cornerRadius}
+                                    Q${x},${y} ${x + cornerRadius},${y}
+                                    L${x + width - cornerRadius},${y}
+                                    Q${x + width},${y} ${x + width},${y + cornerRadius}
+                                    L${x + width},${y + height}
+                                    Z
+                                  `}
+                                  fill={fill}
+                                />
+                                <g style={{ transform: `translate(${x + width/2}px, ${y + height/2}px)` }}>
+                                  <rect
+                                    x={-20}
+                                    y={-12}
+                                    width={40}
+                                    height={24}
+                                    fill="white"
+                                    rx={4}
+                                    ry={4}
+                                    filter="url(#shadow)"
+                                  />
+                                  <text
+                                    x={0}
+                                    y={6}
+                                    textAnchor="middle"
+                                    fill="#374151"
+                                    fontSize={12}
+                                    fontWeight="500"
+                                  >
+                                    {value}s
+                                  </text>
+                                </g>
+                                {index === 0 && (
+                                  <g style={{ transform: `translate(${x + width/2 - 10}px, ${y - 25}px)` }}>
+                                    <Trophy
+                                      size={20}
+                                      className="text-yellow-500"
+                                    />
+                                  </g>
+                                )}
+                              </g>
+                            );
+                          }}
+                        />
+                        <defs>
+                          <filter
+                            id="shadow"
+                            filterUnits="userSpaceOnUse"
+                            width="200%"
+                            height="200%"
+                          >
+                            <feDropShadow 
+                              dx="0" 
+                              dy="1" 
+                              stdDeviation="1"
+                              floodOpacity="0.1"
+                            />
+                          </filter>
+                        </defs>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>

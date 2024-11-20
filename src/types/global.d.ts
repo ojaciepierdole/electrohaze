@@ -24,6 +24,14 @@ declare module 'recharts' {
   export interface BarProps {
     dataKey: string;
     fill?: string;
+    shape?: (props: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      index: number;
+      value: number;
+    }) => React.ReactNode;
   }
 
   export interface TooltipProps {}
@@ -74,6 +82,15 @@ declare global {
       h2: React.DetailedHTMLProps<React.HTMLAttributes<HTMLHeadingElement>, HTMLHeadingElement>;
       h3: React.DetailedHTMLProps<React.HTMLAttributes<HTMLHeadingElement>, HTMLHeadingElement>;
       img: React.DetailedHTMLProps<React.ImgHTMLAttributes<HTMLImageElement>, HTMLImageElement>;
+      svg: React.SVGProps<SVGSVGElement>;
+      g: React.SVGProps<SVGGElement>;
+      path: React.SVGProps<SVGPathElement>;
+      rect: React.SVGProps<SVGRectElement>;
+      text: React.SVGProps<SVGTextElement>;
+      defs: React.SVGProps<SVGDefsElement>;
+      filter: React.SVGProps<SVGFilterElement>;
+      feDropShadow: React.SVGProps<SVGFEDropShadowElement>;
+      body: React.DetailedHTMLProps<React.HTMLAttributes<HTMLBodyElement>, HTMLBodyElement>;
     }
   }
 } 
