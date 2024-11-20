@@ -249,54 +249,80 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
   };
 
   const captureImage = async () => {
-    if (!videoRef.current) return;
-
-    setIsCapturing(true);
-    setShowCaptureFlash(true);
+    if (!videoRef.current || isCapturing) return;
 
     try {
+      setIsCapturing(true);
+      
+      // Tworzymy kopię obrazu z kamery
       const video = videoRef.current;
       const canvas = document.createElement('canvas');
-      
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      
       const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+      if (!ctx) throw new Error('Failed to get canvas context');
 
-      if (video.style.transform.includes('scaleX(-1)')) {
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-      }
-
-      ctx.drawImage(video, 0, 0);
+      // Zapisujemy aktualny stan detekcji dokumentu
+      const currentDetection = detectedDocument;
       
-      // Najpierw konwertuj canvas na blob
-      const initialBlob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((blob) => resolve(blob!), 'image/jpeg', 0.8);
+      // Wyłączamy detekcję na czas robienia zdjęcia
+      setDetectedDocument(null);
+
+      // Krótki flash
+      const flashElement = document.createElement('div');
+      flashElement.className = 'absolute inset-0 bg-white/75 z-50';
+      video.parentElement?.appendChild(flashElement);
+
+      // Czekamy na następną klatkę przed zrobieniem zdjęcia
+      await new Promise(requestAnimationFrame);
+      
+      // Robimy zdjęcie
+      ctx.drawImage(video, 0, 0);
+
+      // Usuwamy flash po krótkiej chwili
+      setTimeout(() => {
+        flashElement.remove();
+      }, 100);
+
+      // Konwertujemy na blob
+      const blob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.8);
       });
 
-      // Wykonaj deskew
-      setProcessingStatus('Prostowanie dokumentu...');
-      const processedBlob = await performDeskew(initialBlob);
+      // Przywracamy detekcję dokumentu
+      setDetectedDocument(currentDetection);
 
-      const newPage: ScannedPage = {
-        id: Date.now().toString(),
-        imageUrl: URL.createObjectURL(processedBlob),
-        order: scannedPages.length
-      };
-      
-      setScannedPages(prev => [...prev, newPage]);
-      showToast(`Zrobiono zdjęcie (${scannedPages.length + 1})`);
+      // Jeśli mamy dobry kąt widzenia dokumentu, prostujemy go
+      if (currentDetection?.isGoodPerspective) {
+        setProcessingStatus('Prostowanie dokumentu...');
+        const processedBlob = await performDeskew(blob);
+        
+        const newPage: ScannedPage = {
+          id: Date.now().toString(),
+          imageUrl: URL.createObjectURL(processedBlob),
+          order: scannedPages.length
+        };
+        
+        setScannedPages(prev => [...prev, newPage]);
+        showToast(`Zrobiono zdjęcie (${scannedPages.length + 1})`);
+      } else {
+        // Jeśli nie mamy dobrego kąta, używamy oryginalnego zdjęcia
+        const newPage: ScannedPage = {
+          id: Date.now().toString(),
+          imageUrl: URL.createObjectURL(blob),
+          order: scannedPages.length
+        };
+        
+        setScannedPages(prev => [...prev, newPage]);
+        showToast(`Zrobiono zdjęcie (${scannedPages.length + 1})`);
+      }
+
     } catch (error) {
       console.error('Error capturing image:', error);
       showToast('Błąd podczas przetwarzania zdjęcia');
     } finally {
-      setTimeout(() => {
-        setShowCaptureFlash(false);
-        setIsCapturing(false);
-        setProcessingStatus('');
-      }, 200);
+      setIsCapturing(false);
+      setProcessingStatus('');
     }
   };
 
@@ -548,10 +574,6 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
             className="absolute inset-0 w-full h-full object-cover"
           />
           
-          {showCaptureFlash && (
-            <div className="absolute inset-0 bg-white animate-flash" />
-          )}
-
           <canvas ref={canvasRef} className="hidden" />
 
           <div
