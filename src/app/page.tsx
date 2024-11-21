@@ -5,7 +5,7 @@ import type { DragEvent } from 'react';
 import Image from 'next/image';
 import { DisplayInvoiceData } from '@/types/compose2';
 import { displayLabels, formatAmount } from '@/lib/compose2-helpers';
-import { Search, Download, Trophy, Upload, FileSearch } from 'lucide-react';
+import { Search, Download, Trophy, Upload, FileSearch, BarChart2 } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -21,6 +21,7 @@ import { ColorPalette, extractColorsFromLogo, getSupplierColors } from '@/lib/co
 import { getSupplierDomain } from '@/lib/logo-helpers';
 import { DocumentScanner } from '@/components/DocumentScanner';
 import { Camera } from 'lucide-react';
+import Link from 'next/link';
 
 // Dodaj na początku pliku funkcję pomocniczą do formatowania tekstu
 const formatProperName = (text: string) => {
@@ -419,9 +420,20 @@ export default function Home() {
                 </p>
               </div>
             </div>
-            <p className="hidden sm:block text-xs text-gray-500 sm:text-right max-w-[200px]">
-              Automatyczna analiza faktur i wyodrębnianie danych
-            </p>
+            
+            {/* Dodaj link do analityki */}
+            <div className="flex items-center gap-4">
+              <Link 
+                href="/analytics" 
+                className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                <BarChart2 className="w-4 h-4" /> {/* Dodaj import BarChart2 z lucide-react */}
+                <span>Analityka</span>
+              </Link>
+              <p className="hidden sm:block text-xs text-gray-500 sm:text-right max-w-[200px]">
+                Automatyczna analiza faktur i wyodrębnianie danych
+              </p>
+            </div>
           </div>
         </div>
       </div>
