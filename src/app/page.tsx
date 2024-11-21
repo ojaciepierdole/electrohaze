@@ -21,7 +21,6 @@ import { ColorPalette, extractColorsFromLogo, getSupplierColors } from '@/lib/co
 import { getSupplierDomain } from '@/lib/logo-helpers';
 import { DocumentScanner } from '@/components/DocumentScanner';
 import { Camera } from 'lucide-react';
-import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
 
 // Dodaj na początku pliku funkcję pomocniczą do formatowania tekstu
 const formatProperName = (text: string) => {
@@ -87,26 +86,6 @@ interface BarCustomProps {
   };
 }
 
-// Dodaj nowy interfejs dla współrzędnych
-interface Coordinates {
-  lat: number;
-  lng: number;
-}
-
-// Dodaj funkcję pomocniczą do wyboru adresu
-const getAddressToGeocode = (result: DisplayInvoiceData): string | null => {
-  if (result.deliveryPoint?.address) {
-    return result.deliveryPoint.address;
-  }
-  if (result.correspondenceAddress?.address) {
-    return result.correspondenceAddress.address;
-  }
-  if (result.customer?.address) {
-    return result.customer.address;
-  }
-  return null;
-};
-
 export default function Home() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -127,9 +106,6 @@ export default function Home() {
   );
   const [supplierColors, setSupplierColors] = useState<Record<string, ColorPalette>>({});
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
-  const [isMapLoaded, setIsMapLoaded] = useState(false);
-  const [mapError, setMapError] = useState<string | null>(null);
 
   const sortedLogs = useMemo(() => {
     return [...analysisLogs].sort((a, b) => {
@@ -426,40 +402,6 @@ export default function Home() {
     }
   }, [analysisResult?.supplierName]);
 
-  // Dodaj funkcję do geokodowania adresu
-  const geocodeAddress = async (address: string) => {
-    try {
-      const response = await fetch(
-        `/api/geocode?address=${encodeURIComponent(address)}`
-      );
-      if (!response.ok) throw new Error('Geocoding failed');
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Geocoding error:', error);
-      return null;
-    }
-  };
-
-  // Zaktualizuj efekt geokodowania
-  useEffect(() => {
-    if (analysisResult) {
-      const addressToGeocode = getAddressToGeocode(analysisResult);
-      if (addressToGeocode) {
-        geocodeAddress(addressToGeocode)
-          .then(coords => {
-            if (coords) {
-              setCoordinates(coords);
-              console.log('Geocoded address:', addressToGeocode, 'to coordinates:', coords);
-            }
-          })
-          .catch(error => {
-            console.error('Failed to geocode address:', addressToGeocode, error);
-          });
-      }
-    }
-  }, [analysisResult]);
-
   return (
     <main className="min-h-screen">
       {/* Header */}
@@ -655,177 +597,119 @@ export default function Home() {
 
                 {/* Grid z pozostałymi danymi */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                  {/* Lewa kolumna z danymi */}
-                  <div className="space-y-6">
-                    {analysisResult.customer && (
-                      <div className="p-5 bg-gray-50 rounded-lg border border-gray-100">
-                        <p className="text-xs font-medium uppercase tracking-wider text-gray-500 mb-3">
-                          {displayLabels.customer.title}
-                        </p>
-                        <p className="font-semibold text-gray-900 mb-2">
-                          {formatProperName(analysisResult.customer.fullName) || 'Nie znaleziono'}
-                        </p>
-                        <p className="text-sm">
-                          <span 
-                            className="font-mono"
-                            style={{ 
-                              color: (() => {
-                                const domain = getSupplierDomain(analysisResult.supplierName || '');
-                                const colors = supplierColors[domain];
-                                if (colors?.primary) {
-                                  const color = colors.primary.startsWith('#') 
-                                    ? colors.primary 
-                                    : '#3b82f6';
-                                  return `${color}dd`;
-                                }
-                                return '#374151';
-                              })()
-                            }}
-                          >
-                            {formatProperName(analysisResult.customer.address) || 'Brak adresu'}
-                          </span>
-                        </p>
-                      </div>
-                    )}
-
-                    {analysisResult.correspondenceAddress && (
-                      <div className="p-5 bg-gray-50 rounded-lg border border-gray-100">
-                        <p className="text-xs font-medium uppercase tracking-wider text-gray-500 mb-3">
-                          {displayLabels.correspondenceAddress.title}
-                        </p>
-                        <p className="font-semibold text-gray-900 mb-2">
-                          {formatProperName(analysisResult.correspondenceAddress.fullName) || 'Nie znaleziono'}
-                        </p>
-                        <p className="text-sm">
-                          <span 
-                            className="font-mono"
-                            style={{ 
-                              color: (() => {
-                                const domain = getSupplierDomain(analysisResult.supplierName || '');
-                                const colors = supplierColors[domain];
-                                if (colors?.primary) {
-                                  const color = colors.primary.startsWith('#') 
-                                    ? colors.primary 
-                                    : '#3b82f6';
-                                  return `${color}dd`;
-                                }
-                                return '#374151';
-                              })()
-                            }}
-                          >
-                            {formatProperName(analysisResult.correspondenceAddress.address) || 'Brak adresu'}
-                          </span>
-                        </p>
-                      </div>
-                    )}
-
-                    {analysisResult.deliveryPoint && (
-                      <div className="p-5 bg-gray-50 rounded-lg border border-gray-100">
-                        <p className="text-xs font-medium uppercase tracking-wider text-gray-500 mb-3">
-                          {displayLabels.deliveryPoint.title}
-                        </p>
-                        <div className="space-y-3">
-                          <p className="text-sm">
-                            <span className="font-medium text-gray-700">Adres: </span>
-                            <span 
-                              className="font-mono"
-                              style={{ 
-                                color: (() => {
-                                  const domain = getSupplierDomain(analysisResult.supplierName || '');
-                                  const colors = supplierColors[domain];
-                                  if (colors?.primary) {
-                                    const color = colors.primary.startsWith('#') 
-                                      ? colors.primary 
-                                      : '#3b82f6';
-                                    return `${color}dd`;
-                                  }
-                                  return '#374151';
-                                })()
-                              }}
-                            >
-                              {formatProperName(analysisResult.deliveryPoint.address) || 'Brak adresu'}
-                            </span>
-                          </p>
-                          <p className="text-sm">
-                            <span className="font-medium text-gray-700">Numer PPE: </span>
-                            <span 
-                              className="font-mono"
-                              style={{ 
-                                color: (() => {
-                                  const domain = getSupplierDomain(analysisResult.supplierName || '');
-                                  const colors = supplierColors[domain];
-                                  if (colors?.primary) {
-                                    const color = colors.primary.startsWith('#') 
-                                      ? colors.primary 
-                                      : '#3b82f6';
-                                    return `${color}dd`;
-                                  }
-                                  return '#374151';
-                                })()
-                              }}
-                            >
-                              {analysisResult.deliveryPoint.ppeNumber || 'Nie znaleziono'}
-                            </span>
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Prawa kolumna z mapą */}
-                  <div className="h-full min-h-[400px] rounded-lg overflow-hidden border border-gray-100 relative">
-                    <LoadScript 
-                      googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}
-                      onLoad={() => setIsMapLoaded(true)}
-                      onError={(error: Error) => {
-                        console.error('Google Maps loading error:', error);
-                        setMapError('Nie udało się załadować mapy');
-                      }}
-                      libraries={['places', 'geometry']}
-                    >
-                      {isMapLoaded ? (
-                        <GoogleMap
-                          mapContainerStyle={{
-                            width: '100%',
-                            height: '100%'
-                          }}
-                          center={coordinates || { lat: 52.069167, lng: 19.480556 }}
-                          zoom={coordinates ? 15 : 6}
-                          options={{
-                            disableDefaultUI: true,
-                            zoomControl: true,
-                            streetViewControl: true,
-                            mapTypeControl: true,
-                            styles: [
-                              {
-                                featureType: 'poi',
-                                elementType: 'labels',
-                                stylers: [{ visibility: 'off' }]
+                  {analysisResult.customer && (
+                    <div className="p-5 bg-gray-50 rounded-lg border border-gray-100">
+                      <p className="text-xs font-medium uppercase tracking-wider text-gray-500 mb-3">
+                        {displayLabels.customer.title}
+                      </p>
+                      <p className="font-semibold text-gray-900 mb-2">
+                        {formatProperName(analysisResult.customer.fullName) || 'Nie znaleziono'}
+                      </p>
+                      <p className="text-sm">
+                        <span 
+                          className="font-mono"
+                          style={{ 
+                            color: (() => {
+                              const domain = getSupplierDomain(analysisResult.supplierName || '');
+                              const colors = supplierColors[domain];
+                              if (colors?.primary) {
+                                const color = colors.primary.startsWith('#') 
+                                  ? colors.primary 
+                                  : '#3b82f6';
+                                return `${color}dd`;
                               }
-                            ]
+                              return '#374151';
+                            })()
                           }}
                         >
-                          {coordinates && (
-                            <Marker
-                              position={coordinates}
-                              icon={{
-                                url: '/marker.svg',
-                                scaledSize: new window.google.maps.Size(32, 32)
-                              }}
-                            />
-                          )}
-                        </GoogleMap>
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-                          {mapError ? (
-                            <p className="text-red-500 text-sm">{mapError}</p>
-                          ) : (
-                            <div className="text-gray-400 text-sm">Ładowanie mapy...</div>
-                          )}
-                        </div>
-                      )}
-                    </LoadScript>
-                  </div>
+                          {formatProperName(analysisResult.customer.address) || 'Brak adresu'}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+
+                  {analysisResult.correspondenceAddress && (
+                    <div className="p-5 bg-gray-50 rounded-lg border border-gray-100">
+                      <p className="text-xs font-medium uppercase tracking-wider text-gray-500 mb-3">
+                        {displayLabels.correspondenceAddress.title}
+                      </p>
+                      <p className="font-semibold text-gray-900 mb-2">
+                        {formatProperName(analysisResult.correspondenceAddress.fullName) || 'Nie znaleziono'}
+                      </p>
+                      <p className="text-sm">
+                        <span 
+                          className="font-mono"
+                          style={{ 
+                            color: (() => {
+                              const domain = getSupplierDomain(analysisResult.supplierName || '');
+                              const colors = supplierColors[domain];
+                              if (colors?.primary) {
+                                const color = colors.primary.startsWith('#') 
+                                  ? colors.primary 
+                                  : '#3b82f6';
+                                return `${color}dd`;
+                              }
+                              return '#374151';
+                            })()
+                          }}
+                        >
+                          {formatProperName(analysisResult.correspondenceAddress.address) || 'Brak adresu'}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+
+                  {analysisResult.deliveryPoint && (
+                    <div className="p-5 bg-gray-50 rounded-lg border border-gray-100 col-span-full">
+                      <p className="text-xs font-medium uppercase tracking-wider text-gray-500 mb-3">
+                        {displayLabels.deliveryPoint.title}
+                      </p>
+                      <div className="space-y-3">
+                        <p className="text-sm">
+                          <span className="font-medium text-gray-700">Adres: </span>
+                          <span 
+                            className="font-mono"
+                            style={{ 
+                              color: (() => {
+                                const domain = getSupplierDomain(analysisResult.supplierName || '');
+                                const colors = supplierColors[domain];
+                                if (colors?.primary) {
+                                  const color = colors.primary.startsWith('#') 
+                                    ? colors.primary 
+                                    : '#3b82f6';
+                                  return `${color}dd`;
+                                }
+                                return '#374151';
+                              })()
+                            }}
+                          >
+                            {formatProperName(analysisResult.deliveryPoint.address) || 'Brak adresu'}
+                          </span>
+                        </p>
+                        <p className="text-sm">
+                          <span className="font-medium text-gray-700">Numer PPE: </span>
+                          <span 
+                            className="font-mono"
+                            style={{ 
+                              color: (() => {
+                                const domain = getSupplierDomain(analysisResult.supplierName || '');
+                                const colors = supplierColors[domain];
+                                if (colors?.primary) {
+                                  const color = colors.primary.startsWith('#') 
+                                    ? colors.primary 
+                                    : '#3b82f6';
+                                  return `${color}dd`;
+                                }
+                                return '#374151';
+                              })()
+                            }}
+                          >
+                            {analysisResult.deliveryPoint.ppeNumber || 'Nie znaleziono'}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
