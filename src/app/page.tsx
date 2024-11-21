@@ -261,7 +261,7 @@ export default function Home() {
   };
 
   const handleTouchEnd = () => {
-    const swipeThreshold = 50; // minimalna odległo��ć swipe'a
+    const swipeThreshold = 50; // minimalna odległość swipe'a
     const diff = touchStartX.current - touchEndX.current;
 
     if (Math.abs(diff) > swipeThreshold) {
@@ -407,15 +407,15 @@ export default function Home() {
                   <p className="hidden sm:block text-base sm:text-lg text-gray-500 hover:text-gray-700 transition-colors">
                     Przeciągnij i upuść plik tutaj
                   </p>
-                  <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs sm:max-w-none">
+                  <div className="flex flex-col sm:flex-row gap-3 items-center justify-center w-full sm:w-auto">
                     <button
                       onClick={() => setIsScannerOpen(true)}
-                      className="md:hidden order-first px-4 py-3 text-sm rounded bg-black text-white hover:bg-gray-900 transition-colors flex items-center justify-center gap-2 shadow-lg active:shadow-sm active:transform active:translate-y-px"
+                      className="md:hidden order-first w-full sm:w-auto px-4 py-3 text-sm rounded bg-black text-white hover:bg-gray-900 transition-colors flex items-center justify-center gap-2 shadow-lg active:shadow-sm active:transform active:translate-y-px"
                     >
                       <Camera size={18} className="text-white" />
                       <span>Zrób zdjęcie</span>
                     </button>
-                    <label htmlFor="file-upload" className="cursor-pointer w-full">
+                    <label htmlFor="file-upload" className="cursor-pointer w-full sm:w-auto">
                       <input
                         id="file-upload"
                         type="file"
@@ -425,16 +425,15 @@ export default function Home() {
                       />
                       <span
                         className={`
+                          w-full sm:w-auto
                           px-4 py-3 text-sm rounded transition-all
                           flex items-center justify-center gap-2
-                          w-full shadow-lg active:shadow-sm
+                          shadow-lg active:shadow-sm
                           active:transform active:translate-y-px
                           ${selectedFile 
                             ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                             : 'bg-blue-500 text-white hover:bg-blue-600'
                           }
-                          sm:inline-flex sm:min-w-[160px] sm:justify-start
-                          lg:min-w-[180px]
                         `}
                       >
                         <Upload size={18} className="shrink-0" />
