@@ -1,0 +1,35 @@
+/* Dla sekcji Historia analiz */
+.historyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+/* Dla buttona Pobierz */
+.downloadButton {
+  min-width: auto;
+  max-width: fit-content;
+  padding: 0.75rem 1.5rem;
+  white-space: nowrap;
+}
+
+/* Media queries dla różnych breakpointów */
+@media (max-width: 768px) {
+  .historyHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .downloadButton {
+    align-self: flex-end;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .historyHeader {
+    padding: 1rem 0.5rem;
+  }
+} 

@@ -11,6 +11,8 @@
   "dependencies": {
     "@azure/ai-form-recognizer": "4.0.0",
     "@radix-ui/react-slot": "^1.0.2",
+    "@react-google-maps/api": "^2.20.3",
+    "@types/google-maps": "^3.2.6",
     "@types/react-beautiful-dnd": "^13.1.8",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",

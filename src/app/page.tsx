@@ -5,7 +5,7 @@ import type { DragEvent } from 'react';
 import Image from 'next/image';
 import { DisplayInvoiceData } from '@/types/compose2';
 import { displayLabels, formatAmount } from '@/lib/compose2-helpers';
-import { Search, Download, Trophy, Upload } from 'lucide-react';
+import { Search, Download, Trophy, Upload, FileSearch } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -21,6 +21,22 @@ import { ColorPalette, extractColorsFromLogo, getSupplierColors } from '@/lib/co
 import { getSupplierDomain } from '@/lib/logo-helpers';
 import { DocumentScanner } from '@/components/DocumentScanner';
 import { Camera } from 'lucide-react';
+import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
+
+// Dodaj na początku pliku funkcję pomocniczą do formatowania tekstu
+const formatProperName = (text: string) => {
+  if (!text) return '';
+  return text
+    .split(' ')
+    .map(word => {
+      // Zachowaj oryginalne słowo jeśli zawiera cyfry (np. numery mieszkań)
+      if (/\d/.test(word)) return word;
+      // Zachowaj słowa pisane wielkimi literami (np. skróty)
+      if (word === word.toUpperCase() && word.length > 1) return word;
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(' ');
+};
 
 // Interfejs dla logów analizy
 interface AnalysisLog {
@@ -71,6 +87,26 @@ interface BarCustomProps {
   };
 }
 
+// Dodaj nowy interfejs dla współrzędnych
+interface Coordinates {
+  lat: number;
+  lng: number;
+}
+
+// Dodaj funkcję pomocniczą do wyboru adresu
+const getAddressToGeocode = (result: DisplayInvoiceData): string | null => {
+  if (result.deliveryPoint?.address) {
+    return result.deliveryPoint.address;
+  }
+  if (result.correspondenceAddress?.address) {
+    return result.correspondenceAddress.address;
+  }
+  if (result.customer?.address) {
+    return result.customer.address;
+  }
+  return null;
+};
+
 export default function Home() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -91,6 +127,7 @@ export default function Home() {
   );
   const [supplierColors, setSupplierColors] = useState<Record<string, ColorPalette>>({});
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
 
   const sortedLogs = useMemo(() => {
     return [...analysisLogs].sort((a, b) => {
@@ -261,7 +298,7 @@ export default function Home() {
   };
 
   const handleTouchEnd = () => {
-    const swipeThreshold = 50; // minimalna odległo��ć swipe'a
+    const swipeThreshold = 50; // minimalna odległoć swipe'a
     const diff = touchStartX.current - touchEndX.current;
 
     if (Math.abs(diff) > swipeThreshold) {
@@ -376,349 +413,579 @@ export default function Home() {
     };
   }, [isMobile]);
 
+  // Dodaj ten efekt na początku komponentu, zaraz po deklaracji stanów
+  useEffect(() => {
+    if (analysisResult?.supplierName) {
+      const domain = getSupplierDomain(analysisResult.supplierName);
+      if (!supplierColors[domain]) {
+        console.log('Fetching colors for domain:', domain);
+        fetchSupplierColors(domain);
+      }
+    }
+  }, [analysisResult?.supplierName]);
+
+  // Dodaj funkcję do geokodowania adresu
+  const geocodeAddress = async (address: string) => {
+    try {
+      const response = await fetch(
+        `/api/geocode?address=${encodeURIComponent(address)}`
+      );
+      if (!response.ok) throw new Error('Geocoding failed');
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      return null;
+    }
+  };
+
+  // Zaktualizuj efekt geokodowania
+  useEffect(() => {
+    if (analysisResult) {
+      const addressToGeocode = getAddressToGeocode(analysisResult);
+      if (addressToGeocode) {
+        geocodeAddress(addressToGeocode)
+          .then(coords => {
+            if (coords) {
+              setCoordinates(coords);
+              console.log('Geocoded address:', addressToGeocode, 'to coordinates:', coords);
+            }
+          })
+          .catch(error => {
+            console.error('Failed to geocode address:', addressToGeocode, error);
+          });
+      }
+    }
+  }, [analysisResult]);
+
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-2xl mx-auto space-y-8">
-        <h1 className="text-3xl font-bold">Wgraj plik</h1>
-        
-        <div className="relative border-2 border-dashed border-gray-300 rounded-lg">
-          {(isAnalyzing || analysisProgress === 100) && (
-            <div 
-              className="absolute top-0 left-0 h-[5px] transition-all duration-500 rounded-t-lg"
-              style={{ 
-                width: `${analysisProgress}%`,
-                backgroundColor: '#4ade80'
-              }}
-            />
-          )}
-          
-          <div className="p-4 text-center">
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8">
-              {isAnalyzing ? (
-                <div className="space-y-2">
-                  <p className="text-lg">Analiza dokumentu</p>
-                  <p className="text-gray-500 text-sm mt-2 italic">
-                    {funnyMessages[currentMessage]}
-                  </p>
-                  <p className="text-gray-500">{analysisProgress}%</p>
-                </div>
-              ) : (
-                <>
-                  <p className="hidden sm:block text-base sm:text-lg text-gray-500 hover:text-gray-700 transition-colors">
-                    Przeciągnij i upuść plik tutaj
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs sm:max-w-none">
-                    <button
-                      onClick={() => setIsScannerOpen(true)}
-                      className="md:hidden order-first px-4 py-3 text-sm rounded bg-black text-white hover:bg-gray-900 transition-colors flex items-center justify-center gap-2 shadow-lg active:shadow-sm active:transform active:translate-y-px"
-                    >
-                      <Camera size={18} className="text-white" />
-                      <span>Zrób zdjęcie</span>
-                    </button>
-                    <label htmlFor="file-upload" className="cursor-pointer w-full">
-                      <input
-                        id="file-upload"
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,image/*"
-                        onChange={handleFileChange}
-                      />
-                      <span
-                        className={`
-                          px-4 py-3 text-sm rounded transition-all
-                          flex items-center justify-center gap-2
-                          w-full shadow-lg active:shadow-sm
-                          active:transform active:translate-y-px
-                          ${selectedFile 
-                            ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                            : 'bg-blue-500 text-white hover:bg-blue-600'
-                          }
-                          sm:inline-flex sm:min-w-[160px] sm:justify-start
-                          lg:min-w-[180px]
-                        `}
-                      >
-                        <Upload size={18} className="shrink-0" />
-                        <span className="whitespace-nowrap">Wybierz z dysku</span>
-                      </span>
-                    </label>
-                  </div>
-                </>
-              )}
+    <main className="min-h-screen">
+      {/* Header */}
+      <div className="border-b bg-white">
+        <div className="max-w-2xl mx-auto px-8 py-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <div className="flex items-start sm:items-center gap-2">
+              <FileSearch className="w-6 h-6 text-gray-700 shrink-0" />
+              <div className="flex flex-col items-start">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-700">
+                  Analiza faktury za prąd
+                </h1>
+                <p className="text-xs text-gray-500 sm:text-right sm:hidden pl-0">
+                  Automatyczna analiza faktur i wyodrębnianie danych
+                </p>
+              </div>
             </div>
+            <p className="hidden sm:block text-xs text-gray-500 sm:text-right max-w-[200px]">
+              Automatyczna analiza faktur i wyodrębnianie danych
+            </p>
           </div>
-          
-          {selectedFile && (
-            <div className="relative">
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="px-8 py-6">
+        <div className="max-w-2xl mx-auto space-y-8">
+          <div className="relative border-2 border-dashed border-gray-300 rounded-lg">
+            {(isAnalyzing || analysisProgress === 100) && (
               <div 
-                className={`flex items-center justify-between px-4 py-2 border-t text-sm transition-colors ${
-                  analysisProgress === 100 ? 'bg-green-50' : 'bg-gray-100'
-                }`}
-              >
-                <div className="flex items-center flex-1 min-w-0">
-                  <p className="text-gray-700 truncate max-w-[50%]">{selectedFile.name}</p>
-                  <button
-                    onClick={() => {
-                      const win = window.open('', '_blank');
-                      if (win) {
-                        win.document.write(`
-                          <html>
-                            <head>
-                              <title>${selectedFile.name}</title>
-                              <style>
-                                body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f3f4f6; }
-                                img, embed { max-width: 60vw; max-height: 90vh; }
-                              </style>
-                            </head>
-                            <body>
-                              ${selectedFile.type === 'application/pdf' 
-                                ? `<embed src="${URL.createObjectURL(selectedFile)}" type="application/pdf" width="100%" height="100%">`
-                                : `<img src="${URL.createObjectURL(selectedFile)}" alt="Preview">`
-                              }
-                            </body>
-                          </html>
-                        `);
-                      }
-                    }}
-                    className="ml-2 p-1.5 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
-                  >
-                    <Search size={16} />
-                  </button>
-                </div>
-                {!isAnalyzing && !analysisResult && (
-                  <button
-                    onClick={handleAnalyze}
-                    className="ml-4 px-4 py-1 text-white rounded transition-colors bg-blue-500 hover:bg-blue-600"
-                  >
-                    Analizuj dokument
-                  </button>
-                )}
-                {analysisProgress === 100 && (
-                  <span className="text-green-600 text-xs font-medium">
-                    przeskanowano
-                  </span>
+                className="absolute top-0 left-0 h-[5px] transition-all duration-500 rounded-t-lg"
+                style={{ 
+                  width: `${analysisProgress}%`,
+                  backgroundColor: '#4ade80'
+                }}
+              />
+            )}
+            
+            <div className="p-4 text-center">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                {isAnalyzing ? (
+                  <div className="space-y-2">
+                    <p className="text-lg">Analiza dokumentu</p>
+                    <p className="text-gray-500 text-sm mt-2 italic">
+                      {funnyMessages[currentMessage]}
+                    </p>
+                    <p className="text-gray-500">{analysisProgress}%</p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="hidden sm:block text-base sm:text-lg text-gray-500 hover:text-gray-700 transition-colors">
+                      Przeciągnij i upuść plik tutaj
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto sm:ml-auto">
+                      <button
+                        onClick={() => setIsScannerOpen(true)}
+                        className="w-full md:hidden order-first px-4 py-3 text-sm rounded bg-gray-900 text-white hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 shadow-lg active:shadow-sm active:transform active:translate-y-px"
+                      >
+                        <Camera size={18} className="text-white" />
+                        <span>Zrób zdjęcie</span>
+                      </button>
+                      <label 
+                        htmlFor="file-upload" 
+                        className="cursor-pointer w-full sm:w-auto sm:min-w-[140px]"
+                      >
+                        <input
+                          id="file-upload"
+                          type="file"
+                          className="hidden"
+                          accept=".pdf,image/*"
+                          onChange={handleFileChange}
+                        />
+                        <span
+                          className={`
+                            px-4 py-3 text-sm rounded transition-all
+                            flex items-center justify-center gap-2
+                            w-full shadow-lg active:shadow-sm
+                            active:transform active:translate-y-px
+                            ${selectedFile 
+                              ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                              : 'bg-blue-500 text-white hover:bg-blue-600'
+                            }
+                          `}
+                        >
+                          <Upload size={18} className="shrink-0" />
+                          <span>Wybierz z dysku</span>
+                        </span>
+                      </label>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
-          )}
-        </div>
-
-        {error && (
-          <div className="p-4 bg-red-50 text-red-700 rounded-lg">
-            {error}
-          </div>
-        )}
-
-        {analysisResult && (
-          <div className="p-6 rounded-lg space-y-6 shadow-md bg-white">
-            <p className="font-bold text-lg border-b pb-2">Wyniki analizy dokumentu:</p>
             
-            {/* Sekcja sprzedawcy */}
-            {analysisResult.supplierName && (
-              <div className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
-                <SupplierLogo supplierName={analysisResult.supplierName} size={48} />
-                <div>
-                  <p className="text-sm text-gray-500">{displayLabels.supplierName}</p>
-                  <p className="font-medium text-lg">{analysisResult.supplierName}</p>
+            {selectedFile && (
+              <div className="relative">
+                <div 
+                  className={`flex items-center justify-between px-4 py-2 border-t text-sm transition-colors ${
+                    analysisProgress === 100 ? 'bg-green-50' : 'bg-gray-100'
+                  }`}
+                >
+                  <div className="flex items-center flex-1 min-w-0">
+                    <p className="text-gray-700 truncate max-w-[50%]">{selectedFile.name}</p>
+                    <button
+                      onClick={() => {
+                        const win = window.open('', '_blank');
+                        if (win) {
+                          win.document.write(`
+                            <html>
+                              <head>
+                                <title>${selectedFile.name}</title>
+                                <style>
+                                  body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f3f4f6; }
+                                  img, embed { max-width: 60vw; max-height: 90vh; }
+                                </style>
+                              </head>
+                              <body>
+                                ${selectedFile.type === 'application/pdf' 
+                                  ? `<embed src="${URL.createObjectURL(selectedFile)}" type="application/pdf" width="100%" height="100%">`
+                                  : `<img src="${URL.createObjectURL(selectedFile)}" alt="Preview">`
+                                }
+                              </body>
+                            </html>
+                          `);
+                        }
+                      }}
+                      className="ml-2 p-1.5 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
+                    >
+                      <Search size={16} />
+                    </button>
+                  </div>
+                  {!isAnalyzing && !analysisResult && (
+                    <button
+                      onClick={handleAnalyze}
+                      className="ml-4 px-4 py-1 text-white rounded transition-colors bg-blue-500 hover:bg-blue-600"
+                    >
+                      Analizuj dokument
+                    </button>
+                  )}
+                  {analysisProgress === 100 && (
+                    <span className="text-green-600 text-xs font-medium">
+                      przeskanowano
+                    </span>
+                  )}
                 </div>
               </div>
             )}
+          </div>
 
-            {/* Grid z pozostałymi danymi */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-              {analysisResult.customer && (
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="font-medium text-gray-700">{displayLabels.customer.title}</p>
-                  <p className="mt-2">{analysisResult.customer.fullName || 'Nie znaleziono'}</p>
-                  <p className="text-sm text-gray-600 mt-1">{analysisResult.customer.address || 'Brak adresu'}</p>
-                </div>
-              )}
+          {error && (
+            <div className="p-4 bg-red-50 text-red-700 rounded-lg">
+              {error}
+            </div>
+          )}
 
-              {analysisResult.correspondenceAddress && (
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="font-medium text-gray-700">{displayLabels.correspondenceAddress.title}</p>
-                  <p className="mt-2">{analysisResult.correspondenceAddress.fullName || 'Nie znaleziono'}</p>
-                  <p className="text-sm text-gray-600 mt-1">{analysisResult.correspondenceAddress.address || 'Brak adresu'}</p>
-                </div>
-              )}
+          {analysisResult && (
+            <div className="relative mt-8">
+              {/* Główna zawartość z cieniem na zewnątrz */}
+              <div className="p-6 space-y-6 bg-white rounded-lg relative border border-gray-200 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)]">
+                <h2 className="text-xl font-bold text-gray-800 pb-3 border-b border-gray-200 relative">
+                  Wyniki analizy dokumentu
+                </h2>
+                
+                {/* Sekcja sprzedawcy */}
+                {analysisResult.supplierName && (
+                  <div 
+                    className="flex items-start space-x-4 p-5 rounded-lg transition-colors"
+                    style={{ 
+                      backgroundColor: (() => {
+                        const domain = getSupplierDomain(analysisResult.supplierName);
+                        const colors = supplierColors[domain];
+                        console.log('Supplier colors:', {
+                          domain,
+                          colors,
+                          supplierName: analysisResult.supplierName
+                        });
+                        if (colors?.primary) {
+                          return `${colors.primary}1A`;
+                        }
+                        return 'rgb(249 250 251)';
+                      })()
+                    }}
+                  >
+                    <SupplierLogo supplierName={analysisResult.supplierName} size={48} />
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wider text-gray-500 mb-1">
+                        {displayLabels.supplierName}
+                      </p>
+                      <p className="font-semibold text-lg text-gray-900">{analysisResult.supplierName}</p>
+                    </div>
+                  </div>
+                )}
 
-              {analysisResult.deliveryPoint && (
-                <div className="p-4 bg-gray-50 rounded-lg col-span-full">
-                  <p className="font-medium text-gray-700">{displayLabels.deliveryPoint.title}</p>
-                  <div className="mt-2 space-y-2">
-                    <p className="text-sm">
-                      <span className="font-medium">Adres: </span>
-                      {analysisResult.deliveryPoint.address || 'Brak adresu'}
-                    </p>
-                    <p className="text-sm">
-                      <span className="font-medium">Numer PPE: </span>
-                      {analysisResult.deliveryPoint.ppeNumber || 'Nie znaleziono'}
-                    </p>
+                {/* Grid z pozostałymi danymi */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                  {/* Lewa kolumna z danymi */}
+                  <div className="space-y-6">
+                    {analysisResult.customer && (
+                      <div className="p-5 bg-gray-50 rounded-lg border border-gray-100">
+                        <p className="text-xs font-medium uppercase tracking-wider text-gray-500 mb-3">
+                          {displayLabels.customer.title}
+                        </p>
+                        <p className="font-semibold text-gray-900 mb-2">
+                          {formatProperName(analysisResult.customer.fullName) || 'Nie znaleziono'}
+                        </p>
+                        <p className="text-sm">
+                          <span 
+                            className="font-mono"
+                            style={{ 
+                              color: (() => {
+                                const domain = getSupplierDomain(analysisResult.supplierName || '');
+                                const colors = supplierColors[domain];
+                                if (colors?.primary) {
+                                  const color = colors.primary.startsWith('#') 
+                                    ? colors.primary 
+                                    : '#3b82f6';
+                                  return `${color}dd`;
+                                }
+                                return '#374151';
+                              })()
+                            }}
+                          >
+                            {formatProperName(analysisResult.customer.address) || 'Brak adresu'}
+                          </span>
+                        </p>
+                      </div>
+                    )}
+
+                    {analysisResult.correspondenceAddress && (
+                      <div className="p-5 bg-gray-50 rounded-lg border border-gray-100">
+                        <p className="text-xs font-medium uppercase tracking-wider text-gray-500 mb-3">
+                          {displayLabels.correspondenceAddress.title}
+                        </p>
+                        <p className="font-semibold text-gray-900 mb-2">
+                          {formatProperName(analysisResult.correspondenceAddress.fullName) || 'Nie znaleziono'}
+                        </p>
+                        <p className="text-sm">
+                          <span 
+                            className="font-mono"
+                            style={{ 
+                              color: (() => {
+                                const domain = getSupplierDomain(analysisResult.supplierName || '');
+                                const colors = supplierColors[domain];
+                                if (colors?.primary) {
+                                  const color = colors.primary.startsWith('#') 
+                                    ? colors.primary 
+                                    : '#3b82f6';
+                                  return `${color}dd`;
+                                }
+                                return '#374151';
+                              })()
+                            }}
+                          >
+                            {formatProperName(analysisResult.correspondenceAddress.address) || 'Brak adresu'}
+                          </span>
+                        </p>
+                      </div>
+                    )}
+
+                    {analysisResult.deliveryPoint && (
+                      <div className="p-5 bg-gray-50 rounded-lg border border-gray-100">
+                        <p className="text-xs font-medium uppercase tracking-wider text-gray-500 mb-3">
+                          {displayLabels.deliveryPoint.title}
+                        </p>
+                        <div className="space-y-3">
+                          <p className="text-sm">
+                            <span className="font-medium text-gray-700">Adres: </span>
+                            <span 
+                              className="font-mono"
+                              style={{ 
+                                color: (() => {
+                                  const domain = getSupplierDomain(analysisResult.supplierName || '');
+                                  const colors = supplierColors[domain];
+                                  if (colors?.primary) {
+                                    const color = colors.primary.startsWith('#') 
+                                      ? colors.primary 
+                                      : '#3b82f6';
+                                    return `${color}dd`;
+                                  }
+                                  return '#374151';
+                                })()
+                              }}
+                            >
+                              {formatProperName(analysisResult.deliveryPoint.address) || 'Brak adresu'}
+                            </span>
+                          </p>
+                          <p className="text-sm">
+                            <span className="font-medium text-gray-700">Numer PPE: </span>
+                            <span 
+                              className="font-mono"
+                              style={{ 
+                                color: (() => {
+                                  const domain = getSupplierDomain(analysisResult.supplierName || '');
+                                  const colors = supplierColors[domain];
+                                  if (colors?.primary) {
+                                    const color = colors.primary.startsWith('#') 
+                                      ? colors.primary 
+                                      : '#3b82f6';
+                                    return `${color}dd`;
+                                  }
+                                  return '#374151';
+                                })()
+                              }}
+                            >
+                              {analysisResult.deliveryPoint.ppeNumber || 'Nie znaleziono'}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Prawa kolumna z mapą */}
+                  <div className="h-full min-h-[400px] rounded-lg overflow-hidden border border-gray-100">
+                    <LoadScript googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}>
+                      <GoogleMap
+                        mapContainerStyle={{
+                          width: '100%',
+                          height: '100%'
+                        }}
+                        center={coordinates || { lat: 52.069167, lng: 19.480556 }} // Środek Polski jako fallback
+                        zoom={coordinates ? 15 : 6}
+                        options={{
+                          disableDefaultUI: true,
+                          zoomControl: true,
+                          streetViewControl: true,
+                          mapTypeControl: true,
+                          styles: [
+                            {
+                              featureType: 'poi',
+                              elementType: 'labels',
+                              stylers: [{ visibility: 'off' }]
+                            }
+                          ]
+                        }}
+                      >
+                        {coordinates && (
+                          <Marker
+                            position={coordinates}
+                            icon={{
+                              url: '/marker.svg', // Dodaj własną ikonę markera
+                              scaledSize: new google.maps.Size(32, 32)
+                            }}
+                          />
+                        )}
+                      </GoogleMap>
+                    </LoadScript>
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Zaktualizowana sekcja historii */}
-        {analysisLogs.length > 0 && (
-          <div className="p-4 bg-white border rounded-lg space-y-6">
-            <div className="flex justify-between items-center">
-              <p className="font-bold text-lg">Historia analiz</p>
-              <div className="flex gap-2">
-                <select 
-                  value={sortField}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
-                    setSortField(e.target.value as 'time' | 'duration')
-                  }
-                  className="text-sm border rounded p-1"
-                >
-                  <option value="time">Sortuj po czasie</option>
-                  <option value="duration">Sortuj po długości</option>
-                </select>
-                <button
-                  onClick={() => setSortDirection(d => d === 'asc' ? 'desc' : 'asc')}
-                  className="p-1 border rounded"
-                >
-                  {sortDirection === 'asc' ? '↑' : '↓'}
-                </button>
-                <button
-                  onClick={exportToCSV}
-                  className="px-4 py-1 text-sm bg-black text-white rounded hover:bg-gray-800 flex items-center gap-2"
-                >
-                  <Download size={16} />
-                  Pobierz
-                </button>
               </div>
             </div>
-            
-            <div className="text-sm text-gray-600">
-              <p>Średni czas analizy: {(stats.average / 1000).toFixed(2)}s</p>
-              <p>Mediana czasu analizy: {(stats.median / 1000).toFixed(2)}s</p>
-            </div>
+          )}
 
-            <div 
-              className="space-y-2 touch-pan-x"
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-            >
-              {paginatedLogs.map((log, index, array) => (
-                <div 
-                  key={log.startTime.getTime()} 
-                  className={`text-sm flex justify-between items-center ${
-                    array.length > 1 && index !== array.length - 1 ? 'border-b pb-2' : 'pb-2'
-                  } ${log.invoiceIssuer === 'Nie znaleziono' ? 'bg-red-50 rounded p-2' : ''}`}
-                >
-                  <div className="flex items-center min-w-0 flex-1 gap-3">
-                    <div className="shrink-0">
-                      <SupplierLogo supplierName={log.invoiceIssuer} size={24} />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium bg-gray-100 px-2 py-1 rounded text-xs">
-                          {log.invoiceIssuer.split(' ')[0]}
-                        </span>
-                        <span className="text-gray-600 truncate max-w-[30%]">
-                          {log.fileName}
+          {/* Zaktualizowana sekcja historii */}
+          {analysisLogs.length > 0 && (
+            <div className="p-6 bg-white border rounded-lg space-y-6 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)]">
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                <h2 className="text-xl font-bold text-gray-800">Historia analiz</h2>
+                
+                <div className="w-full sm:w-auto flex flex-row justify-between items-center gap-2">
+                  {/* Lewa strona z sortowaniem */}
+                  <div className="flex items-center h-8 gap-2">
+                    <span className="text-xs text-gray-500">Sortuj wg.</span>
+                    <select 
+                      value={sortField}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
+                        setSortField(e.target.value as 'time' | 'duration')
+                      }
+                      className="text-sm border rounded h-full px-2"
+                    >
+                      <option value="time">kolejności dodania</option>
+                      <option value="duration">czasu przetwarzania</option>
+                    </select>
+                    <button
+                      onClick={() => setSortDirection(d => d === 'asc' ? 'desc' : 'asc')}
+                      className="h-full px-2 border rounded"
+                    >
+                      {sortDirection === 'asc' ? '↑' : '↓'}
+                    </button>
+                  </div>
+
+                  {/* Prawa strona z przyciskiem pobierania */}
+                  <button
+                    onClick={exportToCSV}
+                    className="h-8 px-4 text-sm bg-black text-white rounded hover:bg-gray-800 flex items-center gap-2 ml-auto"
+                  >
+                    <Download size={16} />
+                    <span className="hidden sm:inline">Pobierz</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Separator */}
+              <div className="border-t border-gray-200" />
+              
+              {/* Statystyki */}
+              <div className="text-sm text-gray-600 flex flex-wrap items-center justify-start gap-x-6 gap-y-1">
+                <div className="flex items-center whitespace-nowrap">
+                  <span className="text-[13px] sm:text-sm">Średni czas analizy:</span>
+                  <span className="ml-1 font-medium text-sm sm:text-base">{(stats.average / 1000).toFixed(2)}s</span>
+                </div>
+                <div className="flex items-center whitespace-nowrap">
+                  <span className="text-[13px] sm:text-sm">Mediana czasu analizy:</span>
+                  <span className="ml-1 font-medium text-sm sm:text-base">{(stats.median / 1000).toFixed(2)}s</span>
+                </div>
+              </div>
+
+              {/* Lista uploadów */}
+              <div 
+                className="space-y-2 touch-pan-x"
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+              >
+                {paginatedLogs.map((log, index, array) => (
+                  <div 
+                    key={log.startTime.getTime()} 
+                    className={`text-sm flex justify-between items-center ${
+                      array.length > 1 && index !== array.length - 1 ? 'border-b pb-2' : 'pb-2'
+                    } ${log.invoiceIssuer === 'Nie znaleziono' ? 'bg-red-50 rounded p-2' : ''}`}
+                  >
+                    <div className="flex items-center min-w-0 flex-1 gap-3">
+                      <div className="shrink-0">
+                        <SupplierLogo supplierName={log.invoiceIssuer} size={24} />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium bg-gray-100 px-2 py-1 rounded text-xs">
+                            {log.invoiceIssuer.split(' ')[0]}
+                          </span>
+                          <span className="text-gray-600 truncate max-w-[30%]">
+                            {log.fileName}
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-400">
+                          {formatDate(log.startTime)} • {formatTimestamp(log.startTime)}
                         </span>
                       </div>
-                      <span className="text-xs text-gray-400">
-                        {formatDate(log.startTime)} • {formatTimestamp(log.startTime)}
-                      </span>
                     </div>
+                    <span className="text-gray-500 shrink-0 ml-4">
+                      {(log.duration / 1000).toFixed(2)}s
+                    </span>
                   </div>
-                  <span className="text-gray-500 shrink-0 ml-4">
-                    {(log.duration / 1000).toFixed(2)}s
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {totalPages > 1 && (
-              <div className="flex justify-center items-center gap-4 mt-4">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50 disabled:hover:bg-transparent"
-                >
-                  ←
-                </button>
-                
-                <div className="flex gap-2">
-                  {Array.from({ length: totalPages }, (_, i) => {
-                    // Pokazuj zawsze pierwszą i ostatnią stronę
-                    if (i === 0 || i === totalPages - 1) {
-                      return (
-                        <button
-                          key={i}
-                          onClick={() => setCurrentPage(i + 1)}
-                          className={`px-3 py-1 rounded ${
-                            currentPage === i + 1 
-                              ? 'bg-blue-500 text-white' 
-                              : 'bg-gray-100 hover:bg-gray-200'
-                          }`}
-                        >
-                          {i + 1}
-                        </button>
-                      );
-                    }
-                    
-                    // Pokazuj sąsiadujące strony
-                    if (
-                      i === currentPage - 2 ||
-                      i === currentPage - 1 ||
-                      i === currentPage ||
-                      i === currentPage + 1
-                    ) {
-                      return (
-                        <button
-                          key={i}
-                          onClick={() => setCurrentPage(i + 1)}
-                          className={`px-3 py-1 rounded ${
-                            currentPage === i + 1 
-                              ? 'bg-blue-500 text-white' 
-                              : 'bg-gray-100 hover:bg-gray-200'
-                          }`}
-                        >
-                          {i + 1}
-                        </button>
-                      );
-                    }
-                    
-                    // Pokazuj kropki dla pominiętych stron
-                    if (
-                      (i === 1 && currentPage > 3) ||
-                      (i === totalPages - 2 && currentPage < totalPages - 2)
-                    ) {
-                      return <span key={i} className="px-2">...</span>;
-                    }
-                    
-                    return null;
-                  })}
-                </div>
-
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50 disabled:hover:bg-transparent"
-                >
-                  →
-                </button>
+                ))}
               </div>
-            )}
 
-            {/* Ranking i wykres */}
-            {analysisLogs.length >= 2 && (
-              <>
-                <div className="border-t pt-4">
-                  <h3 className="font-bold text-lg mb-4">Ranking czasów według dostawcy</h3>
+              {/* Paginacja */}
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-4 mt-4">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50 disabled:hover:bg-transparent"
+                  >
+                    ←
+                  </button>
                   
-                  {/* Ranking */}
+                  <div className="flex gap-2">
+                    {Array.from({ length: totalPages }, (_, i) => {
+                      if (i === 0 || i === totalPages - 1) {
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => setCurrentPage(i + 1)}
+                            className={`px-3 py-1 rounded ${
+                              currentPage === i + 1 
+                                ? 'bg-blue-500 text-white' 
+                                : 'bg-gray-100 hover:bg-gray-200'
+                            }`}
+                          >
+                            {i + 1}
+                          </button>
+                        );
+                      }
+                      
+                      if (
+                        i === currentPage - 2 ||
+                        i === currentPage - 1 ||
+                        i === currentPage ||
+                        i === currentPage + 1
+                      ) {
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => setCurrentPage(i + 1)}
+                            className={`px-3 py-1 rounded ${
+                              currentPage === i + 1 
+                                ? 'bg-blue-500 text-white' 
+                                : 'bg-gray-100 hover:bg-gray-200'
+                            }`}
+                          >
+                            {i + 1}
+                          </button>
+                        );
+                      }
+                      
+                      if (
+                        (i === 1 && currentPage > 3) ||
+                        (i === totalPages - 2 && currentPage < totalPages - 2)
+                      ) {
+                        return <span key={i} className="px-2">...</span>;
+                      }
+                      
+                      return null;
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50 disabled:hover:bg-transparent"
+                  >
+                    →
+                  </button>
+                </div>
+              )}
+
+              {/* Ranking */}
+              {analysisLogs.length >= 2 && (
+                <div className="border-t pt-6">
+                  <h3 className="text-xl font-bold text-gray-800 mb-6">
+                    Ranking czasów według dostawcy
+                  </h3>
+                  
                   <div className="space-y-4">
                     {Object.entries(
                       analysisLogs
-                        .filter(log => log.invoiceIssuer && log.invoiceIssuer !== 'Nie znaleziono') // Filtrujemy nieudane analizy
+                        .filter(log => log.invoiceIssuer && log.invoiceIssuer !== 'Nie znaleziono')
                         .reduce((acc, log) => {
                           const supplier = log.invoiceIssuer.split(' ')[0];
                           if (!acc[supplier]) {
@@ -740,18 +1007,21 @@ export default function Home() {
                           key={supplier}
                           className={`flex items-center justify-between p-3 rounded ${
                             analysisLogs.length >= 3 && index === 0 
-                              ? 'bg-yellow-50' 
+                              ? 'bg-yellow-100/50' // Jaśniejszy żółty kolor dla lidera
                               : 'bg-gray-50'
                           }`}
                         >
                           <div className="flex items-center gap-3">
-                            {analysisLogs.length >= 3 && index === 0 && (
-                              <Trophy 
-                                className="text-yellow-500" 
-                                size={20}
-                                aria-label="Trophy icon"
-                              />
-                            )}
+                            {/* Stały kontener dla ikony lub miejsca */}
+                            <div className="w-8 flex justify-center">
+                              {analysisLogs.length >= 3 && index === 0 && (
+                                <Trophy 
+                                  className="text-yellow-500" 
+                                  size={20}
+                                  aria-label="Trophy icon"
+                                />
+                              )}
+                            </div>
                             <span className="font-medium text-sm text-gray-500">#{index + 1}</span>
                             <span className="font-medium">{supplier}</span>
                             <span className="text-sm text-gray-500">
@@ -767,117 +1037,117 @@ export default function Home() {
                   </div>
 
                   {/* Wykres */}
-                  <div className="h-64 mt-6">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={chartData}
-                        margin={{ top: 20, right: 30, left: 0, bottom: 20 }}
-                      >
-                        <XAxis 
-                          dataKey="name"
-                          height={40}
-                          tickMargin={10}
-                          interval={0}
-                        />
-                        <YAxis 
-                          label={{ 
-                            value: 'Średni czas (s)', 
-                            angle: -90, 
-                            position: 'insideLeft',
-                            offset: -5
-                          }}
-                        />
-                        <Tooltip 
-                          formatter={(value: number) => [`${value}s`, 'Średni czas']}
-                          cursor={{ fill: 'transparent' }}
-                        />
-                        <Bar 
-                          dataKey="avgTime"
-                          shape={(props) => {
-                            // Rzutujemy payload na nasz typ
-                            const payload = (props as any).payload as ChartDataItem;
-                            const { x, y, width, height, value, index } = props;
-                            const cornerRadius = 4;
-                            const color = supplierColors[payload.domain]?.primary || '#3b82f6';
-                            
-                            return (
-                              <g>
-                                <path
-                                  d={`
-                                    M${x},${y + height}
-                                    L${x},${y + cornerRadius}
-                                    Q${x},${y} ${x + cornerRadius},${y}
-                                    L${x + width - cornerRadius},${y}
-                                    Q${x + width},${y} ${x + width},${y + cornerRadius}
-                                    L${x + width},${y + height}
-                                    Z
-                                  `}
-                                  fill={color}
-                                />
-                                <g style={{ transform: `translate(${x + width/2}px, ${y + height/2}px)` }}>
-                                  <rect
-                                    x={-20}
-                                    y={-12}
-                                    width={40}
-                                    height={24}
-                                    fill="white"
-                                    rx={4}
-                                    ry={4}
-                                    filter="url(#shadow)"
+                  <div className="mt-8 pt-6 border-t">
+                    <h4 className="text-lg font-semibold text-gray-700 mb-6">
+                      Średnie czasy przetwarzania
+                    </h4>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={chartData}
+                          margin={{ top: 20, right: 30, left: 0, bottom: 20 }}
+                        >
+                          <XAxis 
+                            dataKey="name"
+                            height={40}
+                            tickMargin={10}
+                            interval={0}
+                          />
+                          <YAxis 
+                            label={undefined}
+                          />
+                          <Tooltip 
+                            formatter={(value: number) => [`${value}s`, 'Średni czas']}
+                            cursor={{ fill: 'transparent' }}
+                          />
+                          <Bar 
+                            dataKey="avgTime"
+                            shape={(props) => {
+                              // Rzutujemy payload na nasz typ
+                              const payload = (props as any).payload as ChartDataItem;
+                              const { x, y, width, height, value, index } = props;
+                              const cornerRadius = 4;
+                              const color = supplierColors[payload.domain]?.primary || '#3b82f6';
+                              
+                              return (
+                                <g>
+                                  <path
+                                    d={`
+                                      M${x},${y + height}
+                                      L${x},${y + cornerRadius}
+                                      Q${x},${y} ${x + cornerRadius},${y}
+                                      L${x + width - cornerRadius},${y}
+                                      Q${x + width},${y} ${x + width},${y + cornerRadius}
+                                      L${x + width},${y + height}
+                                      Z
+                                    `}
+                                    fill={color}
                                   />
-                                  <text
-                                    x={0}
-                                    y={6}
-                                    textAnchor="middle"
-                                    fill="#374151"
-                                    fontSize={12}
-                                    fontWeight="500"
-                                  >
-                                    {value}s
-                                  </text>
-                                </g>
-                                {index === 0 && (
-                                  <g style={{ transform: `translate(${x + width/2 - 10}px, ${y - 25}px)` }}>
-                                    <Trophy
-                                      size={20}
-                                      className="text-yellow-500"
+                                  <g style={{ transform: `translate(${x + width/2}px, ${y + height/2}px)` }}>
+                                    <rect
+                                      x={-20}
+                                      y={-12}
+                                      width={40}
+                                      height={24}
+                                      fill="white"
+                                      rx={4}
+                                      ry={4}
+                                      filter="url(#shadow)"
                                     />
+                                    <text
+                                      x={0}
+                                      y={6}
+                                      textAnchor="middle"
+                                      fill="#374151"
+                                      fontSize={12}
+                                      fontWeight="500"
+                                    >
+                                      {value}s
+                                    </text>
                                   </g>
-                                )}
-                              </g>
-                            );
-                          }}
-                        />
-                        <defs>
-                          <filter
-                            id="shadow"
-                            filterUnits="userSpaceOnUse"
-                            width="200%"
-                            height="200%"
-                          >
-                            <feDropShadow 
-                              dx="0" 
-                              dy="1" 
-                              stdDeviation="1"
-                              floodOpacity="0.1"
-                            />
-                          </filter>
-                        </defs>
-                      </BarChart>
-                    </ResponsiveContainer>
+                                  {index === 0 && (
+                                    <g style={{ transform: `translate(${x + width/2 - 10}px, ${y - 25}px)` }}>
+                                      <Trophy
+                                        size={20}
+                                        className="text-yellow-500"
+                                      />
+                                    </g>
+                                  )}
+                                </g>
+                              );
+                            }}
+                          />
+                          <defs>
+                            <filter
+                              id="shadow"
+                              filterUnits="userSpaceOnUse"
+                              width="200%"
+                              height="200%"
+                            >
+                              <feDropShadow 
+                                dx="0" 
+                                dy="1" 
+                                stdDeviation="1"
+                                floodOpacity="0.1"
+                              />
+                            </filter>
+                          </defs>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
                 </div>
-              </>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          )}
 
-        {isScannerOpen && (
-          <DocumentScanner
-            onScanComplete={handleScanComplete}
-            onClose={() => setIsScannerOpen(false)}
-          />
-        )}
+          {isScannerOpen && (
+            <DocumentScanner
+              onScanComplete={handleScanComplete}
+              onClose={() => setIsScannerOpen(false)}
+            />
+          )}
+        </div>
       </div>
     </main>
   );
