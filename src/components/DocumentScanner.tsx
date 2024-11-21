@@ -188,6 +188,7 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
   const [detectedDocument, setDetectedDocument] = useState<DetectedDocument | null>(null);
   const lastGoodDetection = useRef<DetectedDocument | null>(null);
   const [processingPages, setProcessingPages] = useState<Set<string>>(new Set());
+  const [processedImages, setProcessedImages] = useState<Map<string, Blob>>(new Map());
 
   // Automatycznie uruchamiamy skaner po załadowaniu
   useEffect(() => {
@@ -317,7 +318,7 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
 
       // Konwertujemy na blob
       const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.95); // Zwiększamy jakość
+        canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.95);
       });
 
       // Dodajemy surowe zdjęcie do galerii
@@ -330,25 +331,19 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
       
       setScannedPages(prev => [...prev, newPage]);
       showToast('Przetwarzanie dokumentu...');
-
-      // Rozpoczynamy przetwarzanie w tle
       setProcessingPages(prev => new Set(prev).add(pageId));
 
-      // Przetwarzamy zdjęcie w osobnym bloku try-catch
       try {
-        // Czekamy na załadowanie OpenCV jeśli potrzeba
-        if (!isOpenCVReady) {
-          await loadOpenCV();
-          setIsOpenCVReady(true);
-        }
-
+        // Przetwarzamy zdjęcie
         const processedBlob = await performDeskew(blob);
         
-        // Aktualizujemy zdjęcie w galerii
+        // Zapisujemy przetworzone zdjęcie
+        processedImages.set(pageId, processedBlob);
+        
+        // Aktualizujemy podgląd w galerii
+        const newUrl = URL.createObjectURL(processedBlob);
         setScannedPages(prev => prev.map(page => 
-          page.id === pageId 
-            ? { ...page, imageUrl: URL.createObjectURL(processedBlob) }
-            : page
+          page.id === pageId ? { ...page, imageUrl: newUrl } : page
         ));
         
         showToast('Dokument przetworzony');
@@ -425,13 +420,75 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
   const handleComplete = async () => {
     try {
       setIsProcessing(true);
-      const pdfFile = await createPDFFromImages(scannedPages);
+      setProcessingStatus('Przygotowywanie dokumentu...');
+
+      // Czekamy na zakończenie przetwarzania wszystkich zdjęć
+      const unprocessedPages = scannedPages.filter(page => !processedImages.has(page.id));
+      
+      if (unprocessedPages.length > 0) {
+        setProcessingStatus('Przetwarzanie pozostałych stron...');
+        
+        for (const page of unprocessedPages) {
+          try {
+            setProcessingStatus(`Przetwarzanie strony ${page.order + 1}...`);
+            const response = await fetch(page.imageUrl);
+            const blob = await response.blob();
+            const processedBlob = await performDeskew(blob);
+            
+            // Zapisujemy przetworzone zdjęcie
+            processedImages.set(page.id, processedBlob);
+            
+            // Aktualizujemy podgląd w galerii
+            const newUrl = URL.createObjectURL(processedBlob);
+            setScannedPages(prev => prev.map(p => 
+              p.id === page.id ? { ...p, imageUrl: newUrl } : p
+            ));
+          } catch (error) {
+            console.error(`Error processing page ${page.order + 1}:`, error);
+          }
+        }
+      }
+
+      // Tworzymy PDF z przetworzonych zdjęć
+      setProcessingStatus('Tworzenie dokumentu PDF...');
+      const pdfDoc = await PDFDocument.create();
+      
+      for (const page of scannedPages) {
+        setProcessingStatus(`Dodawanie strony ${page.order + 1} do PDF...`);
+        
+        // Używamy przetworzonego zdjęcia jeśli jest dostępne
+        const imageBlob = processedImages.get(page.id);
+        if (!imageBlob) {
+          console.error(`No processed image found for page ${page.id}`);
+          continue;
+        }
+
+        const imageArrayBuffer = await imageBlob.arrayBuffer();
+        const image = await pdfDoc.embedJpg(imageArrayBuffer);
+        
+        const pageWidth = image.width;
+        const pageHeight = image.height;
+        const pdfPage = pdfDoc.addPage([pageWidth, pageHeight]);
+        
+        pdfPage.drawImage(image, {
+          x: 0,
+          y: 0,
+          width: pageWidth,
+          height: pageHeight,
+        });
+      }
+
+      setProcessingStatus('Finalizowanie dokumentu...');
+      const pdfBytes = await pdfDoc.save();
+      const pdfFile = new File([pdfBytes], 'scanned_document.pdf', { type: 'application/pdf' });
+      
       onScanComplete([pdfFile]);
     } catch (error) {
       console.error('Error creating PDF:', error);
       setError('Nie udało się utworzyć dokumentu PDF');
     } finally {
       setIsProcessing(false);
+      setProcessingStatus('');
     }
   };
 
