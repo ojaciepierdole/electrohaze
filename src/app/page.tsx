@@ -128,6 +128,8 @@ export default function Home() {
   const [supplierColors, setSupplierColors] = useState<Record<string, ColorPalette>>({});
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   const sortedLogs = useMemo(() => {
     return [...analysisLogs].sort((a, b) => {
@@ -771,39 +773,57 @@ export default function Home() {
                   </div>
 
                   {/* Prawa kolumna z mapą */}
-                  <div className="h-full min-h-[400px] rounded-lg overflow-hidden border border-gray-100">
-                    <LoadScript googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}>
-                      <GoogleMap
-                        mapContainerStyle={{
-                          width: '100%',
-                          height: '100%'
-                        }}
-                        center={coordinates || { lat: 52.069167, lng: 19.480556 }} // Środek Polski jako fallback
-                        zoom={coordinates ? 15 : 6}
-                        options={{
-                          disableDefaultUI: true,
-                          zoomControl: true,
-                          streetViewControl: true,
-                          mapTypeControl: true,
-                          styles: [
-                            {
-                              featureType: 'poi',
-                              elementType: 'labels',
-                              stylers: [{ visibility: 'off' }]
-                            }
-                          ]
-                        }}
-                      >
-                        {coordinates && (
-                          <Marker
-                            position={coordinates}
-                            icon={{
-                              url: '/marker.svg', // Dodaj własną ikonę markera
-                              scaledSize: new google.maps.Size(32, 32)
-                            }}
-                          />
-                        )}
-                      </GoogleMap>
+                  <div className="h-full min-h-[400px] rounded-lg overflow-hidden border border-gray-100 relative">
+                    <LoadScript 
+                      googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}
+                      onLoad={() => setIsMapLoaded(true)}
+                      onError={(error: Error) => {
+                        console.error('Google Maps loading error:', error);
+                        setMapError('Nie udało się załadować mapy');
+                      }}
+                      libraries={['places', 'geometry']}
+                    >
+                      {isMapLoaded ? (
+                        <GoogleMap
+                          mapContainerStyle={{
+                            width: '100%',
+                            height: '100%'
+                          }}
+                          center={coordinates || { lat: 52.069167, lng: 19.480556 }}
+                          zoom={coordinates ? 15 : 6}
+                          options={{
+                            disableDefaultUI: true,
+                            zoomControl: true,
+                            streetViewControl: true,
+                            mapTypeControl: true,
+                            styles: [
+                              {
+                                featureType: 'poi',
+                                elementType: 'labels',
+                                stylers: [{ visibility: 'off' }]
+                              }
+                            ]
+                          }}
+                        >
+                          {coordinates && (
+                            <Marker
+                              position={coordinates}
+                              icon={{
+                                url: '/marker.svg',
+                                scaledSize: new window.google.maps.Size(32, 32)
+                              }}
+                            />
+                          )}
+                        </GoogleMap>
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+                          {mapError ? (
+                            <p className="text-red-500 text-sm">{mapError}</p>
+                          ) : (
+                            <div className="text-gray-400 text-sm">Ładowanie mapy...</div>
+                          )}
+                        </div>
+                      )}
                     </LoadScript>
                   </div>
                 </div>
