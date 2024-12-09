@@ -5,7 +5,7 @@ import type { DragEvent } from 'react';
 import Image from 'next/image';
 import { DisplayInvoiceData } from '@/types/compose2';
 import { displayLabels, formatAmount } from '@/lib/compose2-helpers';
-import { Search, Download, Trophy, Upload, FileSearch, BarChart2 } from 'lucide-react';
+import { Search, Download, Trophy, Upload, FileSearch, BarChart2, Camera } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -20,7 +20,6 @@ import { SupplierLogo } from '@/components/SupplierLogo';
 import { ColorPalette, extractColorsFromLogo, getSupplierColors } from '@/lib/color-helpers';
 import { getSupplierDomain } from '@/lib/logo-helpers';
 import { DocumentScanner } from '@/components/DocumentScanner';
-import { Camera } from 'lucide-react';
 import Link from 'next/link';
 
 // Dodaj na początku pliku funkcję pomocniczą do formatowania tekstu
@@ -405,42 +404,9 @@ export default function Home() {
 
   return (
     <main className="min-h-screen">
-      {/* Header */}
-      <div className="border-b bg-white">
-        <div className="max-w-2xl mx-auto px-8 py-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-            <div className="flex items-start sm:items-center gap-2">
-              <FileSearch className="w-6 h-6 text-gray-700 shrink-0" />
-              <div className="flex flex-col items-start">
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-700">
-                  Analiza faktury za prąd
-                </h1>
-                <p className="text-xs text-gray-500 sm:text-right sm:hidden pl-0">
-                  Automatyczna analiza faktur i wyodrębnianie danych
-                </p>
-              </div>
-            </div>
-            
-            {/* Dodaj link do analityki */}
-            <div className="flex items-center gap-4">
-              <Link 
-                href="/analytics" 
-                className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <BarChart2 className="w-4 h-4" /> {/* Dodaj import BarChart2 z lucide-react */}
-                <span>Analityka</span>
-              </Link>
-              <p className="hidden sm:block text-xs text-gray-500 sm:text-right max-w-[200px]">
-                Automatyczna analiza faktur i wyodrębnianie danych
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Content */}
       <div className="px-8 py-6">
-        <div className="max-w-2xl mx-auto space-y-8">
+        <div className="max-w-6xl mx-auto space-y-8">
           <div className="relative border-2 border-dashed border-gray-300 rounded-lg">
             {(isAnalyzing || analysisProgress === 100) && (
               <div 
