@@ -12,7 +12,7 @@ interface BatchProcessingResultsProps {
 }
 
 export function BatchProcessingResults({ 
-  results = [], // Domyślna wartość pusta tablica
+  results = [], 
   onExport 
 }: BatchProcessingResultsProps) {
   if (!results.length) return null;
@@ -38,19 +38,25 @@ export function BatchProcessingResults({
         averageConfidence={avgConfidence}
       />
 
-      <Tabs defaultValue="list">
+      <Tabs defaultValue="list" className="w-full">
         <TabsList>
           <TabsTrigger value="list">Lista</TabsTrigger>
           <TabsTrigger value="grid">Siatka</TabsTrigger>
         </TabsList>
         <TabsContent value="list" className="space-y-4">
           {results.map((result, index) => (
-            <AnalysisResultCard key={index} result={result} />
+            <AnalysisResultCard 
+              key={`${result.fileName}-${index}`} 
+              result={result} 
+            />
           ))}
         </TabsContent>
         <TabsContent value="grid" className="grid grid-cols-2 gap-4">
           {results.map((result, index) => (
-            <AnalysisResultCard key={index} result={result} />
+            <AnalysisResultCard 
+              key={`${result.fileName}-${index}`} 
+              result={result} 
+            />
           ))}
         </TabsContent>
       </Tabs>

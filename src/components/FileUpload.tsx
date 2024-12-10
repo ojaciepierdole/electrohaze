@@ -36,6 +36,7 @@ export function FileUpload({
     currentModelId: null,
     fileProgress: 0,
     totalProgress: 0,
+    totalFiles: 0,
     results: [],
     error: null
   });
@@ -44,6 +45,7 @@ export function FileUpload({
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setFiles(prev => [...prev, ...acceptedFiles]);
+    setStatus(prev => ({ ...prev, totalFiles: prev.totalFiles + acceptedFiles.length }));
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -59,6 +61,7 @@ export function FileUpload({
 
   const removeFile = (fileToRemove: File) => {
     setFiles(prev => prev.filter(f => f !== fileToRemove));
+    setStatus(prev => ({ ...prev, totalFiles: prev.totalFiles - 1 }));
   };
 
   const handleScanComplete = (scannedFiles: File[]) => {

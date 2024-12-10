@@ -14,6 +14,7 @@ export interface FieldDefinition {
   type: string;
   isRequired: boolean;
   description: string;
+  group: FieldGroupKey;
 }
 
 export interface ProcessedField {

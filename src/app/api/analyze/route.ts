@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { DocumentAnalysisClient } from '@azure/ai-form-recognizer';
 import type { ProcessingResult, ProcessedField } from '@/types/processing';
+import { determineFieldGroup } from '@/utils/fields';
 
 interface AzureField {
   value: string | null;
@@ -81,7 +82,8 @@ export async function POST(request: Request) {
           name: key,
           type: field.type,
           isRequired: false,
-          description: key
+          description: key,
+          group: determineFieldGroup(key)
         }
       };
 
