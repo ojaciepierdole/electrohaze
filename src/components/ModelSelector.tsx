@@ -88,7 +88,6 @@ export function ModelSelector({
         <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
           <Command 
             className="bg-white border rounded-lg shadow-sm"
-            onClose={() => setOpen(false)}
             shouldFilter={false}
           >
             <CommandInput 
@@ -101,30 +100,32 @@ export function ModelSelector({
             <CommandEmpty className="p-4 text-sm text-muted-foreground">
               Nie znaleziono modelu
             </CommandEmpty>
-            <CommandGroup className="bg-white">
-              <ScrollArea className="max-h-64">
-                {filteredModels.map((model) => (
-                  <CommandItem
-                    key={model.id}
-                    value={model.id}
-                    onSelect={() => handleSelect(model.id)}
-                    className="px-4 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
-                  >
-                    <Check
-                      className={`mr-2 h-4 w-4 ${
-                        selectedModels.includes(model.id) ? "opacity-100" : "opacity-0"
-                      }`}
-                    />
-                    <div className="flex flex-col">
-                      <span className="font-medium">{model.id}</span>
-                      {model.description && (
-                        <span className="text-sm text-muted-foreground">
-                          {model.description}
-                        </span>
-                      )}
-                    </div>
-                  </CommandItem>
-                ))}
+            <CommandGroup>
+              <ScrollArea className="h-[200px]">
+                <div className="p-1">
+                  {filteredModels.map((model) => (
+                    <CommandItem
+                      key={model.id}
+                      value={model.id}
+                      onSelect={() => handleSelect(model.id)}
+                      className="flex items-center cursor-pointer rounded-sm px-2 py-1.5 hover:bg-accent hover:text-accent-foreground data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
+                    >
+                      <Check
+                        className={`mr-2 h-4 w-4 ${
+                          selectedModels.includes(model.id) ? "opacity-100" : "opacity-0"
+                        }`}
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-base font-semibold">{model.id}</span>
+                        {model.description && (
+                          <span className="text-sm text-muted-foreground">
+                            {model.description}
+                          </span>
+                        )}
+                      </div>
+                    </CommandItem>
+                  ))}
+                </div>
               </ScrollArea>
             </CommandGroup>
           </Command>
