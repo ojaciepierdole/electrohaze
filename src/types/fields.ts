@@ -12,6 +12,10 @@ export interface PPEData {
   Unit?: string;
   PostalCode?: string;
   City?: string;
+  MeterNumber?: string;
+  TariffGroup?: string;
+  ContractNumber?: string;
+  ContractType?: string;
 }
 
 export interface DeliveryPointData {
@@ -22,6 +26,9 @@ export interface DeliveryPointData {
   dpUnit?: string;
   dpPostalCode?: string;
   dpCity?: string;
+  Municipality?: string;
+  District?: string;
+  Province?: string;
 }
 
 export interface CorrespondenceData {
@@ -34,23 +41,37 @@ export interface CorrespondenceData {
   paUnit?: string;
   paPostalCode?: string;
   paCity?: string;
+  Municipality?: string;
+  District?: string;
+  Province?: string;
 }
 
 export interface SupplierData {
   supplierName?: string;
+  supplierTaxID?: string;
+  supplierStreet?: string;
+  supplierBuilding?: string;
+  supplierUnit?: string;
+  supplierPostalCode?: string;
+  supplierCity?: string;
+  supplierBankAccount?: string;
+  supplierBankName?: string;
+  supplierEmail?: string;
+  supplierPhone?: string;
+  supplierWebsite?: string;
   OSD_name?: string;
   OSD_region?: string;
-  ProductName?: string;
-  Tariff?: string;
 }
 
 export interface BillingData {
   BillingStartDate?: string;
   BillingEndDate?: string;
-  InvoiceType?: string;
+  ProductName?: string;
+  Tariff?: string;
   BilledUsage?: string;
   ReadingType?: string;
   "12mUsage"?: string;
+  InvoiceType?: string;
   BillBreakdown?: string;
   EnergySaleBreakdown?: string;
 }

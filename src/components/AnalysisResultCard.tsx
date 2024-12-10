@@ -8,7 +8,6 @@ import type { ProcessingResult, GroupedResult, AddressSet } from '@/types/proces
 import type { CustomerData, PPEData, DeliveryPointData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
 import { CustomerDataGroup } from './data-groups/CustomerDataGroup';
 import { PPEDataGroup } from './data-groups/PPEDataGroup';
-import { DeliveryPointDataGroup } from './data-groups/DeliveryPointDataGroup';
 import { CorrespondenceDataGroup } from './data-groups/CorrespondenceDataGroup';
 import { SupplierDataGroup } from './data-groups/SupplierDataGroup';
 import { BillingDataGroup } from './data-groups/BillingDataGroup';
@@ -75,23 +74,23 @@ export function AnalysisResultCard({ result }: AnalysisResultCardProps) {
       } as CustomerData,
       
       ppe: {
+        // Dane identyfikacyjne PPE
         ppeNum: fields.ppeNum?.content || null,
-        Street: enrichedAddress.Street || null,
-        Building: enrichedAddress.Building || null,
-        Unit: enrichedAddress.Unit || null,
-        PostalCode: enrichedAddress.PostalCode || null,
-        City: enrichedAddress.City || null,
-      } as PPEData,
-      
-      delivery: {
+        // Dane osobowe z punktu dostawy
         dpFirstName: dpNames.firstName || enrichedAddress.dpFirstName || null,
         dpLastName: dpNames.lastName || enrichedAddress.dpLastName || null,
+        // Dane adresowe z punktu dostawy
         dpStreet: enrichedAddress.dpStreet || null,
         dpBuilding: enrichedAddress.dpBuilding || null,
         dpUnit: enrichedAddress.dpUnit || null,
         dpPostalCode: enrichedAddress.dpPostalCode || null,
         dpCity: enrichedAddress.dpCity || null,
-      } as DeliveryPointData,
+        // Dane techniczne
+        MeterNumber: fields.MeterNumber?.content || null,
+        TariffGroup: fields.TariffGroup?.content || null,
+        ContractNumber: fields.ContractNumber?.content || null,
+        ContractType: fields.ContractType?.content || null,
+      } as PPEData & DeliveryPointData,
       
       correspondence: {
         paFirstName: paNames.firstName || enrichedAddress.paFirstName || null,
@@ -107,19 +106,34 @@ export function AnalysisResultCard({ result }: AnalysisResultCardProps) {
       
       supplier: {
         supplierName: fields.supplierName?.content || null,
+        supplierTaxID: fields.supplierTaxID?.content || null,
+        supplierStreet: fields.supplierStreet?.content || null,
+        supplierBuilding: fields.supplierBuilding?.content || null,
+        supplierUnit: fields.supplierUnit?.content || null,
+        supplierPostalCode: fields.supplierPostalCode?.content || null,
+        supplierCity: fields.supplierCity?.content || null,
+        supplierBankAccount: fields.supplierBankAccount?.content || null,
+        supplierBankName: fields.supplierBankName?.content || null,
+        supplierEmail: fields.supplierEmail?.content || null,
+        supplierPhone: fields.supplierPhone?.content || null,
+        supplierWebsite: fields.supplierWebsite?.content || null,
         OSD_name: fields.OSD_name?.content || null,
         OSD_region: fields.OSD_region?.content || null,
-        ProductName: fields.ProductName?.content || null,
-        Tariff: fields.Tariff?.content || null,
       } as SupplierData,
       
       billing: {
+        // Dane czasowe
         BillingStartDate: fields.BillingStartDate?.content || null,
         BillingEndDate: fields.BillingEndDate?.content || null,
-        InvoiceType: fields.InvoiceType?.content || null,
+        // Dane produktu
+        ProductName: fields.ProductName?.content || null,
+        Tariff: fields.Tariff?.content || null,
+        // Dane zużycia
         BilledUsage: fields.BilledUsage?.content || null,
         ReadingType: fields.ReadingType?.content || null,
         "12mUsage": fields["12mUsage"]?.content || null,
+        // Szczegóły rozliczenia
+        InvoiceType: fields.InvoiceType?.content || null,
         BillBreakdown: fields.BillBreakdown?.content || null,
         EnergySaleBreakdown: fields.EnergySaleBreakdown?.content || null,
       } as BillingData,
@@ -144,7 +158,6 @@ export function AnalysisResultCard({ result }: AnalysisResultCardProps) {
         <SupplierDataGroup data={data.supplier} />
         <PPEDataGroup data={data.ppe} />
         <CustomerDataGroup data={data.customer} />
-        <DeliveryPointDataGroup data={data.delivery} />
         <CorrespondenceDataGroup data={data.correspondence} />
         <BillingDataGroup data={data.billing} />
       </div>
