@@ -54,7 +54,7 @@ async function analyzeDocument(
   if (!result.documents?.[0]?.fields) {
     const emptyResult = {
       fileName: file instanceof File ? file.name : 'unknown',
-      results: [{
+      modelResults: [{
         modelId,
         fields: {},
         confidence: 0,
@@ -96,7 +96,7 @@ async function analyzeDocument(
 
   const finalResult = {
     fileName: file instanceof File ? file.name : 'unknown',
-    results: [{
+    modelResults: [{
       modelId,
       fields,
       confidence: result.documents[0].confidence,

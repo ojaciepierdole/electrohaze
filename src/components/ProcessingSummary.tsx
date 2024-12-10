@@ -28,15 +28,18 @@ export function ProcessingSummary({ fileCount, totalTime, averageConfidence, onE
     return `${hours}h ${minutes}m ${seconds}s`;
   };
 
+  // Oblicz rzeczywistą liczbę plików (podziel przez liczbę modeli)
+  const actualFileCount = Math.ceil(fileCount / 2); // Zakładamy 2 modele na plik
+
   return (
-    <Card className="p-6">
+    <Card className="p-6 shadow-sm">
       <div className="flex justify-between items-center">
         <div className="space-y-2">
           <h2 className="text-xl font-semibold">Podsumowanie analizy</h2>
           <div className="grid grid-cols-3 gap-8">
             <div>
               <p className="text-sm text-muted-foreground">Liczba plików</p>
-              <p className="text-2xl font-semibold">{fileCount}</p>
+              <p className="text-2xl font-semibold">{actualFileCount}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Całkowity czas</p>

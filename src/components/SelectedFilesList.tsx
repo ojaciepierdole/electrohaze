@@ -1,10 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { FileText, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { FileText, Trash2, Eye } from 'lucide-react';
-import { truncateFileName } from '@/utils/processing';
+import { cn } from '@/lib/utils';
 
 interface SelectedFilesListProps {
   files: File[];
@@ -13,76 +12,51 @@ interface SelectedFilesListProps {
 }
 
 export function SelectedFilesList({ files, onRemoveFile, disabled }: SelectedFilesListProps) {
-  // Mapa do przechowywania URL-i dla plików
-  const [fileUrls, setFileUrls] = React.useState<Map<string, string>>(new Map());
-
-  // Funkcja do generowania URL dla pliku
-  const getFileUrl = React.useCallback((file: File) => {
-    if (!fileUrls.has(file.name)) {
-      const url = URL.createObjectURL(file);
-      setFileUrls(prev => new Map(prev).set(file.name, url));
-      return url;
-    }
-    return fileUrls.get(file.name);
-  }, [fileUrls]);
-
-  // Czyszczenie URL-i przy odmontowaniu komponentu
-  React.useEffect(() => {
-    return () => {
-      fileUrls.forEach(url => URL.revokeObjectURL(url));
-    };
-  }, [fileUrls]);
-
   if (files.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
+      <div className="text-center text-sm text-muted-foreground p-4">
         Nie wybrano żadnych plików
       </div>
     );
   }
 
   return (
-    <ScrollArea className="h-[300px] border rounded-lg">
-      <div className="p-4 space-y-2">
-        {files.map((file) => (
-          <div
-            key={file.name}
-            className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg"
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <FileText className="w-4 h-4 text-gray-400 shrink-0" />
-              <span className="truncate text-sm">{truncateFileName(file.name)}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  const url = getFileUrl(file);
-                  if (url) {
-                    window.open(url, '_blank');
-                  }
-                }}
-                disabled={disabled}
-                className="shrink-0 h-8 w-8 p-0"
-                title="Podgląd dokumentu"
-              >
-                <Eye className="w-4 h-4 text-gray-500" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onRemoveFile(file)}
-                disabled={disabled}
-                className="shrink-0 h-8 w-8 p-0"
-                title="Usuń plik"
-              >
-                <Trash2 className="w-4 h-4 text-gray-500" />
-              </Button>
-            </div>
+    <div className="p-4 space-y-1">
+      {files.map((file, index) => (
+        <div
+          key={`${file.name}-${index}`}
+          className={cn(
+            "flex items-center justify-between p-2 rounded-md",
+            "hover:bg-muted/10 group",
+            "transition-colors"
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <FileText className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm truncate max-w-[300px]" title={file.name}>
+              {file.name}
+            </span>
           </div>
-        ))}
-      </div>
-    </ScrollArea>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemoveFile(file);
+            }}
+            disabled={disabled}
+            className={cn(
+              "h-6 w-6 p-0 rounded-full",
+              "text-destructive bg-destructive/10",
+              "opacity-0 group-hover:opacity-100",
+              "transition-opacity duration-200"
+            )}
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Usuń plik</span>
+          </Button>
+        </div>
+      ))}
+    </div>
   );
 } 

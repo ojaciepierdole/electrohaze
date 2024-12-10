@@ -7,54 +7,62 @@ export function determineFieldGroup(fieldName: string): FieldGroupKey {
   if (fieldNameLower.includes('supplier') || 
       fieldNameLower.includes('vendor') ||
       fieldNameLower.includes('osd_')) {
-    return 'supplier_data';
+    return 'supplier';
   }
 
-  // Punkt Poboru Energii
-  if (fieldNameLower === 'ppenum' ||
-      fieldNameLower === 'title' ||
-      fieldNameLower === 'firstname' ||
-      fieldNameLower === 'lastname' ||
-      fieldNameLower === 'postalcode' ||
-      fieldNameLower === 'city' ||
+  // Dane produktu
+  if (fieldNameLower.includes('product') ||
+      fieldNameLower.includes('tariff') ||
+      fieldNameLower.includes('sale')) {
+    return 'product';
+  }
+
+  // Punkt dostawy
+  if (fieldNameLower.includes('ppe') ||
+      fieldNameLower.includes('meter') ||
+      fieldNameLower.includes('delivery') ||
       fieldNameLower === 'street' ||
-      fieldNameLower === 'building' ||
-      fieldNameLower === 'unit') {
-    return 'delivery_point';
-  }
-
-  // Informacje o zużyciu
-  if (fieldNameLower.includes('consumption') || 
-      fieldNameLower.includes('usage') ||
-      fieldNameLower.includes('reading') ||
-      fieldNameLower.includes('billing') ||
-      fieldNameLower.includes('period') ||
-      fieldNameLower === 'tariff' ||
-      fieldNameLower === 'invoicetype') {
-    return 'consumption_info';
-  }
-
-  // Dane biznesowe
-  if (fieldNameLower.includes('business') ||
-      fieldNameLower.includes('taxid')) {
-    return 'business_data';
-  }
-
-  // Adres podstawowy
-  if (fieldNameLower === 'street' ||
       fieldNameLower === 'building' ||
       fieldNameLower === 'unit' ||
       fieldNameLower === 'city' ||
       fieldNameLower === 'postalcode') {
-    return 'primary_address';
+    return 'delivery';
   }
 
-  // Adres korespondencyjny
-  if (fieldNameLower.startsWith('pa') || 
-      fieldNameLower.includes('correspondence')) {
-    return 'postal_address';
+  // Dane ogólne
+  if (fieldNameLower.includes('customer') ||
+      fieldNameLower.includes('business') ||
+      fieldNameLower.includes('taxid')) {
+    return 'general';
   }
-  
-  // Domyślnie zwracamy dane biznesowe
-  return 'business_data';
+
+  // Płatnik
+  if (fieldNameLower.startsWith('pa') || 
+      fieldNameLower.includes('correspondence') ||
+      fieldNameLower.includes('payer')) {
+    return 'payer';
+  }
+
+  // Faktura
+  if (fieldNameLower.includes('invoice') ||
+      fieldNameLower.includes('amount') ||
+      fieldNameLower.includes('vat') ||
+      fieldNameLower.includes('net') ||
+      fieldNameLower.includes('total') ||
+      fieldNameLower.includes('currency') ||
+      fieldNameLower.includes('date')) {
+    return 'invoice';
+  }
+
+  // Zużycie
+  if (fieldNameLower.includes('consumption') ||
+      fieldNameLower.includes('usage') ||
+      fieldNameLower.includes('reading') ||
+      fieldNameLower.includes('billing') ||
+      fieldNameLower.includes('period')) {
+    return 'consumption';
+  }
+
+  // Domyślnie zwracamy dane ogólne
+  return 'general';
 } 

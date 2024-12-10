@@ -1,10 +1,20 @@
 import { FIELD_GROUPS } from '@/config/fields';
 
 export type FieldGroupKey = 
-  | 'buyer_data'
-  | 'delivery_point'
-  | 'postal_address'
-  | 'consumption_info';
+  | 'supplier'
+  | 'product'
+  | 'delivery'
+  | 'general'
+  | 'payer'
+  | 'invoice'
+  | 'consumption';
+
+export interface FieldGroup {
+  label: string;
+  description?: string;
+  icon?: string;
+  order: number;
+}
 
 export interface FieldDefinition {
   name: string;
@@ -18,8 +28,14 @@ export interface ProcessedField {
   content: string | null;
   confidence: number;
   type: string;
-  page: number;
-  definition: FieldDefinition;
+  page?: number;
+  definition: {
+    name: string;
+    type: string;
+    isRequired: boolean;
+    description: string;
+    group: FieldGroupKey;
+  };
 }
 
 export interface BatchProcessingStatus {
@@ -35,14 +51,17 @@ export interface BatchProcessingStatus {
   error: string | null;
 }
 
-export interface ProcessingResult {
+export interface GroupedResult {
   fileName: string;
-  results: Array<{
+  modelResults: Array<{
     modelId: string;
     fields: Record<string, ProcessedField>;
     confidence: number;
     pageCount: number;
   }>;
+}
+
+export interface ProcessingResult extends GroupedResult {
   processingTime: number;
 }
 
@@ -58,7 +77,9 @@ export interface ModelDefinition {
   id: string;
   name: string;
   description: string;
-  fields: AnalysisField[];
+  type: 'prebuilt' | 'custom';
+  category: string;
+  version?: string;
 }
 
 export interface LegacyFields {
@@ -169,13 +190,6 @@ export interface ModernFields {
   ProductCode: string;      // Kod produktu
 } 
 
-export interface GroupedResult {
-  fileName: string;
-  modelResults: {
-    [modelId: string]: ProcessingResult['results'][0];
-  };
-} 
-
 export interface AddressSet {
   // Podstawowy zestaw danych
   Title?: string;
@@ -220,3 +234,22 @@ export interface AddressSet {
   // Inne pola mogą być dodane w przyszłości
   [key: string]: string | undefined;
 } 
+
+export interface AnalysisLogEntry {
+  timestamp: Date;
+  supplierName: string;
+  timings: {
+    totalTime: number;
+    azureResponseTime: number;
+    processingTime: number;
+  };
+  extractedFields: Record<string, string | null>;
+}
+
+export type CombinedFields = Record<FieldGroupKey, Record<string, {
+  content: string | null;
+  confidence: number;
+  confidences: Record<string, number>;
+  type: string;
+  definition: ProcessedField['definition'];
+}>>;

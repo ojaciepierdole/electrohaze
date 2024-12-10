@@ -91,7 +91,7 @@ export const OptimizedResultCard = React.memo(({ result, modelResults }: Optimiz
   ), [modelResults]);
 
   return (
-    <Card className="bg-white shadow-lg">
+    <Card className="bg-white shadow-sm">
       <CardHeader
         fileName={result.fileName}
         confidence={avgConfidence}

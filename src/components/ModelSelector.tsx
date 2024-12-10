@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ModelDefinition } from '@/types/processing';
+import { cn } from '@/lib/utils';
 
 interface ModelSelectorProps {
   models: ModelDefinition[];
@@ -140,10 +141,16 @@ export function ModelSelector({
             return (
               <div
                 key={modelId}
-                className="relative flex flex-col p-3 bg-white rounded-lg border shadow-sm"
+                className={cn(
+                  "relative p-4 rounded-lg border bg-card",
+                  "hover:translate-y-[-2px] hover:shadow-md",
+                  "transition-all duration-200",
+                  selectedModels.includes(modelId) && "border-primary",
+                  disabled && "opacity-50 cursor-not-allowed"
+                )}
+                onClick={() => !disabled && handleSelect(modelId)}
               >
                 <button
-                  onClick={() => handleSelect(modelId)}
                   className="absolute top-1.5 right-1.5 p-1 hover:bg-muted/50 rounded-sm"
                 >
                   <X className="h-3.5 w-3.5" />

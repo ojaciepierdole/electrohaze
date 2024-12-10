@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Play, Pause, Camera, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { Upload, Play, Pause, Camera, ChevronDown, ChevronUp, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { SelectedFilesList } from '@/components/SelectedFilesList';
@@ -11,6 +11,7 @@ import { DocumentScanner } from '@/components/DocumentScanner';
 import type { ProcessingResult, BatchProcessingStatus, ModelDefinition } from '@/types/processing';
 import { useDocumentIntelligenceModels } from '@/hooks/useDocumentIntelligenceModels';
 import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 interface FileUploadProps {
   modelIds: string[];
@@ -168,132 +169,156 @@ export function FileUpload({
   }
 
   return (
-    <Card className="overflow-hidden bg-white shadow-lg">
+    <Card className="overflow-hidden bg-white shadow-sm">
       <div className="p-4 border-b bg-muted/40">
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="outline"
-                onClick={() => setIsExpanded(prev => !prev)}
-                className="gap-2"
-              >
-                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                <span>Lista plików</span>
-              </Button>
-              <Button 
-                variant="secondary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const input = document.createElement('input');
-                  input.type = 'file';
-                  input.multiple = true;
-                  input.accept = '.pdf,image/*';
-                  input.onchange = (e) => {
-                    const files = Array.from((e.target as HTMLInputElement).files || []);
-                    onDrop(files);
-                    setIsExpanded(true);
-                  };
-                  input.click();
-                }}
-                disabled={disabled || status.isProcessing}
-                className="gap-2"
-              >
-                <Upload className="w-4 h-4" />
-                Wybierz pliki
-              </Button>
-              {!status.isProcessing && (
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowScanner(true)}
-                  disabled={disabled}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost"
+                  onClick={() => setIsExpanded(prev => !prev)}
                   className="gap-2"
                 >
-                  <Camera className="w-4 h-4" />
-                  Skanuj
+                  {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  <span>Lista plików</span>
                 </Button>
+                <Button 
+                  variant="outline"
+                  size="lg"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.multiple = true;
+                    input.accept = '.pdf,image/*';
+                    input.onchange = (e) => {
+                      const files = Array.from((e.target as HTMLInputElement).files || []);
+                      onDrop(files);
+                      setIsExpanded(true);
+                    };
+                    input.click();
+                  }}
+                  disabled={disabled || status.isProcessing}
+                  className={cn(
+                    "gap-2 font-semibold",
+                    "border-2 border-muted-foreground/20",
+                    "hover:bg-muted/10 hover:border-muted-foreground/30",
+                    "transition-colors"
+                  )}
+                >
+                  <Upload className="w-4 h-4" />
+                  Wybierz pliki
+                </Button>
+                {!status.isProcessing && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowScanner(true)}
+                    disabled={disabled}
+                    className="gap-2"
+                  >
+                    <Camera className="w-4 h-4" />
+                    Skanuj
+                  </Button>
+                )}
+              </div>
+              {files.length > 0 && (
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      Wybrano {files.length} {files.length === 1 ? 'plik' : 'plików'}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setFiles([]);
+                        onStatusUpdate({ totalFiles: 0 });
+                      }}
+                      className="h-6 w-6 p-0 rounded-full hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                      <span className="sr-only">Wyczyść listę</span>
+                    </Button>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      if (status.isProcessing) {
+                        stopProcessing();
+                      } else {
+                        startProcessing();
+                      }
+                    }}
+                    disabled={disabled || files.length === 0}
+                    variant="default"
+                    size="lg"
+                    className="gap-2 font-semibold"
+                  >
+                    {status.isProcessing ? (
+                      <>
+                        <Pause className="w-4 h-4 text-destructive" />
+                        <span className="text-destructive">Zatrzymaj</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4 text-emerald-500" />
+                        Rozpocznij
+                      </>
+                    )}
+                  </Button>
+                </div>
               )}
             </div>
-            {files.length > 0 && (
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-muted-foreground">
-                  Wybrano {files.length} {files.length === 1 ? 'plik' : 'plików'}
+
+            {status.isProcessing && (
+              <div className="flex items-center gap-3 text-sm text-muted-foreground animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  <span>
+                    Przetwarzanie pliku {status.currentFileIndex + 1} z {status.totalFiles}
+                  </span>
+                </div>
+                <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-primary transition-all duration-300 ease-in-out"
+                    style={{ width: `${status.totalProgress}%` }}
+                  />
+                </div>
+                <span className="tabular-nums">
+                  {Math.round(status.totalProgress)}%
                 </span>
-                <Button
-                  onClick={() => {
-                    console.log('Kliknięto przycisk', status.isProcessing ? 'Zatrzymaj' : 'Rozpocznij');
-                    if (status.isProcessing) {
-                      stopProcessing();
-                    } else {
-                      startProcessing();
-                    }
-                  }}
-                  disabled={disabled || files.length === 0}
-                  variant={status.isProcessing ? "destructive" : "default"}
-                  className="gap-2"
-                >
-                  {status.isProcessing ? (
-                    <>
-                      <Pause className="w-4 h-4" />
-                      Zatrzymaj
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-4 h-4" />
-                      Rozpocznij
-                    </>
-                  )}
-                </Button>
               </div>
             )}
-          </div>
 
-          {status.isProcessing && (
-            <div className="flex items-center gap-3 text-sm text-muted-foreground animate-in fade-in">
-              <div className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                <span>
-                  Przetwarzanie pliku {status.currentFileIndex + 1} z {status.totalFiles}
-                </span>
-              </div>
-              <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-primary transition-all duration-300 ease-in-out"
-                  style={{ width: `${status.totalProgress}%` }}
-                />
-              </div>
-              <span className="tabular-nums">
-                {Math.round(status.totalProgress)}%
-              </span>
-            </div>
-          )}
+            <AnimatePresence>
+              {isExpanded && (
+                <motion.div
+                  initial={{ height: 0 }}
+                  animate={{ height: "auto" }}
+                  exit={{ height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div {...getRootProps()} className="rounded-lg border bg-muted/5">
+                    <input {...getInputProps()} />
+                    <div className="max-h-[300px] overflow-y-auto">
+                      <SelectedFilesList
+                        files={files}
+                        onRemoveFile={removeFile}
+                        disabled={status.isProcessing}
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {status.error && (
+              <p className="text-sm text-destructive">{status.error}</p>
+            )}
+          </div>
         </div>
       </div>
-
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0 }}
-            animate={{ height: "auto" }}
-            exit={{ height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <div {...getRootProps()} className="p-4">
-              <input {...getInputProps()} />
-              <SelectedFilesList
-                files={files}
-                onRemoveFile={removeFile}
-                disabled={status.isProcessing}
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {status.error && (
-        <p className="p-4 text-sm text-destructive border-t">{status.error}</p>
-      )}
     </Card>
   );
 } 

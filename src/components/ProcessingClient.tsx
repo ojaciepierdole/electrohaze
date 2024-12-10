@@ -4,75 +4,29 @@ import * as React from 'react';
 import { ModelSelector } from '@/components/ModelSelector';
 import { FileUpload } from '@/components/FileUpload';
 import { BatchProcessingResults } from '@/components/BatchProcessingResults';
+import { ProcessingSummary } from '@/components/ProcessingSummary';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FileText, Clock, Server, Cpu } from 'lucide-react';
 import type { 
   ModelDefinition, 
   ProcessingResult, 
-  BatchProcessingStatus 
+  BatchProcessingStatus,
+  AnalysisLogEntry 
 } from '@/types/processing';
 import { useDocumentIntelligenceModels } from '@/hooks/useDocumentIntelligenceModels';
-import { compressFiles } from '@/utils/compression';
-import { Progress } from "@/components/ui/progress";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-const ProgressIndicator = ({ 
-  status, 
-  totalModels 
-}: { 
-  status: BatchProcessingStatus;
-  totalModels: number;
-}) => {
-  if (!status.isProcessing) return null;
-
-  return (
-    <Card className="w-full bg-white shadow-lg">
-      <CardHeader className="pb-2 border-b">
-        <CardTitle className="text-xl font-bold">Status przetwarzania</CardTitle>
-      </CardHeader>
-      <CardContent className="p-6 space-y-8">
-        <div className="space-y-4">
-          <div className="flex justify-between text-base font-medium">
-            <span>Całkowity postęp</span>
-            <span className="text-primary font-bold">{Math.round(status.totalProgress)}%</span>
-          </div>
-          <div className="relative w-full">
-            <Progress 
-              value={status.totalProgress} 
-              className="h-4 w-full"
-            />
-          </div>
-          <div className="text-sm text-muted-foreground text-center">
-            Przetworzono {status.currentFileIndex * totalModels + (status.currentModelIndex + 1)} z {status.totalFiles * totalModels} operacji
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex justify-between text-base font-medium">
-            <span className="truncate max-w-[80%]">
-              {status.currentFileName 
-                ? `Przetwarzanie: ${status.currentFileName}`
-                : 'Przygotowywanie plików...'}
-            </span>
-            <span className="text-primary font-bold">{Math.round(status.fileProgress)}%</span>
-          </div>
-          <div className="relative w-full">
-            <Progress 
-              value={status.fileProgress} 
-              className="h-4 w-full"
-            />
-          </div>
-          <div className="text-sm text-muted-foreground text-center">
-            Model {status.currentModelIndex + 1} z {totalModels} | Plik {status.currentFileIndex + 1} z {status.totalFiles}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
+import { calculateMedian, calculateConfidence } from '@/utils';
+import { TimeCard } from './TimeCard';
+import { AnalysisResultCard } from '@/components/AnalysisResultCard';
 
 export function ProcessingClient() {
   const [selectedModels, setSelectedModels] = React.useState<string[]>([]);
   const [results, setResults] = React.useState<ProcessingResult[]>([]);
   const [batchId, setBatchId] = React.useState<string>('');
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [currentAnalysis, setCurrentAnalysis] = React.useState<AnalysisLogEntry | null>(null);
+  const [analysisLogs, setAnalysisLogs] = React.useState<AnalysisLogEntry[]>([]);
+  const [currentTotalTime, setCurrentTotalTime] = React.useState(0);
+  const [currentAzureTime, setCurrentAzureTime] = React.useState(0);
   const [processingStatus, setProcessingStatus] = React.useState<BatchProcessingStatus>({
     isProcessing: false,
     currentFileIndex: 0,
@@ -118,60 +72,135 @@ export function ProcessingClient() {
   }, [results]);
 
   return (
-    <div className="space-y-8">
-      <FileUpload
-        modelIds={selectedModels}
-        disabled={isLoading}
-        onStart={handleProcessingStart}
-        onComplete={handleProcessingComplete}
-        batchId={batchId}
-        status={processingStatus}
-        onStatusUpdate={(status) => {
-          // Jeśli aktualizujemy indeksy, przeliczamy postęp
-          if ('currentFileIndex' in status || 'currentModelIndex' in status) {
-            const fileIndex = 'currentFileIndex' in status ? status.currentFileIndex : processingStatus.currentFileIndex;
-            const modelIndex = 'currentModelIndex' in status ? status.currentModelIndex : processingStatus.currentModelIndex;
-            const totalFiles = processingStatus.totalFiles;
-            const totalModels = selectedModels.length;
+    <div className="space-y-6">
+      <Card className="bg-white border">
+        <CardHeader className="border-b">
+          <CardTitle>Przygotowanie analizy</CardTitle>
+        </CardHeader>
+        <CardContent className="p-6 space-y-6">
+          <div>
+            <ModelSelector
+              models={models}
+              selectedModels={selectedModels}
+              onModelSelect={setSelectedModels}
+              disabled={isLoading || processingStatus.isProcessing}
+              isLoading={isLoading}
+              error={error}
+            />
+          </div>
 
-            const totalProgress = calculateProgress(fileIndex, modelIndex, totalFiles, totalModels);
-            const fileProgress = (modelIndex + 1) / totalModels * 100;
+          <div>
+            <FileUpload
+              modelIds={selectedModels}
+              disabled={isLoading}
+              onStart={handleProcessingStart}
+              onComplete={handleProcessingComplete}
+              batchId={batchId}
+              status={processingStatus}
+              onStatusUpdate={(status) => {
+                if ('currentFileIndex' in status || 'currentModelIndex' in status) {
+                  const fileIndex = status.currentFileIndex ?? processingStatus.currentFileIndex;
+                  const modelIndex = status.currentModelIndex ?? processingStatus.currentModelIndex;
+                  const totalFiles = processingStatus.totalFiles;
+                  const totalModels = selectedModels.length;
 
-            setProcessingStatus(prev => ({
-              ...prev,
-              ...status,
-              totalProgress,
-              fileProgress
-            }));
-          } else {
-            setProcessingStatus(prev => ({ ...prev, ...status }));
-          }
-        }}
-      />
+                  const totalProgress = calculateProgress(fileIndex, modelIndex, totalFiles, totalModels);
+                  const fileProgress = ((modelIndex ?? 0) + 1) / totalModels * 100;
 
-      <ModelSelector
-        models={models}
-        selectedModels={selectedModels}
-        onModelSelect={setSelectedModels}
-        disabled={isLoading || processingStatus.isProcessing}
-        isLoading={isLoading}
-        error={error}
-      />
+                  setProcessingStatus(prev => ({
+                    ...prev,
+                    ...status,
+                    totalProgress,
+                    fileProgress
+                  }));
+                } else {
+                  setProcessingStatus(prev => ({ ...prev, ...status }));
+                }
+              }}
+            />
+          </div>
+        </CardContent>
+      </Card>
       
-      {processingStatus.isProcessing && (
-        <div className="relative">
-          <ProgressIndicator 
-            status={processingStatus}
-            totalModels={selectedModels.length}
-          />
+      {!processingStatus.isProcessing && results.length > 0 && (
+        <div className="space-y-4">
+          <Card className="bg-white border">
+            <CardHeader className="border-b">
+              <CardTitle>Podsumowanie analizy</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <ProcessingSummary
+                fileCount={results.length}
+                totalTime={results.reduce((sum, r) => sum + (r.processingTime || 0), 0)}
+                averageConfidence={results.reduce((sum, r) => {
+                  if (!r.modelResults || r.modelResults.length === 0) return sum;
+                  // Oblicz średnią pewność dla każdego modelu
+                  const modelConfidences = r.modelResults.map(mr => {
+                    // Jeśli model ma pola, oblicz średnią pewność pól
+                    if (mr.fields && Object.keys(mr.fields).length > 0) {
+                      const fieldConfidences = Object.values(mr.fields).map(f => f.confidence);
+                      return fieldConfidences.reduce((a, b) => a + b, 0) / fieldConfidences.length;
+                    }
+                    // Jeśli nie ma pól, użyj ogólnej pewności modelu
+                    return mr.confidence;
+                  });
+                  // Oblicz średnią z wszystkich modeli
+                  return sum + (modelConfidences.reduce((a, b) => a + b, 0) / modelConfidences.length);
+                }, 0) / Math.max(results.length, 1)}
+                onExport={handleExport}
+              />
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 gap-4">
+            {results.map((result, index) => (
+              <AnalysisResultCard key={`${result.fileName}-${index}`} result={result} />
+            ))}
+          </div>
         </div>
       )}
       
-      {!processingStatus.isProcessing && results.length > 0 && (
-        <BatchProcessingResults 
-          results={results}
-          onExport={handleExport}
-        />
+      {(isUploading || currentAnalysis) && (
+        <div className="bg-gray-900 p-6 rounded-lg shadow-lg">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold text-white">Przetwarzanie</h3>
+            <div className="flex items-center gap-2 text-gray-400">
+              <FileText className="w-4 h-4" />
+              <span>Przetworzone pliki: {Math.ceil(analysisLogs.length / selectedModels.length)}</span>
+            </div>
+          </div>
+          
+          {/* Czasy z wartościami średnimi i medianą */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <TimeCard
+              title="Czas obróbki"
+              icon={Clock}
+              currentValue={currentTotalTime}
+              lastValue={currentAnalysis?.timings.totalTime || 0}
+              avgValue={analysisLogs.reduce((acc, log) => acc + log.timings.totalTime, 0) / Math.max(analysisLogs.length, 1)}
+              medianValue={calculateMedian(analysisLogs.map(log => log.timings.totalTime))}
+              recordValue={analysisLogs.length > 0 ? Math.min(...analysisLogs.map(log => log.timings.totalTime)) : Infinity}
+            />
+            <TimeCard
+              title="Reakcja Azure"
+              icon={Server}
+              currentValue={currentAzureTime}
+              lastValue={currentAnalysis?.timings.azureResponseTime || 0}
+              avgValue={analysisLogs.reduce((acc, log) => acc + log.timings.azureResponseTime, 0) / Math.max(analysisLogs.length, 1)}
+              medianValue={calculateMedian(analysisLogs.map(log => log.timings.azureResponseTime))}
+              recordValue={analysisLogs.length > 0 ? Math.min(...analysisLogs.map(log => log.timings.azureResponseTime)) : Infinity}
+            />
+            <TimeCard
+              title="Przetwarzanie"
+              icon={Cpu}
+              currentValue={0}
+              lastValue={currentAnalysis?.timings.processingTime || 0}
+              avgValue={analysisLogs.reduce((acc, log) => acc + log.timings.processingTime, 0) / Math.max(analysisLogs.length, 1)}
+              medianValue={calculateMedian(analysisLogs.map(log => log.timings.processingTime))}
+              recordValue={analysisLogs.length > 0 ? Math.min(...analysisLogs.map(log => log.timings.processingTime)) : Infinity}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
