@@ -12,24 +12,44 @@ import { pl } from 'date-fns/locale';
 import { truncateFileName } from '@/utils/processing';
 import { getVendorLogo } from '@/lib/vendors';
 import { FIELD_LABELS } from '@/config/fields';
+import { Button } from '@/components/ui/button';
 
 interface AnalysisResultCardProps {
   result: ProcessingResult;
 }
 
-function formatFieldValue(value: string | null, type: string): string {
+function formatFieldValue(value: string | null, type: string, fieldName: string): string {
   if (!value) return 'b/d';
   
-  // Usuń znaki specjalne
+  // Usuń znaki specjalne z końca
   value = value.replace(/[:.,]$/, '');
   
   // Formatuj daty
-  if (type === 'date' && value.includes('T')) {
+  if (type === 'date' || fieldName.toLowerCase().includes('date') || fieldName.toLowerCase().includes('okres')) {
     try {
-      return format(new Date(value), 'd MMMM yyyy', { locale: pl });
+      // Usuń część czasową jeśli istnieje
+      const dateStr = value.split('T')[0];
+      const date = new Date(dateStr);
+      
+      // Jeśli to okres (od/do), użyj krótszego formatu
+      if (fieldName.toLowerCase().includes('okres')) {
+        return format(date, 'yyyy-MM-dd', { locale: pl });
+      }
+      
+      // Dla innych dat użyj pełnego formatu
+      return format(date, 'd MMMM yyyy', { locale: pl });
     } catch {
       return value;
     }
+  }
+
+  // Formatuj liczby
+  if (type === 'number' || !isNaN(Number(value))) {
+    const num = Number(value);
+    if (fieldName.toLowerCase().includes('usage')) {
+      return `${num.toLocaleString('pl')} kWh`;
+    }
+    return num.toLocaleString('pl');
   }
 
   return value;
@@ -128,67 +148,73 @@ export function AnalysisResultCard({ result }: AnalysisResultCardProps) {
 
   return (
     <Card className="overflow-hidden">
-      <button 
-        onClick={() => setIsExpanded(prev => !prev)}
-        className="w-full p-6 flex justify-between items-start hover:bg-muted/50 transition-colors"
-      >
-        <div className="flex items-start gap-4">
-          {vendorName && !logoError && logoUrl && (
-            <div className="flex-shrink-0 w-8 h-8">
-              <img 
-                src={logoUrl}
-                alt={`Logo ${vendorName}`}
-                className={`w-full h-full object-contain transition-opacity duration-200 ${
-                  logoLoaded ? 'opacity-100' : 'opacity-0'
-                }`}
-                onError={(e) => {
-                  console.error('Logo loading error:', e);
-                  setLogoError(true);
-                }}
-                onLoad={() => {
-                  console.log('Logo loaded successfully');
-                  setLogoLoaded(true);
-                }}
-              />
-            </div>
-          )}
-          <div>
-            <h3 className="text-lg font-semibold text-left">
-              {truncateFileName(result.fileName)}
-            </h3>
-            <div className="text-sm text-muted-foreground space-y-1">
-              <p>Przeanalizowano przez {modelResults.length} model</p>
-              <div className="flex flex-wrap gap-2">
-                {modelConfidences.map(({ modelId, confidence }) => (
-                  <Badge 
-                    key={modelId}
-                    variant={getConfidenceBadgeVariant(confidence)}
-                    className="text-xs"
-                  >
-                    {modelId}: {(confidence * 100).toFixed(1)}%
-                  </Badge>
-                ))}
+      <div className="p-6 border-b bg-muted/40">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start gap-4">
+            {vendorName && !logoError && logoUrl && (
+              <div className="flex-shrink-0 w-8 h-8">
+                <img 
+                  src={logoUrl}
+                  alt={`Logo ${vendorName}`}
+                  className={`w-full h-full object-contain transition-opacity duration-200 ${
+                    logoLoaded ? 'opacity-100' : 'opacity-0'
+                  }`}
+                  onError={(e) => {
+                    console.error('Logo loading error:', e);
+                    setLogoError(true);
+                  }}
+                  onLoad={() => {
+                    console.log('Logo loaded successfully');
+                    setLogoLoaded(true);
+                  }}
+                />
+              </div>
+            )}
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold">
+                {truncateFileName(result.fileName)}
+              </h3>
+              <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <span>Przeanalizowano przez {modelResults.length} {modelResults.length === 1 ? 'model' : 'modele'}</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {modelConfidences.map(({ modelId, confidence }) => (
+                    <Badge 
+                      key={modelId}
+                      variant={getConfidenceBadgeVariant(confidence)}
+                      className="text-xs"
+                    >
+                      {modelId}: {(confidence * 100).toFixed(1)}%
+                    </Badge>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex gap-2">
-            <Badge variant={hasAllRequiredFields ? "outline" : "secondary"}>
-              Wymagane pola
-            </Badge>
-            <Badge variant={hasHighConfidence ? "outline" : "secondary"}>
-              Wysoka pewność
-            </Badge>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-2">
+              <Badge variant={hasAllRequiredFields ? "outline" : "secondary"}>
+                Wymagane pola
+              </Badge>
+              <Badge variant={hasHighConfidence ? "outline" : "secondary"}>
+                Wysoka pewność
+              </Badge>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsExpanded(prev => !prev)}
+            >
+              {isExpanded ? (
+                <ChevronUp className="w-4 h-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              )}
+            </Button>
           </div>
-          {isExpanded ? (
-            <ChevronUp className="w-4 h-4 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-muted-foreground" />
-          )}
         </div>
-      </button>
-
+      </div>
       <AnimatePresence>
         {isExpanded && (
           <motion.div
@@ -198,46 +224,59 @@ export function AnalysisResultCard({ result }: AnalysisResultCardProps) {
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="px-6 pb-6 space-y-6">
+            <div className="divide-y">
               {Object.entries(FIELD_GROUPS).map(([groupKey, group]) => {
                 const groupFields = groupedFields[groupKey as FieldGroupKey];
                 if (!groupFields || Object.keys(groupFields).length === 0) return null;
 
                 return (
-                  <div key={groupKey} className="space-y-2">
-                    <div className="flex items-center gap-2 pb-2 border-b">
-                      <group.icon className="w-4 h-4" />
-                      <h4 className="font-medium">{group.name}</h4>
+                  <div key={groupKey} className="p-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <group.icon className="w-5 h-5 text-muted-foreground" />
+                      <h4 className="font-medium text-lg">{group.name}</h4>
                     </div>
-                    <div className="grid gap-1">
+                    <div className="grid gap-2">
                       {Object.entries(groupFields).map(([fieldName, field], index) => {
                         const isRequired = group.requiredFields.includes(fieldName);
                         const hasValue = Boolean(field.content);
-                        const formattedValue = formatFieldValue(field.content, field.type);
+                        const formattedValue = formatFieldValue(
+                          field.content, 
+                          field.type,
+                          fieldName
+                        );
 
                         return (
                           <div 
                             key={fieldName} 
-                            className={`flex justify-between items-start p-2 rounded-md ${
+                            className={`flex justify-between items-start p-3 rounded-md ${
                               hasValue ? 'hover:bg-muted/50' : 'opacity-75'
-                            } ${index % 2 === 0 ? 'bg-muted/25' : ''}`}
+                            } ${index % 2 === 0 ? 'bg-muted/10' : ''}`}
                           >
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
-                                <span className="font-medium">{getFieldLabel(fieldName)}</span>
+                                <span className="font-medium">
+                                  {getFieldLabel(fieldName)}
+                                </span>
                                 {isRequired && (
-                                  <Badge variant={hasValue ? "outline" : "secondary"} className="text-xs">
+                                  <Badge 
+                                    variant={hasValue ? "outline" : "secondary"} 
+                                    className="text-xs"
+                                  >
                                     Wymagane
                                   </Badge>
                                 )}
                               </div>
-                              <div className={hasValue ? 'text-foreground' : 'text-muted-foreground'}>
+                              <div className={
+                                hasValue 
+                                  ? 'text-foreground mt-1' 
+                                  : 'text-muted-foreground mt-1'
+                              }>
                                 {formattedValue}
                               </div>
                             </div>
                             <Badge 
                               variant={getConfidenceBadgeVariant(field.confidence)}
-                              className="ml-2"
+                              className="ml-2 self-start"
                             >
                               {(field.confidence * 100).toFixed(1)}%
                             </Badge>

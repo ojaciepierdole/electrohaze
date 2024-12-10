@@ -121,13 +121,36 @@ export const FIELD_LABELS: Record<string, string> = {
   NetAmount: 'Kwota netto',
   VatAmount: 'Kwota VAT',
   VatRate: 'Stawka VAT',
+  BilledUsage: 'Zużycie za okres',
 
   // Dane sprzedawcy
-  SupplierName: 'Nazwa sprzedawcy',
-  SupplierTaxId: 'NIP',
-  SupplierRegion: 'Region OSD',
+  supplierName: 'Sprzedawca',
+  OSD_name: 'Dystrybutor',
+  OSD_region: 'Region OSD',
+  taxID: 'NIP',
+  
+  // Dane klienta
+  FirstName: 'Imię',
+  LastName: 'Nazwisko',
+  PostalCode: 'Kod pocztowy',
+  Street: 'Ulica',
+  Building: 'Numer budynku',
+  Unit: 'Numer lokalu',
+  City: 'Miejscowość',
 
-  // Adres właściwy
+  // Dane punktu poboru
+  ppeNum: 'Numer PPE',
+  TariffGroup: 'Grupa taryfowa',
+  Usage12m: 'Zużycie roczne',
+  ConsumptionValue: 'Zużycie',
+  ConsumptionUnit: 'Jednostka',
+  ReadingType: 'Typ odczytu',
+  
+  // Dane produktu
+  ProductName: 'Nazwa produktu',
+  ProductCode: 'Kod produktu',
+
+  // Domyślne mapowania dla adresów
   CustomerName: 'Nazwa',
   CustomerTaxId: 'NIP',
   CustomerStreet: 'Ulica',
@@ -136,7 +159,6 @@ export const FIELD_LABELS: Record<string, string> = {
   CustomerCity: 'Miejscowość',
   CustomerPostalCode: 'Kod pocztowy',
 
-  // Adres korespondencyjny
   PostalName: 'Nazwa',
   PostalStreet: 'Ulica',
   PostalBuilding: 'Numer budynku',
@@ -144,22 +166,9 @@ export const FIELD_LABELS: Record<string, string> = {
   PostalCity: 'Miejscowość',
   PostalPostalCode: 'Kod pocztowy',
 
-  // Miejsce dostawy
-  PPENumber: 'Numer PPE',
   DeliveryStreet: 'Ulica',
   DeliveryBuilding: 'Numer budynku',
   DeliveryUnit: 'Numer lokalu',
   DeliveryCity: 'Miejscowość',
-  DeliveryPostalCode: 'Kod pocztowy',
-  TariffGroup: 'Grupa taryfowa',
-
-  // Dane zużycia
-  ConsumptionValue: 'Zużycie',
-  ConsumptionUnit: 'Jednostka',
-  Consumption12m: 'Zużycie roczne',
-  ReadingType: 'Typ odczytu',
-  
-  // Dane produktu
-  ProductName: 'Nazwa produktu',
-  ProductCode: 'Kod produktu'
+  DeliveryPostalCode: 'Kod pocztowy'
 };
