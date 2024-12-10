@@ -2,15 +2,6 @@ import type { AddressSet } from '@/types/processing';
 
 // Mapowanie pól z przedrostkiem "dp" na standardowe pola
 const DP_FIELD_MAPPING: Record<string, keyof AddressSet> = {
-  // Pola z dwukropkiem
-  'dpFirstName:': 'FirstName',
-  'dpLastName:': 'LastName',
-  'dpStreet:': 'Street',
-  'dpBuilding:': 'Building',
-  'dpUnit:': 'Unit',
-  'dpCity:': 'City',
-  'dpPostalCode:': 'PostalCode',
-  // Warianty bez dwukropka
   'dpFirstName': 'FirstName',
   'dpLastName': 'LastName',
   'dpStreet': 'Street',
@@ -18,20 +9,11 @@ const DP_FIELD_MAPPING: Record<string, keyof AddressSet> = {
   'dpUnit': 'Unit',
   'dpCity': 'City',
   'dpPostalCode': 'PostalCode',
-  // Warianty z polskimi etykietami
-  'Imię:': 'FirstName',
-  'Nazwisko:': 'LastName',
-  'Ulica:': 'Street',
-  'Budynek:': 'Building',
-  'Lokal:': 'Unit',
-  'Miejscowość:': 'City',
-  'Kod pocztowy:': 'PostalCode',
-  'Nazwa firmy:': 'CompanyName'
+  'dpCompanyName': 'CompanyName'
 };
 
-// Mapowanie pól na ich etykiety w sekcji "Dane biznesowe"
-const DP_LABEL_MAPPING: Record<string, string> = {
-  // Standardowe pola dp
+// Mapowanie pól na polskie etykiety
+const POLISH_LABELS: Record<string, string> = {
   'dpFirstName': 'Imię:',
   'dpLastName': 'Nazwisko:',
   'dpStreet': 'Ulica:',
@@ -40,44 +22,38 @@ const DP_LABEL_MAPPING: Record<string, string> = {
   'dpCity': 'Miejscowość:',
   'dpPostalCode': 'Kod pocztowy:',
   'dpCompanyName': 'Nazwa firmy:',
-  // Pola z dwukropkiem
-  'dpFirstName:': 'Imię:',
-  'dpLastName:': 'Nazwisko:',
-  'dpStreet:': 'Ulica:',
-  'dpBuilding:': 'Budynek:',
-  'dpUnit:': 'Lokal:',
-  'dpCity:': 'Miejscowość:',
-  'dpPostalCode:': 'Kod pocztowy:',
-  'dpCompanyName:': 'Nazwa firmy:',
-  // Polskie etykiety (dla spójności)
-  'Imię:': 'Imię:',
-  'Nazwisko:': 'Nazwisko:',
-  'Ulica:': 'Ulica:',
-  'Budynek:': 'Budynek:',
-  'Lokal:': 'Lokal:',
-  'Miejscowość:': 'Miejscowość:',
-  'Kod pocztowy:': 'Kod pocztowy:',
-  'Nazwa firmy:': 'Nazwa firmy:'
+  'EnergySaleBreakdown': 'Szczegóły sprzedaży energii:',
+  'SettlementDetails': 'Szczegóły rozliczenia:',
+  'NetPriceZone1': 'Cena netto strefa 1:',
+  'NetPriceZone2': 'Cena netto strefa 2:',
+  'UnitNetPrice': 'Cena jednostkowa netto:',
+  'ProductName': 'Nazwa produktu:',
+  'CompanyName': 'Nazwa firmy:',
+  'NIP': 'NIP:'
 };
 
 function normalizeFieldName(field: string): string {
   // Usuń dwukropek jeśli istnieje
   const withoutColon = field.endsWith(':') ? field.slice(0, -1) : field;
-  
-  // Mapowanie polskich nazw na pola dp
-  const polishToDP: Record<string, string> = {
-    'Imię': 'dpFirstName',
-    'Nazwisko': 'dpLastName',
-    'Ulica': 'dpStreet',
-    'Budynek': 'dpBuilding',
-    'Lokal': 'dpUnit',
-    'Miejscowość': 'dpCity',
-    'Kod pocztowy': 'dpPostalCode',
-    'Nazwa firmy': 'dpCompanyName'
-  };
+  return withoutColon.replace(/^dp/, ''); // Usuń przedrostek "dp" jeśli istnieje
+}
 
-  // Jeśli to polska nazwa, zamień na odpowiednik dp
-  return polishToDP[withoutColon] || withoutColon;
+function getPolishLabel(field: string): string {
+  // Usuń dwukropek jeśli istnieje
+  const baseField = field.endsWith(':') ? field.slice(0, -1) : field;
+  
+  // Sprawdź czy mamy bezpośrednie mapowanie
+  if (POLISH_LABELS[baseField]) {
+    return POLISH_LABELS[baseField];
+  }
+  
+  // Jeśli nie, spróbuj znaleźć po nazwie bez przedrostka "dp"
+  const normalizedField = normalizeFieldName(baseField);
+  const matchingKey = Object.keys(POLISH_LABELS).find(key => 
+    normalizeFieldName(key) === normalizedField
+  );
+  
+  return matchingKey ? POLISH_LABELS[matchingKey] : `${field}:`;
 }
 
 function normalizeUnit(unit: string): string {
@@ -163,26 +139,7 @@ function copyDpFields(data: AddressSet): AddressSet {
 
   // Kopiujemy wartości z pól dp do standardowych pól
   for (const [dpField, standardField] of Object.entries(DP_FIELD_MAPPING)) {
-    // Normalizujemy nazwę pola
-    const normalizedField = normalizeFieldName(dpField);
-    
-    // Sprawdzamy wszystkie warianty pola
-    const variants = [
-      dpField,                    // Oryginalne pole
-      `${normalizedField}:`,      // Z dwukropkiem
-      normalizedField,            // Bez dwukropka
-      DP_LABEL_MAPPING[dpField]   // Polski odpowiednik
-    ];
-
-    // Szukamy wartości w każdym wariancie pola
-    let value: string | undefined;
-    for (const variant of variants) {
-      if (variant) {
-        value = enriched[variant as keyof AddressSet];
-        if (value) break;
-      }
-    }
-
+    const value = enriched[dpField as keyof AddressSet];
     if (value && (!enriched[standardField] || enriched[standardField] === '')) {
       enriched[standardField] = value;
     }
@@ -240,26 +197,14 @@ export function normalizeAndSplitAddressNumbers(data: AddressSet): AddressSet {
   for (const [dpField, standardField] of Object.entries(DP_FIELD_MAPPING)) {
     const standardValue = enriched[standardField];
     if (standardValue) {
-      // Aktualizujemy wszystkie warianty pola
-      const normalizedField = normalizeFieldName(dpField);
-      const polishLabel = DP_LABEL_MAPPING[normalizedField];
-
-      if (polishLabel) {
-        enriched[polishLabel as keyof AddressSet] = standardValue;
-      }
-      enriched[`${normalizedField}:` as keyof AddressSet] = standardValue;
-      enriched[normalizedField as keyof AddressSet] = standardValue;
+      enriched[dpField as keyof AddressSet] = standardValue;
     }
   }
 
   return enriched;
 }
 
-// Eksportujemy mapowanie etykiet dla użycia w interfejsie
-export const getDpFieldLabel = (field: string): string => {
-  // Normalizujemy nazwę pola
-  const normalizedField = normalizeFieldName(field);
-  
-  // Zwracamy polską etykietę lub oryginalną nazwę z dwukropkiem
-  return DP_LABEL_MAPPING[normalizedField] || `${field}:`;
+// Eksportujemy funkcję do pobierania polskich etykiet
+export const getFieldLabel = (field: string): string => {
+  return getPolishLabel(field);
 }; 

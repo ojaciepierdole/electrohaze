@@ -11,9 +11,9 @@ import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { truncateFileName } from '@/utils/processing';
 import { getVendorLogo } from '@/lib/vendors';
-import { FIELD_LABELS } from '@/config/fields';
 import { Button } from '@/components/ui/button';
 import { formatText } from '@/utils/text';
+import { getFieldLabel } from '@/utils/address-helpers';
 
 interface AnalysisResultCardProps {
   result: GroupedResult;
@@ -62,10 +62,6 @@ function getConfidenceBadgeVariant(confidence: number): "default" | "outline" | 
   if (confidence >= 0.85) return "secondary";
   if (confidence >= 0.75) return "default";
   return "destructive";
-}
-
-function getFieldLabel(fieldName: string): string {
-  return FIELD_LABELS[fieldName] || fieldName;
 }
 
 interface ModelConfidence {
@@ -174,7 +170,7 @@ function FieldRow({
     >
       <div className="flex items-center gap-2 min-w-0">
         <span className="text-sm text-muted-foreground whitespace-nowrap">
-          {getFieldLabel(fieldName)}:
+          {getFieldLabel(fieldName)}
         </span>
         <span className={`text-sm font-medium truncate ${
           hasValue ? 'text-foreground' : 'text-muted-foreground italic'
