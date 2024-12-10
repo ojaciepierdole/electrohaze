@@ -180,20 +180,18 @@ function FieldRow({
   const isPPE = fieldName === 'ppeNum';
 
   return (
-    <div className={`flex items-center justify-between py-1.5 px-2 rounded group ${
-      hasValue ? 'hover:bg-muted/50' : 'opacity-75'
-    }`}
+    <div className={`flex items-center justify-between py-1.5 px-2 rounded group`}
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">
-        <div className="flex items-center gap-2 w-[180px] flex-shrink-0">
-          <span className="text-sm text-muted-foreground whitespace-nowrap">
+        <div className="flex items-center gap-2 w-[240px] flex-shrink-0">
+          <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
             {getFieldLabel(fieldName)}:
           </span>
-          <span className="border-b border-dotted border-muted-foreground/70 flex-1" />
+          <span className="border-b border-border flex-1" />
         </div>
-        <div className="pl-8">
-          <span className={`text-sm font-semibold text-foreground ${
-            isPPE ? 'bg-muted/50 px-3 py-1 rounded-md font-mono tracking-wider' : ''
+        <div className="ml-[60px]">
+          <span className={`text-sm font-medium text-muted-foreground/90 ${
+            isPPE ? 'bg-accent/30 px-3 py-1 rounded-md font-mono tracking-wider' : ''
           }`}>
             {formattedValue}
           </span>
@@ -208,7 +206,7 @@ function FieldRow({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-shrink-0 ml-8">
+      <div className="flex items-center gap-2 flex-shrink-0">
         {modelResults.map(model => {
           const confidence = field?.confidences?.[model.modelId] || 0;
           return (
@@ -255,8 +253,8 @@ function SectionHeader({
             <h4 className="text-lg font-semibold">{group.name}</h4>
           </div>
           {ppeNumber && (
-            <div className="bg-muted/50 rounded-md pl-[212px]">
-              <span className="font-mono text-lg font-bold tracking-wider">
+            <div className="ml-[60px]">
+              <span className="bg-accent/30 px-3 py-1 rounded-md font-mono text-lg font-bold tracking-wider text-muted-foreground/90">
                 {ppeNumber}
               </span>
             </div>
