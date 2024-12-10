@@ -14,24 +14,47 @@ const DP_FIELD_MAPPING: Record<string, keyof AddressSet> = {
 
 // Mapowanie pól na polskie etykiety
 const POLISH_LABELS: Record<string, string> = {
-  // Podstawowe etykiety
-  'FirstName': 'Imię:',
-  'LastName': 'Nazwisko:',
-  'Street': 'Ulica:',
-  'Building': 'Budynek:',
-  'Unit': 'Lokal:',
-  'City': 'Miejscowość:',
-  'PostalCode': 'Kod pocztowy:',
-  'CompanyName': 'Nazwa firmy:',
+  // Dane nabywcy (bez prefiksów)
+  'FirstName': 'Imię',
+  'LastName': 'Nazwisko',
+  'Street': 'Ulica',
+  'Building': 'Budynek',
+  'Unit': 'Lokal',
+  'PostalCode': 'Kod pocztowy',
+  'City': 'Miejscowość',
 
-  // Pola biznesowe
-  'EnergySaleBreakdown': 'Szczegóły sprzedaży energii:',
-  'SettlementDetails': 'Szczegóły rozliczenia:',
-  'NetPriceZone1': 'Cena netto strefa 1:',
-  'NetPriceZone2': 'Cena netto strefa 2:',
-  'UnitNetPrice': 'Cena jednostkowa netto:',
-  'ProductName': 'Nazwa produktu:',
-  'NIP': 'NIP:'
+  // Punkt Poboru Energii
+  'ppeNum': 'Numer PPE',
+  'supplierName': 'Sprzedawca',
+  'OSD_name': 'Dystrybutor',
+  'OSD_region': 'Region',
+  'ProductName': 'Produkt',
+  'dpStreet': 'Ulica',
+  'dpBuilding': 'Budynek',
+  'dpUnit': 'Lokal',
+  'dpPostalCode': 'Kod pocztowy',
+  'dpCity': 'Miejscowość',
+  'dpFirstName': 'Imię',
+  'dpLastName': 'Nazwisko',
+
+  // Informacje o zużyciu
+  'Tariff': 'Taryfa',
+  'InvoiceType': 'Typ dokumentu',
+  'BillingStartDate': 'Okres od',
+  'BillingEndDate': 'Okres do',
+  'BilledUsage': 'Naliczone zużycie',
+  'ReadingType': 'Typ odczytu',
+  'Usage12m': 'Zużycie roczne',
+
+  // Adres korespondencyjny
+  'paTitle': 'Tytuł',
+  'paFirstName': 'Imię',
+  'paLastName': 'Nazwisko',
+  'paStreet': 'Ulica',
+  'paBuilding': 'Budynek',
+  'paUnit': 'Lokal',
+  'paPostalCode': 'Kod pocztowy',
+  'paCity': 'Miejscowość'
 };
 
 function normalizeFieldName(field: string): string {
@@ -201,17 +224,11 @@ export function normalizeAndSplitAddressNumbers(data: AddressSet): AddressSet {
 
 // Eksportujemy funkcję do pobierania polskich etykiet
 export function getFieldLabel(fieldName: string): string {
-  // Najpierw sprawdź czy pole ma bezpośrednie mapowanie w FIELD_LABELS
+  // Najpierw sprawdź czy pole ma bezpośrednie mapowanie w POLISH_LABELS
   if (fieldName in POLISH_LABELS) {
     return POLISH_LABELS[fieldName];
   }
 
-  // Jeśli nie ma bezpośredniego mapowania, usuń prefiks i spróbuj ponownie
-  const withoutPrefix = fieldName.replace(/^(dp|pa)/, '');
-  if (withoutPrefix in POLISH_LABELS) {
-    return POLISH_LABELS[withoutPrefix];
-  }
-
-  // Jeśli nadal nie znaleziono, zwróć oryginalną nazwę pola
+  // Jeśli nie znaleziono mapowania, zwróć oryginalną nazwę pola
   return fieldName;
 } 

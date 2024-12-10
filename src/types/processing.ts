@@ -1,10 +1,8 @@
 import { FIELD_GROUPS } from '@/config/fields';
 
 export type FieldGroupKey = 
-  | 'supplier_data'
+  | 'buyer_data'
   | 'delivery_point'
-  | 'business_data'
-  | 'primary_address'
   | 'postal_address'
   | 'consumption_info';
 

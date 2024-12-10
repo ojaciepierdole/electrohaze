@@ -77,18 +77,25 @@ function getConfidenceColor(confidence: number): string {
   return 'text-red-600 bg-red-50';
 }
 
+interface GroupedFieldsProps {
+  fields: [string, {
+    content: string | null;
+    confidences: Record<string, number>;
+    type: string;
+    definition: any;
+  } | undefined][];
+  modelResults: ProcessingResult['results'][0][];
+  isRequired: (fieldName: string) => boolean;
+}
+
 function GroupedFields({ 
   fields, 
   modelResults, 
   isRequired 
-}: { 
-  fields: [string, any][],
-  modelResults: ProcessingResult['results'][0][],
-  isRequired: (fieldName: string) => boolean
-}) {
+}: GroupedFieldsProps) {
   const [isExpanded, setIsExpanded] = React.useState(false);
-  const foundFields = fields.filter(([_, field]) => Boolean(field.content));
-  const notFoundFields = fields.filter(([_, field]) => !field.content);
+  const foundFields = fields.filter(([_, field]) => Boolean(field?.content));
+  const notFoundFields = fields.filter(([_, field]) => !field?.content);
 
   return (
     <div className="space-y-1">
@@ -145,51 +152,65 @@ function GroupedFields({
   );
 }
 
+interface FieldRowProps {
+  fieldName: string;
+  field: {
+    content: string | null;
+    confidences: Record<string, number>;
+    type: string;
+    definition: any;
+  } | undefined;
+  modelResults: ProcessingResult['results'][0][];
+  isRequired: boolean;
+}
+
 function FieldRow({ 
   fieldName, 
   field, 
   modelResults, 
   isRequired 
-}: { 
-  fieldName: string;
-  field: any;
-  modelResults: ProcessingResult['results'][0][];
-  isRequired: boolean;
-}) {
-  const hasValue = Boolean(field.content);
+}: FieldRowProps) {
+  const hasValue = Boolean(field?.content);
   const formattedValue = formatFieldValue(
-    field.content ? formatText(field.content) : field.content,
-    field.type,
+    field?.content ? formatText(field.content) : field?.content,
+    field?.type || '',
     fieldName
   );
 
+  const isPPE = fieldName === 'ppeNum';
+
   return (
-    <div className={`flex items-center justify-between py-1.5 px-2 rounded ${
+    <div className={`flex items-center justify-between py-1.5 px-2 rounded group ${
       hasValue ? 'hover:bg-muted/50' : 'opacity-75'
-    } ${hasValue ? 'bg-muted/5' : ''}`}
+    }`}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-sm text-muted-foreground whitespace-nowrap">
-          {getFieldLabel(fieldName)}
-        </span>
-        <span className={`text-sm font-medium truncate ${
-          hasValue ? 'text-foreground' : 'text-muted-foreground italic'
-        }`}>
-          {formattedValue}
-        </span>
-        {isRequired && (
-          <Badge 
-            variant="outline"
-            className="text-xs px-1.5 py-0"
-          >
-            Wymagane
-          </Badge>
-        )}
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <div className="flex items-center gap-2 w-[180px] flex-shrink-0">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
+            {getFieldLabel(fieldName)}:
+          </span>
+          <span className="border-b border-dotted border-muted-foreground/70 flex-1" />
+        </div>
+        <div className="pl-8">
+          <span className={`text-sm font-semibold text-foreground ${
+            isPPE ? 'bg-muted/50 px-3 py-1 rounded-md font-mono tracking-wider' : ''
+          }`}>
+            {formattedValue}
+          </span>
+          {isRequired && (
+            <Badge 
+              variant="outline"
+              className="text-xs px-1.5 py-0 ml-2"
+            >
+              Wymagane
+            </Badge>
+          )}
+        </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="flex items-center gap-2 flex-shrink-0 ml-8">
         {modelResults.map(model => {
-          const confidence = field.confidences[model.modelId] || 0;
+          const confidence = field?.confidences?.[model.modelId] || 0;
           return (
             <span 
               key={model.modelId}
@@ -205,6 +226,60 @@ function FieldRow({
     </div>
   );
 }
+
+function SectionHeader({ 
+  group, 
+  groupFields, 
+  modelResults 
+}: { 
+  group: FieldGroup;
+  groupFields: Record<string, any>;
+  modelResults: ProcessingResult['results'][0][];
+}) {
+  const ppeNumber = group.fields.includes('ppeNum') ? groupFields['ppeNum']?.content : null;
+  const sectionConfidence = Object.values(groupFields).reduce((acc, field) => {
+    if (!field || !field.confidences) return acc;
+    const avgFieldConfidence = Object.values(field.confidences)
+      .reduce((sum, conf) => sum + conf, 0) / modelResults.length;
+    return acc + avgFieldConfidence;
+  }, 0) / Object.keys(groupFields).length || 0;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between mb-3 pb-2 border-b">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-md bg-muted">
+              <group.icon className="w-4 h-4 text-foreground" />
+            </div>
+            <h4 className="text-lg font-semibold">{group.name}</h4>
+          </div>
+          {ppeNumber && (
+            <div className="bg-muted/50 rounded-md pl-[212px]">
+              <span className="font-mono text-lg font-bold tracking-wider">
+                {ppeNumber}
+              </span>
+            </div>
+          )}
+        </div>
+        <Badge 
+          variant="outline"
+          className={`px-3 py-1 ${getConfidenceColor(sectionConfidence)}`}
+        >
+          {(sectionConfidence * 100).toFixed(1)}%
+        </Badge>
+      </div>
+    </div>
+  );
+}
+
+// Stała kolejność sekcji
+const SECTION_ORDER: FieldGroupKey[] = [
+  'buyer_data',
+  'delivery_point',
+  'consumption_info',
+  'postal_address'
+];
 
 export function AnalysisResultCard({ result, modelResults }: AnalysisResultCardProps) {
   const [isExpanded, setIsExpanded] = React.useState(false);
@@ -222,14 +297,27 @@ export function AnalysisResultCard({ result, modelResults }: AnalysisResultCardP
     }>>;
 
     // Inicjalizuj strukturę grup
-    Object.keys(FIELD_GROUPS).forEach(groupKey => {
-      combined[groupKey as FieldGroupKey] = {};
+    SECTION_ORDER.forEach(groupKey => {
+      combined[groupKey] = {};
     });
 
     // Połącz wyniki z wszystkich modeli
     modelResults.forEach(modelResult => {
       Object.entries(modelResult.fields).forEach(([fieldName, field]) => {
         const group = field.definition.group;
+        
+        // Sprawdź czy grupa istnieje w konfiguracji
+        if (!FIELD_GROUPS[group]) {
+          console.warn(`Nieznana grupa pól: ${group} dla pola ${fieldName}`);
+          return;
+        }
+
+        // Sprawdź czy grupa jest zainicjalizowana w combined
+        if (!combined[group]) {
+          combined[group] = {};
+        }
+
+        // Standardowe dodawanie pola do jego grupy
         if (!combined[group][fieldName]) {
           combined[group][fieldName] = {
             content: field.content,
@@ -370,32 +458,24 @@ export function AnalysisResultCard({ result, modelResults }: AnalysisResultCardP
             className="overflow-hidden"
           >
             <div className="divide-y divide-muted">
-              {Object.entries(FIELD_GROUPS).map(([groupKey, group]) => {
-                const groupFields = combinedFields[groupKey as FieldGroupKey];
-                if (!Object.keys(groupFields).length) return null;
+              {SECTION_ORDER.map(groupKey => {
+                const group = FIELD_GROUPS[groupKey];
+                const groupFields = combinedFields[groupKey];
+                
+                // Sprawdź czy grupa ma jakiekolwiek pola
+                const hasAnyFields = group.fields.some(fieldName => 
+                  groupFields[fieldName] && groupFields[fieldName].content
+                );
 
-                const sectionConfidence = Object.values(groupFields).reduce((acc, field) => {
-                  const avgFieldConfidence = Object.values(field.confidences)
-                    .reduce((sum, conf) => sum + conf, 0) / modelResults.length;
-                  return acc + avgFieldConfidence;
-                }, 0) / Object.keys(groupFields).length;
+                if (!hasAnyFields) return null;
 
                 return (
                   <div key={groupKey} className="p-4">
-                    <div className="flex items-center justify-between mb-3 pb-2 border-b">
-                      <div className="flex items-center gap-2">
-                        <div className="p-1.5 rounded-md bg-muted">
-                          <group.icon className="w-4 h-4 text-foreground" />
-                        </div>
-                        <h4 className="text-lg font-semibold">{group.name}</h4>
-                      </div>
-                      <Badge 
-                        variant="outline"
-                        className={`px-3 py-1 ${getConfidenceColor(sectionConfidence)}`}
-                      >
-                        {(sectionConfidence * 100).toFixed(1)}%
-                      </Badge>
-                    </div>
+                    <SectionHeader 
+                      group={group}
+                      groupFields={groupFields}
+                      modelResults={modelResults}
+                    />
 
                     <GroupedFields 
                       fields={Object.entries(groupFields)}

@@ -14,21 +14,39 @@ interface FieldGroup {
 }
 
 export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
+  buyer_data: {
+    name: 'Dane nabywcy',
+    icon: User,
+    fields: [
+      'FirstName',
+      'LastName',
+      'Street',
+      'Building',
+      'Unit',
+      'PostalCode',
+      'City'
+    ] as const,
+    requiredFields: ['FirstName', 'LastName']
+  },
+
   delivery_point: {
     name: 'Punkt Poboru Energii',
     icon: Plug,
     fields: [
+      'supplierName',
       'ppeNum',
-      'Title',
-      'FirstName',
-      'LastName',
-      'PostalCode',
-      'City',
-      'Street',
-      'Building',
-      'Unit'
+      'OSD_name',
+      'OSD_region',
+      'ProductName',
+      'dpStreet',
+      'dpBuilding',
+      'dpUnit',
+      'dpPostalCode',
+      'dpCity',
+      'dpFirstName',
+      'dpLastName'
     ] as const,
-    requiredFields: ['ppeNum']
+    requiredFields: ['ppeNum', 'supplierName']
   },
 
   consumption_info: {
@@ -37,47 +55,13 @@ export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
     fields: [
       'Tariff',
       'InvoiceType',
-      'ReadingType',
       'BillingStartDate',
       'BillingEndDate',
-      'ConsumptionValue',
+      'BilledUsage',
+      'ReadingType',
       'Usage12m'
     ] as const,
-    requiredFields: ['ConsumptionValue']
-  },
-
-  supplier_data: {
-    name: 'Dane sprzedawcy',
-    icon: Briefcase,
-    fields: [
-      'supplierName',
-      'OSD_name',
-      'OSD_region'
-    ] as const,
-    requiredFields: ['supplierName']
-  },
-
-  business_data: {
-    name: 'Dane biznesowe',
-    icon: FileBarChart,
-    fields: [
-      'BusinessName',
-      'taxID'
-    ] as const,
-    requiredFields: ['BusinessName']
-  },
-
-  primary_address: {
-    name: 'Adres podstawowy',
-    icon: Home,
-    fields: [
-      'Street',
-      'Building',
-      'Unit',
-      'City',
-      'PostalCode'
-    ] as const,
-    requiredFields: ['Street', 'Building', 'City', 'PostalCode']
+    requiredFields: ['BilledUsage']
   },
 
   postal_address: {
@@ -90,8 +74,8 @@ export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
       'paStreet',
       'paBuilding',
       'paUnit',
-      'paCity',
-      'paPostalCode'
+      'paPostalCode',
+      'paCity'
     ] as const,
     requiredFields: []
   }
@@ -128,7 +112,6 @@ export const FIELD_LABELS: Record<string, string> = {
   paStreet: 'Ulica',
   paBuilding: 'Budynek',
   paUnit: 'Lokal',
-  paCity: 'Miejscowość',
   paPostalCode: 'Kod pocztowy',
   paBusinessName: 'Nazwa firmy',
 

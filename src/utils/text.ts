@@ -4,7 +4,7 @@
  * - Jeśli tekst jest w całości małymi literami, zamienia na format zdania
  * - W przeciwnym razie zostawia bez zmian
  */
-export function formatText(text: string | null): string {
+export function formatText(text: string | null | undefined): string {
   if (!text) return '';
 
   // Sprawdź czy tekst jest w całości wielkimi lub małymi literami
@@ -12,14 +12,10 @@ export function formatText(text: string | null): string {
   const isAllLower = text === text.toLowerCase();
 
   if (isAllUpper || isAllLower) {
-    // Zamień na małe litery i podziel na słowa
-    const words = text.toLowerCase().split(/\s+/);
-    
-    // Zamień pierwszą literę każdego słowa na wielką
-    return words
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+    // Zamień pierwszą literę na wielką, resztę na małe
+    return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
   }
 
+  // Jeśli tekst ma mieszane wielkości liter, zostaw go bez zmian
   return text;
 } 
