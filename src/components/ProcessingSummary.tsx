@@ -9,9 +9,10 @@ export interface ProcessingSummaryProps {
   fileCount: number;
   totalTime: number;
   averageConfidence: number;
+  onExport: () => void;
 }
 
-export function ProcessingSummary({ fileCount, totalTime, averageConfidence }: ProcessingSummaryProps) {
+export function ProcessingSummary({ fileCount, totalTime, averageConfidence, onExport }: ProcessingSummaryProps) {
   // Konwertuj timestamp na czytelny format
   const formatTime = (ms: number) => {
     if (ms < 1000) return `${ms.toFixed(0)}ms`;
@@ -51,6 +52,7 @@ export function ProcessingSummary({ fileCount, totalTime, averageConfidence }: P
         <Button 
           variant="outline" 
           className="gap-2"
+          onClick={onExport}
         >
           <Download className="w-4 h-4" />
           Eksportuj wyniki

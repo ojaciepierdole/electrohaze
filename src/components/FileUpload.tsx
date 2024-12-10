@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Play, Pause, Camera, ChevronDown, ChevronUp } from 'lucide-react';
+import { Upload, Play, Pause, Camera, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { SelectedFilesList } from '@/components/SelectedFilesList';
@@ -19,6 +19,8 @@ interface FileUploadProps {
   onStart?: () => void;
   onComplete: (results: ProcessingResult[]) => void;
   batchId: string;
+  status: BatchProcessingStatus;
+  onStatusUpdate: (status: Partial<BatchProcessingStatus>) => void;
 }
 
 export function FileUpload({ 
@@ -26,28 +28,20 @@ export function FileUpload({
   disabled,
   onStart,
   onComplete,
-  batchId 
+  batchId,
+  status,
+  onStatusUpdate
 }: FileUploadProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [files, setFiles] = useState<File[]>([]);
-  const [status, setStatus] = useState<BatchProcessingStatus>({
-    isProcessing: false,
-    currentFileIndex: 0,
-    currentFileName: null,
-    currentModelIndex: 0,
-    currentModelId: null,
-    fileProgress: 0,
-    totalProgress: 0,
-    totalFiles: 0,
-    results: [],
-    error: null
-  });
   const [showScanner, setShowScanner] = useState(false);
   const { data: models, isLoading, error } = useDocumentIntelligenceModels();
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setFiles(prev => [...prev, ...acceptedFiles]);
-    setStatus(prev => ({ ...prev, totalFiles: prev.totalFiles + acceptedFiles.length }));
+    onStatusUpdate({
+      totalFiles: status.totalFiles + acceptedFiles.length
+    });
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -63,7 +57,9 @@ export function FileUpload({
 
   const removeFile = (fileToRemove: File) => {
     setFiles(prev => prev.filter(f => f !== fileToRemove));
-    setStatus(prev => ({ ...prev, totalFiles: prev.totalFiles - 1 }));
+    onStatusUpdate({
+      totalFiles: status.totalFiles - 1
+    });
   };
 
   const handleScanComplete = (scannedFiles: File[]) => {
@@ -71,16 +67,23 @@ export function FileUpload({
     setShowScanner(false);
   };
 
+  const handleComplete = (results: ProcessingResult[]) => {
+    onStatusUpdate({
+      isProcessing: false
+    });
+    onComplete(results);
+  };
+
   const startProcessing = async () => {
     if (status.isProcessing || files.length === 0) return;
     
     setIsExpanded(false);
-    setStatus(prev => ({ 
-      ...prev, 
-      isProcessing: true, 
+    onStatusUpdate({
+      isProcessing: true,
       error: null,
-      totalFiles: files.length
-    }));
+      totalFiles: files.length,
+      results: []
+    });
     onStart?.();
 
     try {
@@ -90,20 +93,18 @@ export function FileUpload({
         const file = files[fileIndex];
         const startTime = Date.now();
 
-        setStatus(prev => ({
-          ...prev,
+        onStatusUpdate({
           currentFileIndex: fileIndex,
           currentFileName: file.name,
           fileProgress: 0
-        }));
+        });
 
         for (let modelIndex = 0; modelIndex < modelIds.length; modelIndex++) {
           const modelId = modelIds[modelIndex];
-          setStatus(prev => ({
-            ...prev,
+          onStatusUpdate({
             currentModelIndex: modelIndex,
             currentModelId: modelId
-          }));
+          });
 
           const formData = new FormData();
           formData.append('file', file);
@@ -129,27 +130,26 @@ export function FileUpload({
           const fileProgress = ((modelIndex + 1) / modelIds.length) * 100;
           const totalProgress = ((fileIndex * modelIds.length + modelIndex + 1) / (files.length * modelIds.length)) * 100;
           
-          setStatus(prev => ({
-            ...prev,
-            fileProgress,
-            totalProgress
-          }));
+          onStatusUpdate({
+            fileProgress: fileProgress,
+            totalProgress: totalProgress
+          });
         }
       }
 
-      onComplete(results);
+      handleComplete(results);
     } catch (err) {
-      setStatus(prev => ({
-        ...prev,
-        error: err instanceof Error ? err.message : 'Wystąpił błąd podczas przetwarzania'
-      }));
-    } finally {
-      setStatus(prev => ({ ...prev, isProcessing: false }));
+      onStatusUpdate({
+        error: err instanceof Error ? err.message : 'Wystąpił błąd podczas przetwarzania',
+        isProcessing: false
+      });
     }
   };
 
   const stopProcessing = () => {
-    setStatus(prev => ({ ...prev, isProcessing: false }));
+    onStatusUpdate({
+      isProcessing: false
+    });
   };
 
   if (showScanner) {
@@ -163,9 +163,9 @@ export function FileUpload({
   }
 
   return (
-    <>
-      <Card className="overflow-hidden">
-        <div className="p-4 border-b bg-muted/40">
+    <Card className="overflow-hidden">
+      <div className="p-4 border-b bg-muted/40">
+        <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Button 
@@ -173,11 +173,7 @@ export function FileUpload({
                 onClick={() => setIsExpanded(prev => !prev)}
                 className="gap-2"
               >
-                {isExpanded ? (
-                  <ChevronUp className="w-4 h-4" />
-                ) : (
-                  <ChevronDown className="w-4 h-4" />
-                )}
+                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 <span>Lista plików</span>
               </Button>
               <Button 
@@ -221,6 +217,7 @@ export function FileUpload({
                 <Button
                   onClick={startProcessing}
                   disabled={disabled || files.length === 0 || status.isProcessing}
+                  variant={status.isProcessing ? "destructive" : "default"}
                   className="gap-2"
                 >
                   {status.isProcessing ? (
@@ -238,35 +235,53 @@ export function FileUpload({
               </div>
             )}
           </div>
-        </div>
 
-        <AnimatePresence>
-          {isExpanded && (
-            <motion.div
-              initial={{ height: 0 }}
-              animate={{ height: "auto" }}
-              exit={{ height: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden"
-            >
-              <div {...getRootProps()} className="p-4">
-                <input {...getInputProps()} />
-                <SelectedFilesList
-                  files={files}
-                  onRemoveFile={removeFile}
-                  disabled={status.isProcessing}
+          {status.isProcessing && (
+            <div className="flex items-center gap-3 text-sm text-muted-foreground animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <span>
+                  Przetwarzanie pliku {status.currentFileIndex + 1} z {status.totalFiles}
+                </span>
+              </div>
+              <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-primary transition-all duration-300 ease-in-out"
+                  style={{ width: `${status.totalProgress}%` }}
                 />
               </div>
-            </motion.div>
+              <span className="tabular-nums">
+                {Math.round(status.totalProgress)}%
+              </span>
+            </div>
           )}
-        </AnimatePresence>
+        </div>
+      </div>
 
-        {status.error && (
-          <p className="p-4 text-sm text-destructive border-t">{status.error}</p>
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0 }}
+            animate={{ height: "auto" }}
+            exit={{ height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div {...getRootProps()} className="p-4">
+              <input {...getInputProps()} />
+              <SelectedFilesList
+                files={files}
+                onRemoveFile={removeFile}
+                disabled={status.isProcessing}
+              />
+            </div>
+          </motion.div>
         )}
-      </Card>
+      </AnimatePresence>
 
-      <ProcessingStatus status={status} onStop={stopProcessing} />
-    </>
+      {status.error && (
+        <p className="p-4 text-sm text-destructive border-t">{status.error}</p>
+      )}
+    </Card>
   );
 } 

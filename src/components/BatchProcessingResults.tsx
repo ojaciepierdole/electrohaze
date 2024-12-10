@@ -5,6 +5,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AnalysisResultCard } from './AnalysisResultCard';
 import { ProcessingSummary } from './ProcessingSummary';
 import type { ProcessingResult } from '@/types/processing';
+import { Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { exportToCSV } from '@/utils/export';
 
 interface BatchProcessingResultsProps {
   results: ProcessingResult[];
@@ -30,12 +33,31 @@ export function BatchProcessingResults({
     return sum + resultConfidence;
   }, 0) / results.length;
 
+  const handleExport = () => {
+    const flattenedData = results.flatMap(result => {
+      const fields = result.results[0].fields;
+      return {
+        fileName: result.fileName,
+        processingTime: result.processingTime,
+        confidence: result.results[0].confidence,
+        ...Object.entries(fields).reduce((acc, [key, field]) => ({
+          ...acc,
+          [key]: field.content || '',
+          [`${key}_confidence`]: field.confidence
+        }), {})
+      };
+    });
+
+    exportToCSV(flattenedData, `analiza_dokumentow_${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
   return (
     <div className="space-y-4">
       <ProcessingSummary
         fileCount={results.length}
         totalTime={totalTime}
         averageConfidence={avgConfidence}
+        onExport={handleExport}
       />
 
       <Tabs defaultValue="list" className="w-full">
