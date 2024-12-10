@@ -39,8 +39,8 @@ export function ModelSelector({
   const [search, setSearch] = React.useState('');
 
   const filteredModels = models.filter(model => 
-    model.name.toLowerCase().includes(search.toLowerCase()) ||
-    model.description.toLowerCase().includes(search.toLowerCase())
+    model.id.toLowerCase().includes(search.toLowerCase()) ||
+    (model.description && model.description.toLowerCase().includes(search.toLowerCase()))
   );
 
   const handleSelect = React.useCallback((modelId: string) => {
@@ -85,16 +85,18 @@ export function ModelSelector({
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-full p-0">
+        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
           <Command 
             className="bg-white border rounded-lg shadow-sm"
             onClose={() => setOpen(false)}
+            shouldFilter={false}
           >
             <CommandInput 
               placeholder="Szukaj modelu..." 
               value={search}
               onValueChange={setSearch}
               className="border-0 focus:ring-0"
+              autoFocus
             />
             <CommandEmpty className="p-4 text-sm text-muted-foreground">
               Nie znaleziono modelu
