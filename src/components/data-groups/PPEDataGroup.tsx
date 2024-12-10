@@ -5,7 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle } from 'lucide-react';
 import type { PPEData, DeliveryPointData } from '@/types/fields';
-import { formatPersonName, formatAddress, calculateGroupConfidence, getMissingFields } from '@/utils/text-formatting';
+import { 
+  formatPersonName, 
+  formatAddress, 
+  calculateGroupConfidence, 
+  getMissingFields,
+  calculateOptimalColumns,
+  type ColumnLayout 
+} from '@/utils/text-formatting';
 
 const FIELD_MAPPING: Record<string, string> = {
   // Dane identyfikacyjne
@@ -52,14 +59,11 @@ export function PPEDataGroup({ data }: PPEDataGroupProps) {
     Province: formatAddress(data.Province || null),
   };
 
-  // Podziel brakujące pola na dwie kolumny
-  const missingFieldsColumns = React.useMemo(() => {
-    const midPoint = Math.ceil(missingFields.length / 2);
-    return [
-      missingFields.slice(0, midPoint),
-      missingFields.slice(midPoint)
-    ];
-  }, [missingFields]);
+  // Oblicz optymalny układ kolumn
+  const { columns, gridClass } = React.useMemo(
+    () => calculateOptimalColumns(missingFields),
+    [missingFields]
+  );
 
   if (isEmpty) {
     return (
@@ -114,18 +118,16 @@ export function PPEDataGroup({ data }: PPEDataGroupProps) {
               <div className="border-t border-gray-200 my-4" />
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-500">Brakujące dane:</h4>
-                <div className="grid grid-cols-2 gap-x-12 gap-y-2">
-                  {missingFieldsColumns[0].map(({ key, label }) => (
-                    <div key={key} className="flex items-center gap-2">
-                      <span className="text-sm text-gray-400">{label}</span>
-                      <span className="text-sm text-gray-300">—</span>
-                    </div>
-                  ))}
-                  {missingFieldsColumns[1].map(({ key, label }) => (
-                    <div key={key} className="flex items-center gap-2">
-                      <span className="text-sm text-gray-400">{label}</span>
-                      <span className="text-sm text-gray-300">—</span>
-                    </div>
+                <div className={`grid gap-x-12 gap-y-2 ${gridClass}`}>
+                  {columns.map((column: Array<{ key: string; label: string }>, columnIndex: number) => (
+                    <React.Fragment key={columnIndex}>
+                      {column.map(({ key, label }: { key: string; label: string }) => (
+                        <div key={key} className="flex items-center gap-2">
+                          <span className="text-sm text-gray-400">{label}</span>
+                          <span className="text-sm text-gray-300">—</span>
+                        </div>
+                      ))}
+                    </React.Fragment>
                   ))}
                 </div>
               </div>

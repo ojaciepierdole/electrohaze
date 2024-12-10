@@ -79,27 +79,83 @@ export function calculateOptimalColumns(missingFields: Array<{ key: string; labe
     return { columns: [], gridClass: 'grid-cols-1' };
   }
 
-  // Zakładamy, że chcemy mieć 2-4 wiersze w kolumnie
-  const targetRowCount = 3;
-  // Oblicz optymalną liczbę kolumn
-  const columnCount = Math.ceil(missingFields.length / targetRowCount);
-  // Ale nie więcej niż 4 kolumny
-  const finalColumnCount = Math.min(4, columnCount);
-  // Oblicz rzeczywistą liczbę wierszy
-  const itemsPerColumn = Math.ceil(missingFields.length / finalColumnCount);
+  let columnCount: number;
+  
+  // Nowa logika podziału na kolumny
+  if (missingFields.length >= 6 && missingFields.length <= 8) {
+    // Dla 6-8 pól używamy 4 kolumn
+    columnCount = 4;
+  } else if (missingFields.length >= 3 && missingFields.length <= 4) {
+    // Dla 3-4 pól używamy tylu kolumn ile jest pól (jeden wiersz)
+    columnCount = missingFields.length;
+  } else if (missingFields.length > 8) {
+    // Dla więcej niż 8 pól używamy 4 kolumn
+    columnCount = 4;
+  } else {
+    // Dla 1-2 pól używamy tylu kolumn ile jest pól
+    columnCount = missingFields.length;
+  }
+
+  // Oblicz bazową liczbę elementów w kolumnie
+  const baseItemsPerColumn = Math.floor(missingFields.length / columnCount);
+  // Oblicz ile kolumn będzie miało dodatkowy element
+  const extraItems = missingFields.length % columnCount;
 
   // Podziel pola na kolumny
-  const columns = Array.from({ length: finalColumnCount }, (_, columnIndex) => {
-    const start = columnIndex * itemsPerColumn;
-    const end = Math.min(start + itemsPerColumn, missingFields.length);
-    return missingFields.slice(start, end);
-  });
+  const columns: Array<Array<{ key: string; label: string }>> = [];
+  let currentIndex = 0;
+
+  for (let i = 0; i < columnCount; i++) {
+    const itemsInThisColumn = baseItemsPerColumn + (i < extraItems ? 1 : 0);
+    columns.push(missingFields.slice(currentIndex, currentIndex + itemsInThisColumn));
+    currentIndex += itemsInThisColumn;
+  }
 
   // Określ klasę CSS dla gridu
-  const gridClass = finalColumnCount === 1 ? 'grid-cols-1' :
-                   finalColumnCount === 2 ? 'grid-cols-2' :
-                   finalColumnCount === 3 ? 'grid-cols-3' :
+  const gridClass = columnCount === 1 ? 'grid-cols-1' :
+                   columnCount === 2 ? 'grid-cols-2' :
+                   columnCount === 3 ? 'grid-cols-3' :
                    'grid-cols-4';
 
   return { columns, gridClass };
+} 
+
+const SELECTED_MODELS_KEY = 'selectedOcrModels';
+
+export interface SavedModelConfig {
+  modelId: string;
+  timestamp: number;
+}
+
+export function saveSelectedModels(modelIds: string[]): void {
+  try {
+    const modelConfigs: SavedModelConfig[] = modelIds.map(modelId => ({
+      modelId,
+      timestamp: Date.now()
+    }));
+    localStorage.setItem(SELECTED_MODELS_KEY, JSON.stringify(modelConfigs));
+  } catch (error) {
+    console.error('Błąd podczas zapisywania wybranych modeli:', error);
+  }
+}
+
+export function getSelectedModels(): string[] {
+  try {
+    const savedData = localStorage.getItem(SELECTED_MODELS_KEY);
+    if (!savedData) return [];
+    
+    const modelConfigs: SavedModelConfig[] = JSON.parse(savedData);
+    return modelConfigs.map(config => config.modelId);
+  } catch (error) {
+    console.error('Błąd podczas odczytywania wybranych modeli:', error);
+    return [];
+  }
+}
+
+export function clearSelectedModels(): void {
+  try {
+    localStorage.removeItem(SELECTED_MODELS_KEY);
+  } catch (error) {
+    console.error('Błąd podczas czyszczenia wybranych modeli:', error);
+  }
 } 

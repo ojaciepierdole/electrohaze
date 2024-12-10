@@ -18,6 +18,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ModelDefinition } from '@/types/processing';
 import { cn } from '@/lib/utils';
+import { getSelectedModels, saveSelectedModels } from '@/utils/text-formatting';
 
 interface ModelSelectorProps {
   models: ModelDefinition[];
@@ -30,7 +31,7 @@ interface ModelSelectorProps {
 
 export function ModelSelector({
   models = [],
-  selectedModels,
+  selectedModels: propSelectedModels,
   onModelSelect,
   disabled,
   isLoading,
@@ -38,6 +39,20 @@ export function ModelSelector({
 }: ModelSelectorProps) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
+
+  // Inicjalizacja z localStorage przy pierwszym renderowaniu
+  React.useEffect(() => {
+    const savedModels = getSelectedModels();
+    if (savedModels.length > 0 && propSelectedModels.length === 0) {
+      // Sprawdź, czy zapisane modele nadal istnieją w dostępnych modelach
+      const validSavedModels = savedModels.filter(modelId => 
+        models.some(model => model.id === modelId)
+      );
+      if (validSavedModels.length > 0) {
+        onModelSelect(validSavedModels);
+      }
+    }
+  }, [models, onModelSelect, propSelectedModels]);
 
   const filteredModels = models.filter(model => 
     model.id.toLowerCase().includes(search.toLowerCase()) ||
@@ -47,12 +62,18 @@ export function ModelSelector({
   const handleSelect = React.useCallback((modelId: string) => {
     if (!modelId) return;
 
-    if (selectedModels.includes(modelId)) {
-      onModelSelect(selectedModels.filter(id => id !== modelId));
-    } else if (selectedModels.length < 3) {
-      onModelSelect([...selectedModels, modelId]);
+    let newSelectedModels: string[];
+    if (propSelectedModels.includes(modelId)) {
+      newSelectedModels = propSelectedModels.filter(id => id !== modelId);
+    } else if (propSelectedModels.length < 3) {
+      newSelectedModels = [...propSelectedModels, modelId];
+    } else {
+      return;
     }
-  }, [selectedModels, onModelSelect]);
+    
+    onModelSelect(newSelectedModels);
+    saveSelectedModels(newSelectedModels);
+  }, [propSelectedModels, onModelSelect]);
 
   if (error) {
     return (
@@ -71,17 +92,17 @@ export function ModelSelector({
             role="combobox"
             aria-expanded={open}
             className="w-full justify-between bg-white"
-            disabled={disabled || isLoading || selectedModels.length >= 3}
+            disabled={disabled || isLoading || propSelectedModels.length >= 3}
           >
             {isLoading ? (
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span>Ładowanie modeli...</span>
               </div>
-            ) : selectedModels.length === 0 ? (
+            ) : propSelectedModels.length === 0 ? (
               "Wybierz modele..."
             ) : (
-              `Wybrano ${selectedModels.length} z 3 modeli`
+              `Wybrano ${propSelectedModels.length} z 3 modeli`
             )}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
@@ -113,7 +134,7 @@ export function ModelSelector({
                     >
                       <Check
                         className={`mr-2 h-4 w-4 ${
-                          selectedModels.includes(model.id) ? "opacity-100" : "opacity-0"
+                          propSelectedModels.includes(model.id) ? "opacity-100" : "opacity-0"
                         }`}
                       />
                       <div className="flex flex-col">
@@ -133,9 +154,9 @@ export function ModelSelector({
         </PopoverContent>
       </Popover>
 
-      {selectedModels.length > 0 && (
+      {propSelectedModels.length > 0 && (
         <div className="grid grid-cols-3 gap-2">
-          {selectedModels.map(modelId => {
+          {propSelectedModels.map(modelId => {
             const model = models.find(m => m.id === modelId);
             if (!model) return null;
             return (
@@ -145,7 +166,7 @@ export function ModelSelector({
                   "relative p-4 rounded-lg border bg-card",
                   "hover:translate-y-[-2px] hover:shadow-md",
                   "transition-all duration-200",
-                  selectedModels.includes(modelId) && "border-primary",
+                  propSelectedModels.includes(modelId) && "border-primary",
                   disabled && "opacity-50 cursor-not-allowed"
                 )}
                 onClick={() => !disabled && handleSelect(modelId)}
