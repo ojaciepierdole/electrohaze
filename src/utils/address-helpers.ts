@@ -14,46 +14,41 @@ const DP_FIELD_MAPPING: Record<string, keyof AddressSet> = {
 
 // Mapowanie pól na polskie etykiety
 const POLISH_LABELS: Record<string, string> = {
-  'dpFirstName': 'Imię:',
-  'dpLastName': 'Nazwisko:',
-  'dpStreet': 'Ulica:',
-  'dpBuilding': 'Budynek:',
-  'dpUnit': 'Lokal:',
-  'dpCity': 'Miejscowość:',
-  'dpPostalCode': 'Kod pocztowy:',
-  'dpCompanyName': 'Nazwa firmy:',
+  // Podstawowe etykiety
+  'FirstName': 'Imię:',
+  'LastName': 'Nazwisko:',
+  'Street': 'Ulica:',
+  'Building': 'Budynek:',
+  'Unit': 'Lokal:',
+  'City': 'Miejscowość:',
+  'PostalCode': 'Kod pocztowy:',
+  'CompanyName': 'Nazwa firmy:',
+
+  // Pola biznesowe
   'EnergySaleBreakdown': 'Szczegóły sprzedaży energii:',
   'SettlementDetails': 'Szczegóły rozliczenia:',
   'NetPriceZone1': 'Cena netto strefa 1:',
   'NetPriceZone2': 'Cena netto strefa 2:',
   'UnitNetPrice': 'Cena jednostkowa netto:',
   'ProductName': 'Nazwa produktu:',
-  'CompanyName': 'Nazwa firmy:',
   'NIP': 'NIP:'
 };
 
 function normalizeFieldName(field: string): string {
   // Usuń dwukropek jeśli istnieje
   const withoutColon = field.endsWith(':') ? field.slice(0, -1) : field;
-  return withoutColon.replace(/^dp/, ''); // Usuń przedrostek "dp" jeśli istnieje
+  return withoutColon.replace(/^(dp|pa|ppe)/, ''); // Usuń prefiks jeśli istnieje
 }
 
 function getPolishLabel(field: string): string {
   // Usuń dwukropek jeśli istnieje
   const baseField = field.endsWith(':') ? field.slice(0, -1) : field;
   
-  // Sprawdź czy mamy bezpośrednie mapowanie
-  if (POLISH_LABELS[baseField]) {
-    return POLISH_LABELS[baseField];
-  }
-  
-  // Jeśli nie, spróbuj znaleźć po nazwie bez przedrostka "dp"
+  // Normalizuj nazwę pola (usuń prefiksy)
   const normalizedField = normalizeFieldName(baseField);
-  const matchingKey = Object.keys(POLISH_LABELS).find(key => 
-    normalizeFieldName(key) === normalizedField
-  );
   
-  return matchingKey ? POLISH_LABELS[matchingKey] : `${field}:`;
+  // Zwróć polską etykietę lub oryginalną nazwę z dwukropkiem
+  return POLISH_LABELS[normalizedField] || `${normalizedField}:`;
 }
 
 function normalizeUnit(unit: string): string {
@@ -205,6 +200,18 @@ export function normalizeAndSplitAddressNumbers(data: AddressSet): AddressSet {
 }
 
 // Eksportujemy funkcję do pobierania polskich etykiet
-export const getFieldLabel = (field: string): string => {
-  return getPolishLabel(field);
-}; 
+export function getFieldLabel(fieldName: string): string {
+  // Najpierw sprawdź czy pole ma bezpośrednie mapowanie w FIELD_LABELS
+  if (fieldName in POLISH_LABELS) {
+    return POLISH_LABELS[fieldName];
+  }
+
+  // Jeśli nie ma bezpośredniego mapowania, usuń prefiks i spróbuj ponownie
+  const withoutPrefix = fieldName.replace(/^(dp|pa)/, '');
+  if (withoutPrefix in POLISH_LABELS) {
+    return POLISH_LABELS[withoutPrefix];
+  }
+
+  // Jeśli nadal nie znaleziono, zwróć oryginalną nazwę pola
+  return fieldName;
+} 
