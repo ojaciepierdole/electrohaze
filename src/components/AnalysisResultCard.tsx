@@ -180,18 +180,17 @@ function FieldRow({
   const isPPE = fieldName === 'ppeNum';
 
   return (
-    <div className={`flex items-center justify-between py-1.5 px-2 rounded group`}
-    >
+    <div className={`flex items-center justify-between py-1.5 px-2 rounded group`}>
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <div className="flex items-center gap-2 w-[240px] flex-shrink-0">
           <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
             {getFieldLabel(fieldName)}:
           </span>
-          <span className="border-b border-border flex-1" />
+          <span className="border-b border-muted-foreground/30 flex-1" />
         </div>
         <div className="ml-[60px]">
-          <span className={`text-sm font-medium text-muted-foreground/90 ${
-            isPPE ? 'bg-accent/30 px-3 py-1 rounded-md font-mono tracking-wider' : ''
+          <span className={`text-sm font-medium text-foreground ${
+            isPPE ? 'font-mono tracking-wider' : ''
           }`}>
             {formattedValue}
           </span>
@@ -235,17 +234,11 @@ function SectionHeader({
   modelResults: ProcessingResult['results'][0][];
 }) {
   const ppeNumber = group.fields.includes('ppeNum') ? groupFields['ppeNum']?.content : null;
-  const sectionConfidence = Object.values(groupFields).reduce((acc, field) => {
-    if (!field || !field.confidences) return acc;
-    const avgFieldConfidence = Object.values(field.confidences)
-      .reduce((sum, conf) => sum + conf, 0) / modelResults.length;
-    return acc + avgFieldConfidence;
-  }, 0) / Object.keys(groupFields).length || 0;
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between mb-3 pb-2 border-b">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-md bg-muted">
               <group.icon className="w-4 h-4 text-foreground" />
@@ -253,19 +246,13 @@ function SectionHeader({
             <h4 className="text-lg font-semibold">{group.name}</h4>
           </div>
           {ppeNumber && (
-            <div className="ml-[60px]">
-              <span className="bg-accent/30 px-3 py-1 rounded-md font-mono text-lg font-bold tracking-wider text-muted-foreground/90">
+            <div className="ml-[60px] bg-muted/30 px-3 py-1 rounded-md">
+              <span className="text-lg font-bold font-mono tracking-wider text-foreground">
                 {ppeNumber}
               </span>
             </div>
           )}
         </div>
-        <Badge 
-          variant="outline"
-          className={`px-3 py-1 ${getConfidenceColor(sectionConfidence)}`}
-        >
-          {(sectionConfidence * 100).toFixed(1)}%
-        </Badge>
       </div>
     </div>
   );
