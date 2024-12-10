@@ -3,62 +3,44 @@ import type { FieldGroupKey } from '@/types/processing';
 export function determineFieldGroup(fieldName: string): FieldGroupKey {
   const fieldNameLower = fieldName.toLowerCase();
   
-  // Dane faktury
-  if (fieldNameLower.includes('invoice') || 
-      fieldNameLower.includes('amount') ||
-      fieldNameLower.includes('bill') ||
-      fieldNameLower.includes('billing') ||
-      fieldNameLower.includes('vat') ||
-      fieldNameLower.includes('currency')) {
-    return 'invoice_data';
-  }
-
   // Dane sprzedawcy
   if (fieldNameLower.includes('supplier') || 
       fieldNameLower.includes('vendor') ||
-      fieldNameLower.includes('osd_') ||
-      fieldNameLower === 'businessname') {
+      fieldNameLower.includes('osd_')) {
     return 'supplier_data';
   }
 
-  // Dane klienta
-  if (fieldNameLower.includes('customer') || 
-      fieldNameLower === 'firstname' ||
-      fieldNameLower === 'lastname' ||
-      fieldNameLower === 'taxid') {
-    return 'customer_data';
+  // Dane biznesowe
+  if (fieldNameLower.includes('business') ||
+      fieldNameLower.includes('taxid') ||
+      fieldNameLower === 'title') {
+    return 'business_data';
+  }
+
+  // Adres podstawowy
+  if (fieldNameLower === 'street' ||
+      fieldNameLower === 'building' ||
+      fieldNameLower === 'unit' ||
+      fieldNameLower === 'city' ||
+      fieldNameLower === 'postalcode') {
+    return 'primary_address';
   }
 
   // Adres korespondencyjny
-  if (fieldNameLower.startsWith('postal') || 
-      fieldNameLower.includes('correspondence') ||
-      fieldNameLower.startsWith('pa')) {
+  if (fieldNameLower.startsWith('pa') || 
+      fieldNameLower.includes('correspondence')) {
     return 'postal_address';
   }
 
-  // Punkt poboru
-  if (fieldNameLower.includes('ppe') || 
-      fieldNameLower.includes('meter') ||
-      fieldNameLower === 'tariff' ||
-      fieldNameLower.startsWith('delivery') ||
-      fieldNameLower.startsWith('dp')) {
-    return 'delivery_point';
-  }
-
-  // Dane zużycia
+  // Informacje o zużyciu
   if (fieldNameLower.includes('consumption') || 
       fieldNameLower.includes('usage') ||
-      fieldNameLower.includes('billed') ||
       fieldNameLower.includes('reading') ||
-      fieldNameLower.includes('zużycie')) {
-    return 'consumption_data';
-  }
-
-  // Dane produktu
-  if (fieldNameLower.includes('product') ||
-      fieldNameLower.includes('sale')) {
-    return 'product_data';
+      fieldNameLower.includes('billing') ||
+      fieldNameLower.includes('period')) {
+    return 'consumption_info';
   }
   
-  return 'invoice_data'; // domyślna grupa
+  // Domyślnie zwracamy dane biznesowe
+  return 'business_data';
 } 

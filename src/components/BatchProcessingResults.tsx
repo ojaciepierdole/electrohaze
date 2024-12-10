@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AnalysisResultCard } from './AnalysisResultCard';
 import { ProcessingSummary } from './ProcessingSummary';
-import type { ProcessingResult } from '@/types/processing';
+import type { ProcessingResult, GroupedResult } from '@/types/processing';
 import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { exportToCSV } from '@/utils/export';
@@ -18,6 +18,26 @@ export function BatchProcessingResults({
   results = [], 
   onExport 
 }: BatchProcessingResultsProps) {
+  // Grupuj wyniki według nazw plików
+  const groupedResults = React.useMemo(() => {
+    const grouped = new Map<string, GroupedResult>();
+    
+    results.forEach(result => {
+      const existing = grouped.get(result.fileName) || {
+        fileName: result.fileName,
+        modelResults: {}
+      };
+      
+      result.results.forEach(modelResult => {
+        existing.modelResults[modelResult.modelId] = modelResult;
+      });
+      
+      grouped.set(result.fileName, existing);
+    });
+    
+    return Array.from(grouped.values());
+  }, [results]);
+
   if (!results.length) return null;
 
   // Sumuj czasy przetwarzania w milisekundach
@@ -66,18 +86,20 @@ export function BatchProcessingResults({
           <TabsTrigger value="grid">Siatka</TabsTrigger>
         </TabsList>
         <TabsContent value="list" className="space-y-4">
-          {results.map((result, index) => (
+          {groupedResults.map((result, index) => (
             <AnalysisResultCard 
               key={`${result.fileName}-${index}`} 
-              result={result} 
+              result={result}
+              modelResults={Object.values(result.modelResults)}
             />
           ))}
         </TabsContent>
         <TabsContent value="grid" className="grid grid-cols-2 gap-4">
-          {results.map((result, index) => (
+          {groupedResults.map((result, index) => (
             <AnalysisResultCard 
               key={`${result.fileName}-${index}`} 
-              result={result} 
+              result={result}
+              modelResults={Object.values(result.modelResults)}
             />
           ))}
         </TabsContent>

@@ -6,6 +6,10 @@ interface ExportableData {
   [key: string]: string | number | null | undefined;
 }
 
+/**
+ * Funkcja pomocnicza do eksportu danych do pliku CSV
+ * Obsługuje polskie znaki i formatowanie liczb
+ */
 export function exportToCSV(data: ExportableData[], filename: string) {
   if (!data.length) {
     console.warn('Brak danych do eksportu');
@@ -22,9 +26,17 @@ export function exportToCSV(data: ExportableData[], filename: string) {
     // Konwertuj dane do formatu CSV
     const csvContent = [
       // Nagłówki - zamień _ na spacje i sformatuj
-      headers.map(header => 
-        `"${header.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()}"`
-      ).join(';'),
+      headers.map(header => {
+        // Formatuj nagłówek: zamień camelCase na słowa, usuń podkreślenia
+        const formatted = header
+          .replace(/([A-Z])/g, ' $1')
+          .replace(/_/g, ' ')
+          .toLowerCase()
+          .split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+        return `"${formatted}"`;
+      }).join(';'),
 
       // Wiersze danych
       ...data.map(row => 
@@ -42,7 +54,7 @@ export function exportToCSV(data: ExportableData[], filename: string) {
             if (header.toLowerCase().includes('time')) {
               return value.toString();
             }
-            return value.toString();
+            return value.toLocaleString('pl');
           }
           
           // Obsługa stringów ze średnikami lub cudzysłowami

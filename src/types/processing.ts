@@ -1,13 +1,12 @@
 import { FIELD_GROUPS } from '@/config/fields';
 
 export type FieldGroupKey = 
-  | 'invoice_data'
-  | 'supplier_data' 
-  | 'customer_data'
-  | 'postal_address'
+  | 'supplier_data'
   | 'delivery_point'
-  | 'consumption_data'
-  | 'product_data';
+  | 'business_data'
+  | 'primary_address'
+  | 'postal_address'
+  | 'consumption_info';
 
 export interface FieldDefinition {
   name: string;
@@ -170,4 +169,11 @@ export interface ModernFields {
   // Dane produktu
   ProductName: string;      // Nazwa produktu
   ProductCode: string;      // Kod produktu
+} 
+
+export interface GroupedResult {
+  fileName: string;
+  modelResults: {
+    [modelId: string]: ProcessingResult['results'][0];
+  };
 } 

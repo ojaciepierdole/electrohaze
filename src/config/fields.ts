@@ -1,7 +1,7 @@
 import { 
-  Receipt, FileText, Building, User, 
-  Wallet, Calendar, Zap, Scale,
-  Lightbulb, Calculator, FileBarChart, Mail, MapPin, Package
+  Building, User, Mail, MapPin, 
+  Gauge, Receipt, FileBarChart, 
+  Briefcase, Home, Send
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { FieldGroupKey } from '@/types/processing';
@@ -14,94 +14,86 @@ interface FieldGroup {
 }
 
 export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
-  invoice_data: {
-    name: 'Dane faktury',
-    icon: Receipt,
-    fields: [
-      'InvoiceNumber',
-      'InvoiceDate',
-      'DueDate',
-      'TotalAmount',
-      'Currency',
-      'InvoiceType',
-      'BillingStartDate',
-      'BillingEndDate',
-      'NetAmount',
-      'VatAmount',
-      'VatRate'
-    ] as const,
-    requiredFields: ['InvoiceNumber', 'InvoiceDate', 'TotalAmount']
-  },
   supplier_data: {
     name: 'Dane sprzedawcy',
-    icon: Building,
+    icon: Briefcase,
     fields: [
-      'SupplierName',
-      'SupplierTaxId',
-      'SupplierRegion'
+      'supplierName',
+      'OSD_name',
+      'OSD_region'
     ] as const,
-    requiredFields: ['SupplierName', 'SupplierTaxId']
+    requiredFields: ['supplierName']
   },
-  customer_data: {
-    name: 'Dane klienta',
-    icon: User,
+
+  delivery_point: {
+    name: 'Punkt poboru',
+    icon: MapPin,
     fields: [
-      'CustomerName',
-      'CustomerTaxId',
-      'CustomerStreet',
-      'CustomerBuilding',
-      'CustomerUnit',
-      'CustomerCity',
-      'CustomerPostalCode'
+      'ppeNum',
+      'dpStreet',
+      'dpBuilding',
+      'dpUnit',
+      'dpCity',
+      'dpPostalCode',
+      'Tariff'
     ] as const,
-    requiredFields: ['CustomerName']
+    requiredFields: ['ppeNum', 'Tariff']
   },
+
+  business_data: {
+    name: 'Dane biznesowe',
+    icon: FileBarChart,
+    fields: [
+      'FirstName',
+      'LastName',
+      'BusinessName',
+      'taxID',
+      'InvoiceType'
+    ] as const,
+    requiredFields: ['BusinessName']
+  },
+
+  primary_address: {
+    name: 'Adres podstawowy',
+    icon: Home,
+    fields: [
+      'Street',
+      'Building',
+      'Unit',
+      'City',
+      'PostalCode'
+    ] as const,
+    requiredFields: ['Street', 'Building', 'City', 'PostalCode']
+  },
+
   postal_address: {
     name: 'Adres korespondencyjny',
-    icon: Mail,
+    icon: Send,
     fields: [
-      'PostalName',
-      'PostalStreet',
-      'PostalBuilding',
-      'PostalUnit',
-      'PostalCity',
-      'PostalPostalCode'
+      'paTitle',
+      'paFirstName',
+      'paLastName',
+      'paStreet',
+      'paBuilding',
+      'paUnit',
+      'paCity',
+      'paPostalCode'
     ] as const,
     requiredFields: []
   },
-  delivery_point: {
-    name: 'Miejsce dostawy',
-    icon: MapPin,
-    fields: [
-      'PPENumber',
-      'DeliveryStreet',
-      'DeliveryBuilding',
-      'DeliveryUnit',
-      'DeliveryCity',
-      'DeliveryPostalCode',
-      'TariffGroup'
-    ] as const,
-    requiredFields: ['PPENumber']
-  },
-  consumption_data: {
-    name: 'Dane zużycia',
-    icon: Zap,
+
+  consumption_info: {
+    name: 'Informacje o zużyciu',
+    icon: Gauge,
     fields: [
       'ConsumptionValue',
       'ConsumptionUnit',
-      'Consumption12m',
-      'ReadingType'
+      'Usage12m',
+      'ReadingType',
+      'BillingStartDate',
+      'BillingEndDate'
     ] as const,
     requiredFields: ['ConsumptionValue']
-  },
-  product_data: {
-    name: 'Dane produktu',
-    icon: Package,
-    fields: [
-      'ProductName',
-      'ProductCode'
-    ] as const,
-    requiredFields: []
   }
 };
 
@@ -109,66 +101,65 @@ export type FieldName = typeof FIELD_GROUPS[FieldGroupKey]['fields'][number];
 
 // Mapowanie nazw pól na polskie etykiety
 export const FIELD_LABELS: Record<string, string> = {
-  // Dane faktury
-  InvoiceNumber: 'Numer faktury',
-  InvoiceDate: 'Data wystawienia',
-  DueDate: 'Termin płatności',
-  TotalAmount: 'Kwota do zapłaty',
-  Currency: 'Waluta',
-  InvoiceType: 'Typ dokumentu',
-  BillingStartDate: 'Okres od',
-  BillingEndDate: 'Okres do',
-  NetAmount: 'Kwota netto',
-  VatAmount: 'Kwota VAT',
-  VatRate: 'Stawka VAT',
-  BilledUsage: 'Zużycie za okres',
-
   // Dane sprzedawcy
   supplierName: 'Sprzedawca',
   OSD_name: 'Dystrybutor',
-  OSD_region: 'Region OSD',
-  taxID: 'NIP',
-  
-  // Dane klienta
+  OSD_region: 'Region',
+  BusinessName: 'Nazwa firmy',
+
+  // Dane biznesowe
   FirstName: 'Imię',
   LastName: 'Nazwisko',
-  PostalCode: 'Kod pocztowy',
-  Street: 'Ulica',
-  Building: 'Numer budynku',
-  Unit: 'Numer lokalu',
-  City: 'Miejscowość',
-
-  // Dane punktu poboru
   ppeNum: 'Numer PPE',
-  TariffGroup: 'Grupa taryfowa',
-  Usage12m: 'Zużycie roczne',
-  ConsumptionValue: 'Zużycie',
+  dpStreet: 'Ulica',
+  dpBuilding: 'Budynek',
+  dpUnit: 'Lokal',
+  dpCity: 'Miejscowość',
+  Tariff: 'Taryfa',
+  InvoiceType: 'Typ dokumentu',
+  taxID: 'NIP',
+
+  // Adres podstawowy
+  Street: 'Ulica',
+  Building: 'Budynek',
+  Unit: 'Lokal',
+  City: 'Miejscowość',
+  PostalCode: 'Kod pocztowy',
+
+  // Adres korespondencyjny
+  paTitle: 'Tytuł',
+  paFirstName: 'Imię',
+  paLastName: 'Nazwisko',
+  paStreet: 'Ulica',
+  paBuilding: 'Budynek',
+  paUnit: 'Lokal',
+  paCity: 'Miejscowość',
+  paPostalCode: 'Kod pocztowy',
+  paBusinessName: 'Nazwa firmy',
+
+  // Informacje o zużyciu
+  ConsumptionValue: 'Zużycie za okres',
   ConsumptionUnit: 'Jednostka',
+  Usage12m: 'Roczne zużycie',
   ReadingType: 'Typ odczytu',
-  
-  // Dane produktu
+  BillingStartDate: 'Okres od',
+  BillingEndDate: 'Okres do',
+  EnergyUsage: 'Zużycie energii',
+  BillBreakdown: 'Szczegóły rozliczenia',
+  Zone1UnitNetPrice: 'Cena netto strefa 1',
+  Zone2UnitNetPrice: 'Cena netto strefa 2',
+  UnitNetPrice: 'Cena jednostkowa netto',
   ProductName: 'Nazwa produktu',
-  ProductCode: 'Kod produktu',
 
-  // Domyślne mapowania dla adresów
-  CustomerName: 'Nazwa',
-  CustomerTaxId: 'NIP',
-  CustomerStreet: 'Ulica',
-  CustomerBuilding: 'Numer budynku',
-  CustomerUnit: 'Numer lokalu',
-  CustomerCity: 'Miejscowość',
-  CustomerPostalCode: 'Kod pocztowy',
+  // Wartości specjalne
+  'b/d': 'Brak danych',
+  'n/d': 'Nie dotyczy'
+};
 
-  PostalName: 'Nazwa',
-  PostalStreet: 'Ulica',
-  PostalBuilding: 'Numer budynku',
-  PostalUnit: 'Numer lokalu',
-  PostalCity: 'Miejscowość',
-  PostalPostalCode: 'Kod pocztowy',
-
-  DeliveryStreet: 'Ulica',
-  DeliveryBuilding: 'Numer budynku',
-  DeliveryUnit: 'Numer lokalu',
-  DeliveryCity: 'Miejscowość',
-  DeliveryPostalCode: 'Kod pocztowy'
+// Funkcja pomocnicza do sprawdzania czy pokazać pole Fortum_usage
+export const shouldShowField = (fieldName: string, vendorName?: string | null) => {
+  if (fieldName === 'Fortum_usage') {
+    return vendorName?.toLowerCase().includes('fortum') ?? false;
+  }
+  return true;
 };
