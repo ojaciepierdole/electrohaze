@@ -8,16 +8,25 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { SelectedFilesList } from '@/components/SelectedFilesList';
 import { DocumentScanner } from '@/components/DocumentScanner';
-import type { ProcessingResult, BatchProcessingStatus } from '@/types/processing';
+import type { ProcessingResult, BatchProcessingStatus, ModelDefinition } from '@/types/processing';
 import { ProcessingStatus } from '@/components/ProcessingStatus';
+import { useDocumentIntelligenceModels } from '@/hooks/useDocumentIntelligenceModels';
 
 interface FileUploadProps {
   modelIds: string[];
   disabled?: boolean;
+  onStart?: () => void;
   onComplete: (results: ProcessingResult[]) => void;
+  batchId: string;
 }
 
-export function FileUpload({ modelIds, disabled, onComplete }: FileUploadProps) {
+export function FileUpload({ 
+  modelIds, 
+  disabled,
+  onStart,
+  onComplete,
+  batchId 
+}: FileUploadProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState<BatchProcessingStatus>({
     isProcessing: false,
@@ -31,23 +40,7 @@ export function FileUpload({ modelIds, disabled, onComplete }: FileUploadProps) 
     error: null
   });
   const [showScanner, setShowScanner] = useState(false);
-  const [models, setModels] = React.useState<ModelDefinition[]>([]);
-
-  // Pobierz modele przy pierwszym renderowaniu
-  React.useEffect(() => {
-    const fetchModels = async () => {
-      try {
-        const response = await fetch('/api/models');
-        if (!response.ok) throw new Error('Nie udało się pobrać modeli');
-        const data = await response.json();
-        setModels(data);
-      } catch (err) {
-        console.error('Błąd podczas pobierania modeli:', err);
-      }
-    };
-
-    fetchModels();
-  }, []);
+  const { data: models, isLoading, error } = useDocumentIntelligenceModels();
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setFiles(prev => [...prev, ...acceptedFiles]);
@@ -76,13 +69,21 @@ export function FileUpload({ modelIds, disabled, onComplete }: FileUploadProps) 
   const startProcessing = async () => {
     if (status.isProcessing || files.length === 0) return;
     
-    setStatus(prev => ({ ...prev, isProcessing: true }));
+    setStatus(prev => ({ 
+      ...prev, 
+      isProcessing: true, 
+      error: null,
+      totalFiles: files.length
+    }));
+    onStart?.();
 
     try {
       const results: ProcessingResult[] = [];
       
       for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
         const file = files[fileIndex];
+        const startTime = Date.now();
+
         setStatus(prev => ({
           ...prev,
           currentFileIndex: fileIndex,
@@ -112,9 +113,13 @@ export function FileUpload({ modelIds, disabled, onComplete }: FileUploadProps) 
           }
 
           const result = await response.json();
-          results.push(result);
+          const processingTime = Date.now() - startTime;
 
-          // Aktualizuj postęp
+          results.push({
+            ...result,
+            processingTime
+          });
+
           const fileProgress = ((modelIndex + 1) / modelIds.length) * 100;
           const totalProgress = ((fileIndex * modelIds.length + modelIndex + 1) / (files.length * modelIds.length)) * 100;
           
@@ -144,7 +149,7 @@ export function FileUpload({ modelIds, disabled, onComplete }: FileUploadProps) 
   if (showScanner) {
     return (
       <DocumentScanner
-        selectedModels={models.filter(m => modelIds.includes(m.id))}
+        selectedModels={models?.filter((m: ModelDefinition) => modelIds.includes(m.id)) ?? []}
         onScanComplete={handleScanComplete}
         onClose={() => setShowScanner(false)}
       />

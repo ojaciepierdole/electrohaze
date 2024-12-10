@@ -128,50 +128,33 @@ export class AnalyticsManager {
 
 // Zaktualizowane etykiety bez "(ogólne)"
 export const availableFields = [
-  // Dane sprzedawcy
-  { key: 'supplierName', label: 'Nazwa sprzedawcy', category: 'Sprzedawca' },
-  
   // Dane faktury
+  { key: 'InvoiceNumber', label: 'Numer faktury', category: 'Faktura' },
+  { key: 'InvoiceDate', label: 'Data faktury', category: 'Faktura' },
   { key: 'InvoiceType', label: 'Typ faktury', category: 'Faktura' },
-  { key: 'BillingStartDate', label: 'Data rozpoczęcia okresu', category: 'Faktura' },
-  { key: 'BillingEndDate', label: 'Data zakończenia okresu', category: 'Faktura' },
-  { key: 'BilledUsage', label: 'Zużycie w okresie', category: 'Zużycie' },
-  { key: '12mUsage', label: 'Zużycie 12-miesięczne', category: 'Zużycie' },
+  { key: 'BillingStartDate', label: 'Okres od', category: 'Faktura' },
+  { key: 'BillingEndDate', label: 'Okres do', category: 'Faktura' },
+  
+  // Dane zużycia
+  { key: 'ConsumptionValue', label: 'Zużycie', category: 'Zużycie' },
+  { key: 'ConsumptionUnit', label: 'Jednostka', category: 'Zużycie' },
+  { key: 'MeterNumber', label: 'Numer licznika', category: 'Zużycie' },
   { key: 'ReadingType', label: 'Typ odczytu', category: 'Zużycie' },
-  { key: 'ProductName', label: 'Nazwa produktu', category: 'Produkt' },
-  { key: 'Tariff', label: 'Taryfa', category: 'Produkt' },
   
-  // Dane punktu dostawy (dp - delivery point)
-  { key: 'ppeNum', label: 'Numer PPE', category: 'Punkt dostawy' },
-  { key: 'dpFirstName', label: 'Imię', category: 'Punkt dostawy' },
-  { key: 'dpLastName', label: 'Nazwisko', category: 'Punkt dostawy' },
-  { key: 'dpBusinessName', label: 'Nazwa firmy', category: 'Punkt dostawy' },
-  { key: 'dpStreet', label: 'Ulica', category: 'Punkt dostawy' },
-  { key: 'dpBuilding', label: 'Numer budynku', category: 'Punkt dostawy' },
-  { key: 'dpUnit', label: 'Numer lokalu', category: 'Punkt dostawy' },
-  { key: 'dpCity', label: 'Miasto', category: 'Punkt dostawy' },
-  { key: 'dpPostalCode', label: 'Kod pocztowy', category: 'Punkt dostawy' },
+  // Punkt poboru
+  { key: 'PPENumber', label: 'Numer PPE', category: 'Punkt poboru' },
+  { key: 'DeliveryAddress', label: 'Adres PPE', category: 'Punkt poboru' },
+  { key: 'TariffGroup', label: 'Grupa taryfowa', category: 'Punkt poboru' },
   
-  // Dane płatnika (pa - payment address)
-  { key: 'paFirstName', label: 'Imię', category: 'Płatnik' },
-  { key: 'paLastName', label: 'Nazwisko', category: 'Płatnik' },
-  { key: 'paBusinessName', label: 'Nazwa firmy', category: 'Płatnik' },
-  { key: 'paStreet', label: 'Ulica', category: 'Płatnik' },
-  { key: 'paBuilding', label: 'Numer budynku', category: 'Płatnik' },
-  { key: 'paUnit', label: 'Numer lokalu', category: 'Płatnik' },
-  { key: 'paCity', label: 'Miasto', category: 'Płatnik' },
-  { key: 'paPostalCode', label: 'Kod pocztowy', category: 'Płatnik' },
+  // Dane klienta
+  { key: 'CustomerName', label: 'Nazwa klienta', category: 'Klient' },
+  { key: 'CustomerAddress', label: 'Adres klienta', category: 'Klient' },
+  { key: 'CustomerTaxId', label: 'NIP', category: 'Klient' },
   
-  // Dane ogólne - zaktualizowane etykiety
-  { key: 'FirstName', label: 'Imię', category: 'Dane ogólne' },
-  { key: 'LastName', label: 'Nazwisko', category: 'Dane ogólne' },
-  { key: 'BusinessName', label: 'Nazwa firmy', category: 'Dane ogólne' },
-  { key: 'Street', label: 'Ulica', category: 'Dane ogólne' },
-  { key: 'Building', label: 'Numer budynku', category: 'Dane ogólne' },
-  { key: 'Unit', label: 'Numer lokalu', category: 'Dane ogólne' },
-  { key: 'City', label: 'Miasto', category: 'Dane ogólne' },
-  { key: 'PostalCode', label: 'Kod pocztowy', category: 'Dane ogólne' },
-  { key: 'taxID', label: 'NIP', category: 'Dane ogólne' }
+  // Dane sprzedawcy
+  { key: 'SupplierName', label: 'Nazwa sprzedawcy', category: 'Sprzedawca' },
+  { key: 'SupplierAddress', label: 'Adres sprzedawcy', category: 'Sprzedawca' },
+  { key: 'SupplierTaxId', label: 'NIP sprzedawcy', category: 'Sprzedawca' }
 ];
 
 // Grupowanie pól według kategorii

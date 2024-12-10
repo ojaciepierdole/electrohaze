@@ -1,55 +1,32 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import useSWR from 'swr';
 import type { ModelDefinition } from '@/types/processing';
 
+const fetcher = async (url: string) => {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error('Błąd pobierania modeli');
+  }
+  const data = await response.json();
+  return data.filter((model: ModelDefinition) => !model.id.startsWith('prebuilt-'));
+};
+
 export function useDocumentIntelligenceModels() {
-  const [data, setData] = useState<ModelDefinition[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const { data = [], error, isLoading } = useSWR<ModelDefinition[]>(
+    '/api/models',
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 5 * 60 * 1000,
+      fallbackData: []
+    }
+  );
 
-  useEffect(() => {
-    const fetchModels = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        // Pobierz listę modeli
-        const modelsResponse = await fetch('/api/models');
-        if (!modelsResponse.ok) {
-          throw new Error('Błąd podczas pobierania modeli');
-        }
-        const models = await modelsResponse.json();
-
-        // Dla każdego modelu pobierz jego pola
-        const modelsWithFields = await Promise.all(
-          models.map(async (model: any) => {
-            const fieldsResponse = await fetch(`/api/models/${model.modelId}/fields`);
-            if (!fieldsResponse.ok) {
-              throw new Error(`Błąd podczas pobierania pól dla modelu ${model.modelId}`);
-            }
-            const fields = await fieldsResponse.json();
-
-            return {
-              id: model.modelId,
-              name: model.description || model.modelId,
-              description: `Model ID: ${model.modelId}`,
-              fields
-            };
-          })
-        );
-
-        setData(modelsWithFields);
-      } catch (err) {
-        console.error('Błąd:', err);
-        setError(err instanceof Error ? err : new Error('Wystąpił nieznany błąd'));
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchModels();
-  }, []);
-
-  return { data, isLoading, error };
+  return {
+    data,
+    isLoading,
+    error
+  };
 } 

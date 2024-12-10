@@ -1,12 +1,27 @@
 import { FIELD_GROUPS } from '@/config/fields';
 
-export type FieldGroupKey = keyof typeof FIELD_GROUPS;
+export type FieldGroupKey = 
+  | 'invoice_data'
+  | 'supplier_data' 
+  | 'customer_data'
+  | 'postal_address'
+  | 'delivery_point'
+  | 'consumption_data'
+  | 'product_data';
+
+export interface FieldDefinition {
+  name: string;
+  type: string;
+  isRequired: boolean;
+  description: string;
+}
 
 export interface ProcessedField {
   content: string | null;
   confidence: number;
   type: string;
   page: number;
+  definition: FieldDefinition;
 }
 
 export interface BatchProcessingStatus {
@@ -17,6 +32,7 @@ export interface BatchProcessingStatus {
   currentModelId: string | null;
   fileProgress: number;
   totalProgress: number;
+  totalFiles: number;
   results: ProcessingResult[];
   error: string | null;
 }
@@ -45,4 +61,112 @@ export interface ModelDefinition {
   name: string;
   description: string;
   fields: AnalysisField[];
+}
+
+export interface LegacyFields {
+  // Podstawowe pola
+  OSD_name: string;
+  supplierName: string;
+  
+  // Dane adresowe płatnika
+  paStreet: string;
+  paBuilding: string;
+  paUnit: string;
+  paCity: string;
+  paPostalCode: string;
+  
+  // Dane identyfikacyjne
+  taxID: string;
+  firstName: string;
+  lastName: string;
+  
+  // Punkt poboru
+  ppeNumber: string;
+  meterNumber: string;
+  tariffGroup: string;
+  
+  // Dane faktury
+  invoiceNumber: string;
+  invoiceDate: string;
+  dueDate: string;
+  totalAmount: string;
+  currency: string;
+
+  // Dane zużycia
+  consumption: string;
+  consumption12m: string;
+  readingType: string;
+  
+  // Okresy rozliczeniowe
+  periodStart: string;
+  periodEnd: string;
+  
+  // Dane OSD
+  osdRegion: string;
+  osdAddress: string;
+  
+  // Dane produktu
+  productName: string;
+  productCode: string;
+  
+  // Dane rozliczeniowe
+  netAmount: string;
+  vatAmount: string;
+  vatRate: string;
+}
+
+export interface ModernFields {
+  // Dane faktury
+  InvoiceNumber: string;    // Numer faktury
+  InvoiceDate: string;      // Data wystawienia
+  DueDate: string;          // Termin płatności
+  TotalAmount: string;      // Kwota do zapłaty
+  Currency: string;         // Waluta
+  InvoiceType: string;      // Typ dokumentu
+  BillingStartDate: string; // Okres od
+  BillingEndDate: string;   // Okres do
+  NetAmount: string;        // Kwota netto
+  VatAmount: string;        // Kwota VAT
+  VatRate: string;          // Stawka VAT
+
+  // Dane sprzedawcy energii
+  SupplierName: string;     // Nazwa sprzedawcy
+  SupplierTaxId: string;    // NIP sprzedawcy
+  SupplierRegion: string;   // Region OSD
+
+  // Adres właściwy (główny adres klienta)
+  CustomerName: string;     // Nazwa klienta
+  CustomerTaxId: string;    // NIP klienta
+  CustomerStreet: string;   // Ulica
+  CustomerBuilding: string; // Numer budynku
+  CustomerUnit: string;     // Numer lokalu
+  CustomerCity: string;     // Miejscowość
+  CustomerPostalCode: string; // Kod pocztowy
+
+  // Adres korespondencyjny (do wysyłki faktur)
+  PostalName: string;       // Nazwa odbiorcy
+  PostalStreet: string;     // Ulica
+  PostalBuilding: string;   // Numer budynku
+  PostalUnit: string;       // Numer lokalu
+  PostalCity: string;       // Miejscowość
+  PostalPostalCode: string; // Kod pocztowy
+
+  // Miejsce dostawy (punkt poboru energii)
+  PPENumber: string;        // Numer punktu poboru energii (PPE)
+  DeliveryStreet: string;   // Ulica
+  DeliveryBuilding: string; // Numer budynku
+  DeliveryUnit: string;     // Numer lokalu
+  DeliveryCity: string;     // Miejscowość
+  DeliveryPostalCode: string; // Kod pocztowy
+  TariffGroup: string;      // Grupa taryfowa
+
+  // Dane o zużyciu energii
+  ConsumptionValue: string; // Naliczone zużycie [kWh]
+  ConsumptionUnit: string;  // Jednostka zużycia
+  Consumption12m: string;   // Zużycie za ostatnie 12 miesięcy
+  ReadingType: string;      // Typ odczytu
+  
+  // Dane produktu
+  ProductName: string;      // Nazwa produktu
+  ProductCode: string;      // Kod produktu
 } 

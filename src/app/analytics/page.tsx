@@ -185,61 +185,40 @@ export default function AnalyticsPage() {
 
       const analysisEntry: AnalysisLogEntry = {
         timestamp: new Date(),
-        supplierName: data.result.supplierName || 'Nieznany',
+        supplierName: data.result.SupplierName || 'Nieznany',
         timings: {
           totalTime: endTime - startTime,
           azureResponseTime: azureEndTime - azureStartTime,
           processingTime: endTime - azureEndTime
         },
         extractedFields: {
-          // Sprzedawca
-          supplierName: data.result.supplierName,
+          // Dane faktury
+          InvoiceNumber: data.result.InvoiceNumber,
+          InvoiceDate: data.result.InvoiceDate,
+          InvoiceType: data.result.InvoiceType,
+          BillingStartDate: data.result.BillingStartDate,
+          BillingEndDate: data.result.BillingEndDate,
           
-          // Faktura
-          InvoiceType: data.result.invoiceType,
-          BillingStartDate: data.result.periodStart,
-          BillingEndDate: data.result.periodEnd,
+          // Dane zużycia
+          ConsumptionValue: data.result.ConsumptionValue?.toString(),
+          ConsumptionUnit: data.result.ConsumptionUnit,
+          MeterNumber: data.result.MeterNumber,
+          ReadingType: data.result.ReadingType,
           
-          // Zużycie
-          BilledUsage: data.result.consumption?.toString(),
-          '12mUsage': data.result.consumption12m?.toString(),
-          ReadingType: data.result.readingType,
+          // Punkt poboru
+          PPENumber: data.result.PPENumber,
+          DeliveryAddress: data.result.DeliveryAddress,
+          TariffGroup: data.result.TariffGroup,
           
-          // Produkt
-          ProductName: data.result.productName,
-          Tariff: data.result.tariff,
+          // Dane klienta
+          CustomerName: data.result.CustomerName,
+          CustomerAddress: data.result.CustomerAddress,
+          CustomerTaxId: data.result.CustomerTaxId,
           
-          // Punkt dostawy
-          ppeNum: data.result.deliveryPoint?.ppeNumber,
-          dpFirstName: data.result.deliveryPoint?.fullName?.split(' ')[0],
-          dpLastName: data.result.deliveryPoint?.fullName?.split(' ').slice(1).join(' '),
-          dpBusinessName: data.result.deliveryPoint?.businessName,
-          dpStreet: deliveryAddress.street,
-          dpBuilding: deliveryAddress.building,
-          dpUnit: deliveryAddress.unit,
-          dpCity: deliveryAddress.city,
-          dpPostalCode: deliveryAddress.postalCode,
-          
-          // Płatnik
-          paFirstName: data.result.customer?.fullName?.split(' ')[0],
-          paLastName: data.result.customer?.fullName?.split(' ').slice(1).join(' '),
-          paBusinessName: data.result.customer?.businessName,
-          paStreet: customerAddress.street,
-          paBuilding: customerAddress.building,
-          paUnit: customerAddress.unit,
-          paCity: customerAddress.city,
-          paPostalCode: customerAddress.postalCode,
-          
-          // Dane ogólne
-          FirstName: data.result.customer?.fullName?.split(' ')[0],
-          LastName: data.result.customer?.fullName?.split(' ').slice(1).join(' '),
-          BusinessName: data.result.customer?.businessName,
-          Street: customerAddress.street,
-          Building: customerAddress.building,
-          Unit: customerAddress.unit,
-          City: customerAddress.city,
-          PostalCode: customerAddress.postalCode,
-          taxID: data.result.customer?.taxId
+          // Dane sprzedawcy
+          SupplierName: data.result.SupplierName,
+          SupplierAddress: data.result.SupplierAddress,
+          SupplierTaxId: data.result.SupplierTaxId
         }
       };
 

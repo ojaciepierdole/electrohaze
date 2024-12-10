@@ -1,4 +1,4 @@
-import type { ProcessedField, FieldGroupKey } from '@/types/processing';
+import type { ProcessedField, FieldGroupKey, LegacyFields, ModernFields } from '@/types/processing';
 import { FIELD_GROUPS } from '@/config/fields';
 
 // Funkcja sprawdzająca czy wszystkie wymagane pola w grupie są wypełnione
@@ -66,4 +66,77 @@ export const getCompletionColor = (completion: number): string => {
   if (completion >= 50) return "text-yellow-500";
   if (completion > 0) return "text-red-500";
   return "text-gray-300";
+};
+
+export const mapLegacyToModernFields = (legacy: LegacyFields): ModernFields => {
+  return {
+    // Dane faktury
+    InvoiceNumber: legacy.invoiceNumber,
+    InvoiceDate: legacy.invoiceDate,
+    DueDate: legacy.dueDate,
+    TotalAmount: legacy.totalAmount,
+    Currency: legacy.currency,
+    InvoiceType: 'FAKTURA', // Domyślna wartość
+    
+    // Dane sprzedawcy
+    SupplierName: legacy.supplierName || legacy.OSD_name,
+    SupplierAddress: formatAddress(legacy.paStreet, legacy.paBuilding, legacy.paUnit, legacy.paPostalCode, legacy.paCity),
+    SupplierTaxId: legacy.taxID,
+    SupplierRegion: legacy.osdRegion,
+    
+    // Dane klienta
+    CustomerName: `${legacy.firstName} ${legacy.lastName}`.trim(),
+    CustomerAddress: formatAddress(legacy.paStreet, legacy.paBuilding, legacy.paUnit, legacy.paPostalCode, legacy.paCity),
+    CustomerTaxId: legacy.taxID,
+    
+    // Punkt poboru
+    PPENumber: legacy.ppeNumber,
+    MeterNumber: legacy.meterNumber,
+    TariffGroup: legacy.tariffGroup,
+    DeliveryAddress: legacy.osdAddress,
+    
+    // Dane zużycia
+    ConsumptionValue: legacy.consumption,
+    ConsumptionUnit: 'kWh', // Domyślna wartość
+    Consumption12m: legacy.consumption12m,
+    ReadingType: legacy.readingType,
+    
+    // Okresy rozliczeniowe
+    BillingStartDate: legacy.periodStart,
+    BillingEndDate: legacy.periodEnd,
+    
+    // Dane produktu
+    ProductName: legacy.productName,
+    ProductCode: legacy.productCode,
+    
+    // Dane rozliczeniowe
+    NetAmount: legacy.netAmount,
+    VatAmount: legacy.vatAmount,
+    VatRate: legacy.vatRate
+  };
+};
+
+const formatAddress = (
+  street?: string,
+  building?: string,
+  unit?: string,
+  postalCode?: string,
+  city?: string
+): string => {
+  const parts = [];
+  
+  if (street || building) {
+    const streetPart = [street, building].filter(Boolean).join(' ');
+    if (unit) {
+      parts.push(`${streetPart}/${unit}`);
+    } else {
+      parts.push(streetPart);
+    }
+  }
+  
+  if (postalCode || city) {
+    parts.push([postalCode, city].filter(Boolean).join(' '));
+  }
+  
+  return parts.join(', ');
 }; 

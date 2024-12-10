@@ -5,46 +5,34 @@ import { ModelSelector } from '@/components/ModelSelector';
 import { FileUpload } from '@/components/FileUpload';
 import { BatchProcessingResults } from '@/components/BatchProcessingResults';
 import type { ModelDefinition, ProcessingResult } from '@/types/processing';
+import { useDocumentIntelligenceModels } from '@/hooks/useDocumentIntelligenceModels';
 
 export function ProcessingClient() {
   const [selectedModels, setSelectedModels] = React.useState<string[]>([]);
-  const [models, setModels] = React.useState<ModelDefinition[]>([]);
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [error, setError] = React.useState<Error | null>(null);
   const [results, setResults] = React.useState<ProcessingResult[]>([]);
+  const [batchId, setBatchId] = React.useState<string>('');
 
-  // Pobierz listę modeli przy pierwszym renderowaniu
-  React.useEffect(() => {
-    const fetchModels = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch('/api/models');
-        if (!response.ok) {
-          throw new Error('Nie udało się pobrać listy modeli');
-        }
-        const data = await response.json();
-        setModels(data);
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error('Nieznany błąd'));
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const { data: models = [], isLoading, error } = useDocumentIntelligenceModels();
 
-    fetchModels();
+  // Rozpocznij nową partię przy starcie przetwarzania
+  const handleProcessingStart = React.useCallback(() => {
+    setResults([]);
+    setBatchId(Date.now().toString());
   }, []);
 
-  const handleModelSelect = React.useCallback((modelIds: string[]) => {
-    if (modelIds.some(id => !id)) return;
-    setSelectedModels(modelIds);
-  }, []);
-
+  // Dodaj wyniki do aktualnej partii
   const handleProcessingComplete = React.useCallback((newResults: ProcessingResult[]) => {
-    setResults(prev => [...prev, ...newResults]);
+    setResults(prev => {
+      // Usuń poprzednie wyniki dla tych samych plików
+      const existingFileNames = new Set(newResults.map(r => r.fileName));
+      const filteredPrev = prev.filter(r => !existingFileNames.has(r.fileName));
+      
+      // Dodaj nowe wyniki
+      return [...filteredPrev, ...newResults];
+    });
   }, []);
 
   const handleExport = React.useCallback(() => {
-    // Implementacja eksportu
     console.log('Eksport wyników:', results);
   }, [results]);
 
@@ -53,7 +41,8 @@ export function ProcessingClient() {
       <ModelSelector
         models={models}
         selectedModels={selectedModels}
-        onModelSelect={handleModelSelect}
+        onModelSelect={setSelectedModels}
+        disabled={isLoading}
         isLoading={isLoading}
         error={error}
       />
@@ -62,7 +51,9 @@ export function ProcessingClient() {
         <FileUpload
           modelIds={selectedModels}
           disabled={isLoading}
+          onStart={handleProcessingStart}
           onComplete={handleProcessingComplete}
+          batchId={batchId}
         />
       )}
 

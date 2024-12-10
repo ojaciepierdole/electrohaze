@@ -17,23 +17,25 @@ export function BatchProcessingResults({
 }: BatchProcessingResultsProps) {
   if (!results.length) return null;
 
-  const totalTime = results.reduce((sum, r) => sum + r.processingTime, 0);
+  // Sumuj czasy przetwarzania w milisekundach
+  const totalTime = results.reduce((sum, result) => {
+    // Upewnij się, że processingTime jest w milisekundach
+    const time = typeof result.processingTime === 'number' ? result.processingTime : 0;
+    return sum + time;
+  }, 0);
   
   // Oblicz średnią pewność ze wszystkich modeli i ich pól
   const avgConfidence = results.reduce((sum, result) => {
-    const modelConfidences = result.results.reduce((modelSum, modelResult) => {
-      return modelSum + modelResult.confidence;
-    }, 0);
-    return sum + (modelConfidences / result.results.length);
+    const resultConfidence = result.results.reduce((rSum, r) => rSum + r.confidence, 0) / result.results.length;
+    return sum + resultConfidence;
   }, 0) / results.length;
 
   return (
     <div className="space-y-4">
       <ProcessingSummary
-        totalFiles={results.length}
+        fileCount={results.length}
         totalTime={totalTime}
-        avgConfidence={avgConfidence}
-        onExport={onExport}
+        averageConfidence={avgConfidence}
       />
 
       <Tabs defaultValue="list">

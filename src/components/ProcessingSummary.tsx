@@ -6,18 +6,27 @@ import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 
 export interface ProcessingSummaryProps {
-  totalFiles: number;
+  fileCount: number;
   totalTime: number;
-  avgConfidence: number;
-  onExport?: () => void;
+  averageConfidence: number;
 }
 
-export function ProcessingSummary({
-  totalFiles,
-  totalTime,
-  avgConfidence,
-  onExport
-}: ProcessingSummaryProps) {
+export function ProcessingSummary({ fileCount, totalTime, averageConfidence }: ProcessingSummaryProps) {
+  // Konwertuj timestamp na czytelny format
+  const formatTime = (ms: number) => {
+    if (ms < 1000) return `${ms.toFixed(0)}ms`;
+    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+    if (ms < 3600000) {
+      const minutes = Math.floor(ms / 60000);
+      const seconds = ((ms % 60000) / 1000).toFixed(1);
+      return `${minutes}m ${seconds}s`;
+    }
+    const hours = Math.floor(ms / 3600000);
+    const minutes = Math.floor((ms % 3600000) / 60000);
+    const seconds = ((ms % 60000) / 1000).toFixed(1);
+    return `${hours}h ${minutes}m ${seconds}s`;
+  };
+
   return (
     <Card className="p-6">
       <div className="flex justify-between items-center">
@@ -26,29 +35,26 @@ export function ProcessingSummary({
           <div className="grid grid-cols-3 gap-8">
             <div>
               <p className="text-sm text-muted-foreground">Liczba plików</p>
-              <p className="text-2xl font-semibold">{totalFiles}</p>
+              <p className="text-2xl font-semibold">{fileCount}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Całkowity czas</p>
-              <p className="text-2xl font-semibold">{(totalTime / 1000).toFixed(1)}s</p>
+              <p className="text-2xl font-semibold">{formatTime(totalTime)}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Średnia pewność</p>
-              <p className="text-2xl font-semibold">{(avgConfidence * 100).toFixed(1)}%</p>
+              <p className="text-2xl font-semibold">{(averageConfidence * 100).toFixed(1)}%</p>
             </div>
           </div>
         </div>
 
-        {onExport && (
-          <Button 
-            onClick={onExport} 
-            variant="outline" 
-            className="gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Eksportuj wyniki
-          </Button>
-        )}
+        <Button 
+          variant="outline" 
+          className="gap-2"
+        >
+          <Download className="w-4 h-4" />
+          Eksportuj wyniki
+        </Button>
       </div>
     </Card>
   );

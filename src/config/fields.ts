@@ -1,84 +1,108 @@
-import { FileText, User, Home, MapPin, Package, Building, Receipt, type LucideIcon } from 'lucide-react';
+import { 
+  Receipt, FileText, Building, User, 
+  Wallet, Calendar, Zap, Scale,
+  Lightbulb, Calculator, FileBarChart, Mail, MapPin, Package
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import type { FieldGroupKey } from '@/types/processing';
 
-export interface FieldGroup {
+interface FieldGroup {
   name: string;
-  description: string;
+  icon: LucideIcon;
   fields: readonly string[];
   requiredFields: readonly string[];
-  icon: LucideIcon;
 }
 
-export const FIELD_GROUPS = {
+export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
   invoice_data: {
     name: 'Dane faktury',
-    description: 'Podstawowe informacje z faktury',
-    fields: ['invoiceNumber', 'invoiceDate', 'dueDate', 'totalAmount', 'currency'] as const,
-    requiredFields: ['invoiceNumber', 'invoiceDate', 'totalAmount'] as const,
-    icon: Receipt
+    icon: Receipt,
+    fields: [
+      'InvoiceNumber',
+      'InvoiceDate',
+      'DueDate',
+      'TotalAmount',
+      'Currency',
+      'InvoiceType',
+      'BillingStartDate',
+      'BillingEndDate',
+      'NetAmount',
+      'VatAmount',
+      'VatRate'
+    ] as const,
+    requiredFields: ['InvoiceNumber', 'InvoiceDate', 'TotalAmount']
   },
   supplier_data: {
     name: 'Dane sprzedawcy',
-    description: 'Informacje o sprzedawcy',
-    fields: ['supplierName', 'supplierNIP', 'supplierAddress', 'supplierCity', 'supplierPostalCode'] as const,
-    requiredFields: ['supplierName', 'supplierNIP'] as const,
-    icon: Building
+    icon: Building,
+    fields: [
+      'SupplierName',
+      'SupplierTaxId',
+      'SupplierRegion'
+    ] as const,
+    requiredFields: ['SupplierName', 'SupplierTaxId']
   },
   customer_data: {
     name: 'Dane klienta',
-    description: 'Dane identyfikacyjne klienta',
-    fields: ['customerName', 'customerNIP', 'customerPhone', 'customerEmail'] as const,
-    requiredFields: ['customerName'] as const,
-    icon: User
+    icon: User,
+    fields: [
+      'CustomerName',
+      'CustomerTaxId',
+      'CustomerStreet',
+      'CustomerBuilding',
+      'CustomerUnit',
+      'CustomerCity',
+      'CustomerPostalCode'
+    ] as const,
+    requiredFields: ['CustomerName']
+  },
+  postal_address: {
+    name: 'Adres korespondencyjny',
+    icon: Mail,
+    fields: [
+      'PostalName',
+      'PostalStreet',
+      'PostalBuilding',
+      'PostalUnit',
+      'PostalCity',
+      'PostalPostalCode'
+    ] as const,
+    requiredFields: []
+  },
+  delivery_point: {
+    name: 'Miejsce dostawy',
+    icon: MapPin,
+    fields: [
+      'PPENumber',
+      'DeliveryStreet',
+      'DeliveryBuilding',
+      'DeliveryUnit',
+      'DeliveryCity',
+      'DeliveryPostalCode',
+      'TariffGroup'
+    ] as const,
+    requiredFields: ['PPENumber']
+  },
+  consumption_data: {
+    name: 'Dane zużycia',
+    icon: Zap,
+    fields: [
+      'ConsumptionValue',
+      'ConsumptionUnit',
+      'Consumption12m',
+      'ReadingType'
+    ] as const,
+    requiredFields: ['ConsumptionValue']
+  },
+  product_data: {
+    name: 'Dane produktu',
+    icon: Package,
+    fields: [
+      'ProductName',
+      'ProductCode'
+    ] as const,
+    requiredFields: []
   }
-} as const;
-
-export type FieldGroupKey = keyof typeof FIELD_GROUPS;
-export type FieldName = typeof FIELD_GROUPS[FieldGroupKey]['fields'][number];
-
-export const FIELD_LABELS: Record<string, string> = {
-  // Dane faktury
-  invoiceNumber: 'Numer faktury',
-  invoiceDate: 'Data wystawienia',
-  dueDate: 'Termin płatności',
-  totalAmount: 'Kwota',
-  currency: 'Waluta',
-
-  // Dane sprzedawcy
-  supplierName: 'Nazwa sprzedawcy',
-  supplierNIP: 'NIP sprzedawcy',
-  supplierAddress: 'Adres sprzedawcy',
-  supplierCity: 'Miasto sprzedawcy',
-  supplierPostalCode: 'Kod pocztowy sprzedawcy',
-
-  // Dane klienta
-  customerName: 'Nazwa klienta',
-  customerNIP: 'NIP klienta',
-  customerPhone: 'Telefon',
-  customerEmail: 'Email',
-
-  // Adres klienta
-  customerStreet: 'Ulica',
-  customerHouseNumber: 'Numer domu',
-  customerApartmentNumber: 'Numer mieszkania',
-  customerCity: 'Miasto',
-  customerPostalCode: 'Kod pocztowy',
-
-  // Adres korespondencyjny
-  postalStreet: 'Ulica (korespondencyjny)',
-  postalHouseNumber: 'Numer domu (korespondencyjny)',
-  postalApartmentNumber: 'Numer mieszkania (korespondencyjny)',
-  postalCity: 'Miasto (korespondencyjny)',
-  postalPostalCode: 'Kod pocztowy (korespondencyjny)',
-
-  // Punkt odbioru
-  ppeNumber: 'Numer PPE',
-  meterNumber: 'Numer licznika',
-  tariffGroup: 'Grupa taryfowa',
-  contractNumber: 'Numer umowy'
 };
 
-export const CATEGORY_ICONS: Record<FieldGroupKey, { icon: LucideIcon }> = {
-  invoice_data: { icon: Receipt },
-  supplier_data: { icon: Building },
-  customer_data: { icon: User }
-}; 
+export type FieldName = typeof FIELD_GROUPS[FieldGroupKey]['fields'][number];

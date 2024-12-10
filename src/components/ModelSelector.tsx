@@ -29,7 +29,7 @@ interface ModelSelectorProps {
 }
 
 export function ModelSelector({
-  models,
+  models = [],
   selectedModels,
   onModelSelect,
   disabled,
@@ -38,18 +38,11 @@ export function ModelSelector({
 }: ModelSelectorProps) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
-  const [isFieldsLoading, setIsFieldsLoading] = React.useState(false);
 
-  const filteredModels = React.useMemo(() => {
-    if (!search) return models;
-    
-    const searchLower = search.toLowerCase();
-    return models.filter(model => 
-      model.name.toLowerCase().includes(searchLower) ||
-      model.description.toLowerCase().includes(searchLower) ||
-      model.id.toLowerCase().includes(searchLower)
-    );
-  }, [models, search]);
+  const filteredModels = models.filter(model => 
+    model.name.toLowerCase().includes(search.toLowerCase()) ||
+    model.description.toLowerCase().includes(search.toLowerCase())
+  );
 
   const handleSelect = React.useCallback((modelId: string) => {
     if (!modelId) return;
@@ -86,7 +79,6 @@ export function ModelSelector({
                 <button
                   onClick={() => handleSelect(modelId)}
                   className="ml-1 hover:text-destructive"
-                  disabled={isFieldsLoading}
                 >
                   ×
                 </button>
@@ -103,12 +95,12 @@ export function ModelSelector({
             role="combobox"
             aria-expanded={open}
             className="w-full justify-between bg-white"
-            disabled={disabled || isLoading || isFieldsLoading || selectedModels.length >= 3}
+            disabled={disabled || isLoading || selectedModels.length >= 3}
           >
-            {isLoading || isFieldsLoading ? (
+            {isLoading ? (
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span>{isLoading ? "Ładowanie modeli..." : "Sprawdzanie modelu..."}</span>
+                <span>Ładowanie modeli...</span>
               </div>
             ) : selectedModels.length === 0 ? (
               "Wybierz modele..."
@@ -136,7 +128,6 @@ export function ModelSelector({
                     key={model.id}
                     value={model.id}
                     onSelect={() => handleSelect(model.id)}
-                    disabled={isFieldsLoading}
                     className="px-4 py-2 cursor-pointer hover:bg-muted/50 data-[selected=true]:bg-muted"
                   >
                     <Check
