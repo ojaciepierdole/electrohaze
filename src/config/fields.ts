@@ -106,3 +106,60 @@ export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
 };
 
 export type FieldName = typeof FIELD_GROUPS[FieldGroupKey]['fields'][number];
+
+// Mapowanie nazw pól na polskie etykiety
+export const FIELD_LABELS: Record<string, string> = {
+  // Dane faktury
+  InvoiceNumber: 'Numer faktury',
+  InvoiceDate: 'Data wystawienia',
+  DueDate: 'Termin płatności',
+  TotalAmount: 'Kwota do zapłaty',
+  Currency: 'Waluta',
+  InvoiceType: 'Typ dokumentu',
+  BillingStartDate: 'Okres od',
+  BillingEndDate: 'Okres do',
+  NetAmount: 'Kwota netto',
+  VatAmount: 'Kwota VAT',
+  VatRate: 'Stawka VAT',
+
+  // Dane sprzedawcy
+  SupplierName: 'Nazwa sprzedawcy',
+  SupplierTaxId: 'NIP',
+  SupplierRegion: 'Region OSD',
+
+  // Adres właściwy
+  CustomerName: 'Nazwa',
+  CustomerTaxId: 'NIP',
+  CustomerStreet: 'Ulica',
+  CustomerBuilding: 'Numer budynku',
+  CustomerUnit: 'Numer lokalu',
+  CustomerCity: 'Miejscowość',
+  CustomerPostalCode: 'Kod pocztowy',
+
+  // Adres korespondencyjny
+  PostalName: 'Nazwa',
+  PostalStreet: 'Ulica',
+  PostalBuilding: 'Numer budynku',
+  PostalUnit: 'Numer lokalu',
+  PostalCity: 'Miejscowość',
+  PostalPostalCode: 'Kod pocztowy',
+
+  // Miejsce dostawy
+  PPENumber: 'Numer PPE',
+  DeliveryStreet: 'Ulica',
+  DeliveryBuilding: 'Numer budynku',
+  DeliveryUnit: 'Numer lokalu',
+  DeliveryCity: 'Miejscowość',
+  DeliveryPostalCode: 'Kod pocztowy',
+  TariffGroup: 'Grupa taryfowa',
+
+  // Dane zużycia
+  ConsumptionValue: 'Zużycie',
+  ConsumptionUnit: 'Jednostka',
+  Consumption12m: 'Zużycie roczne',
+  ReadingType: 'Typ odczytu',
+  
+  // Dane produktu
+  ProductName: 'Nazwa produktu',
+  ProductCode: 'Kod produktu'
+};

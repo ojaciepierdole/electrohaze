@@ -7,17 +7,71 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FIELD_GROUPS } from '@/config/fields';
 import type { ProcessingResult, FieldGroupKey } from '@/types/processing';
+import { format } from 'date-fns';
+import { pl } from 'date-fns/locale';
+import { truncateFileName } from '@/utils/processing';
+import { getVendorLogo } from '@/lib/vendors';
+import { FIELD_LABELS } from '@/config/fields';
 
 interface AnalysisResultCardProps {
   result: ProcessingResult;
 }
 
+function formatFieldValue(value: string | null, type: string): string {
+  if (!value) return 'b/d';
+  
+  // Usuń znaki specjalne
+  value = value.replace(/[:.,]$/, '');
+  
+  // Formatuj daty
+  if (type === 'date' && value.includes('T')) {
+    try {
+      return format(new Date(value), 'd MMMM yyyy', { locale: pl });
+    } catch {
+      return value;
+    }
+  }
+
+  return value;
+}
+
+function getConfidenceBadgeVariant(confidence: number): "default" | "outline" | "secondary" | "destructive" {
+  if (confidence >= 0.95) return "outline";
+  if (confidence >= 0.85) return "secondary";
+  if (confidence >= 0.75) return "default";
+  return "destructive";
+}
+
+function getFieldLabel(fieldName: string): string {
+  return FIELD_LABELS[fieldName] || fieldName;
+}
+
 export function AnalysisResultCard({ result }: AnalysisResultCardProps) {
   const [isExpanded, setIsExpanded] = React.useState(false);
-  const modelResult = result.results[0];
-  const fields = modelResult.fields;
+  const [logoError, setLogoError] = React.useState(false);
+  const [logoLoaded, setLogoLoaded] = React.useState(false);
+  const modelResults = result.results;
+  const fields = modelResults[0].fields;
 
-  // Grupuj pola według kategorii
+  // Znajdź nazwę sprzedawcy
+  const vendorName = React.useMemo(() => {
+    const supplierField = Object.values(fields).find(field => 
+      field.definition.name.toLowerCase().includes('supplier') ||
+      field.definition.name.toLowerCase().includes('sprzedawca')
+    );
+    return supplierField?.content || null;
+  }, [fields]);
+
+  // Oblicz średnią pewność dla każdego modelu
+  const modelConfidences = React.useMemo(() => {
+    return modelResults.map(modelResult => ({
+      modelId: modelResult.modelId,
+      confidence: modelResult.confidence,
+      fieldsCount: Object.keys(modelResult.fields).length
+    }));
+  }, [modelResults]);
+
+  // Grupuj i sortuj pola
   const groupedFields = React.useMemo(() => {
     const groups = {} as Record<FieldGroupKey, typeof fields>;
     
@@ -27,6 +81,21 @@ export function AnalysisResultCard({ result }: AnalysisResultCardProps) {
         groups[group] = {};
       }
       groups[group][key] = field;
+    });
+
+    // Sortuj pola w każdej grupie - najpierw znalezione, potem nie znalezione
+    Object.keys(groups).forEach(groupKey => {
+      const sortedFields = Object.entries(groups[groupKey as FieldGroupKey])
+        .sort(([, a], [, b]) => {
+          if (!!a.content === !!b.content) return 0;
+          return a.content ? -1 : 1;
+        })
+        .reduce((acc, [key, value]) => ({
+          ...acc,
+          [key]: value
+        }), {});
+      
+      groups[groupKey as FieldGroupKey] = sortedFields;
     });
 
     return groups;
@@ -53,11 +122,39 @@ export function AnalysisResultCard({ result }: AnalysisResultCardProps) {
         onClick={() => setIsExpanded(prev => !prev)}
         className="w-full p-6 flex justify-between items-start hover:bg-muted/50 transition-colors"
       >
-        <div>
-          <h3 className="text-lg font-semibold text-left">{result.fileName}</h3>
-          <p className="text-sm text-muted-foreground">
-            Przeanalizowano przez {result.results.length} model
-          </p>
+        <div className="flex items-start gap-4">
+          {vendorName && !logoError && (
+            <div className="flex-shrink-0 w-8 h-8">
+              <img 
+                src={getVendorLogo(vendorName)}
+                alt={vendorName}
+                className={`w-full h-full object-contain transition-opacity duration-200 ${
+                  logoLoaded ? 'opacity-100' : 'opacity-0'
+                }`}
+                onError={() => setLogoError(true)}
+                onLoad={() => setLogoLoaded(true)}
+              />
+            </div>
+          )}
+          <div>
+            <h3 className="text-lg font-semibold text-left">
+              {truncateFileName(result.fileName)}
+            </h3>
+            <div className="text-sm text-muted-foreground space-y-1">
+              <p>Przeanalizowano przez {modelResults.length} model</p>
+              <div className="flex flex-wrap gap-2">
+                {modelConfidences.map(({ modelId, confidence }) => (
+                  <Badge 
+                    key={modelId}
+                    variant={getConfidenceBadgeVariant(confidence)}
+                    className="text-xs"
+                  >
+                    {modelId}: {(confidence * 100).toFixed(1)}%
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex gap-2">
@@ -85,40 +182,45 @@ export function AnalysisResultCard({ result }: AnalysisResultCardProps) {
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="px-6 pb-6 grid gap-6">
+            <div className="px-6 pb-6 space-y-6">
               {Object.entries(FIELD_GROUPS).map(([groupKey, group]) => {
                 const groupFields = groupedFields[groupKey as FieldGroupKey];
                 if (!groupFields || Object.keys(groupFields).length === 0) return null;
 
                 return (
                   <div key={groupKey} className="space-y-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 pb-2 border-b">
                       <group.icon className="w-4 h-4" />
                       <h4 className="font-medium">{group.name}</h4>
                     </div>
-                    <div className="grid gap-2">
-                      {Object.entries(groupFields).map(([fieldName, field]) => {
+                    <div className="grid gap-1">
+                      {Object.entries(groupFields).map(([fieldName, field], index) => {
                         const isRequired = group.requiredFields.includes(fieldName);
                         const hasValue = Boolean(field.content);
-                        const hasHighConfidence = field.confidence > 0.9;
+                        const formattedValue = formatFieldValue(field.content, field.type);
 
                         return (
-                          <div key={fieldName} className="flex justify-between items-start text-sm">
+                          <div 
+                            key={fieldName} 
+                            className={`flex justify-between items-start p-2 rounded-md ${
+                              hasValue ? 'hover:bg-muted/50' : 'opacity-75'
+                            } ${index % 2 === 0 ? 'bg-muted/25' : ''}`}
+                          >
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
-                                <span className="font-medium">{field.definition.name}</span>
+                                <span className="font-medium">{getFieldLabel(fieldName)}</span>
                                 {isRequired && (
                                   <Badge variant={hasValue ? "outline" : "secondary"} className="text-xs">
                                     Wymagane
                                   </Badge>
                                 )}
                               </div>
-                              <div className={`${hasValue ? 'text-foreground' : 'text-muted-foreground'}`}>
-                                {field.content || 'Nie znaleziono'}
+                              <div className={hasValue ? 'text-foreground' : 'text-muted-foreground'}>
+                                {formattedValue}
                               </div>
                             </div>
                             <Badge 
-                              variant={hasHighConfidence ? "outline" : "secondary"}
+                              variant={getConfidenceBadgeVariant(field.confidence)}
                               className="ml-2"
                             >
                               {(field.confidence * 100).toFixed(1)}%
