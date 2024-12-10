@@ -1,10 +1,6 @@
 'use client';
 
-import React from 'react';
-import { Card } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
+import * as React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AnalysisResultCard } from './AnalysisResultCard';
 import { ProcessingSummary } from './ProcessingSummary';
@@ -12,10 +8,15 @@ import type { ProcessingResult } from '@/types/processing';
 
 interface BatchProcessingResultsProps {
   results: ProcessingResult[];
-  onExport: () => void;
+  onExport?: () => void;
 }
 
-export function BatchProcessingResults({ results, onExport }: BatchProcessingResultsProps) {
+export function BatchProcessingResults({ 
+  results = [], // Domyślna wartość pusta tablica
+  onExport 
+}: BatchProcessingResultsProps) {
+  if (!results.length) return null;
+
   const totalTime = results.reduce((sum, r) => sum + r.processingTime, 0);
   const avgConfidence = results.reduce((sum, r) => {
     const fields = Object.values(r.fields);
@@ -23,46 +24,31 @@ export function BatchProcessingResults({ results, onExport }: BatchProcessingRes
     return sum + avgFieldConfidence;
   }, 0) / results.length;
 
-  const successRate = results.filter(r => r.positiveBaseline).length / results.length;
-
   return (
-    <Card className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold">Wyniki analizy</h2>
-        <Button onClick={onExport} variant="outline" className="gap-2">
-          <Download className="w-4 h-4" />
-          Eksportuj wyniki
-        </Button>
-      </div>
+    <div className="space-y-4">
+      <ProcessingSummary
+        totalFiles={results.length}
+        totalTime={totalTime}
+        avgConfidence={avgConfidence}
+        onExport={onExport}
+      />
 
-      <Tabs defaultValue="summary">
-        <TabsList className="mb-4">
-          <TabsTrigger value="summary">Podsumowanie</TabsTrigger>
-          <TabsTrigger value="details">Szczegóły</TabsTrigger>
+      <Tabs defaultValue="list">
+        <TabsList>
+          <TabsTrigger value="list">Lista</TabsTrigger>
+          <TabsTrigger value="grid">Siatka</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="summary">
-          <ProcessingSummary
-            totalDocuments={results.length}
-            totalTime={totalTime}
-            avgConfidence={avgConfidence}
-            successRate={successRate}
-          />
+        <TabsContent value="list" className="space-y-4">
+          {results.map((result, index) => (
+            <AnalysisResultCard key={index} result={result} />
+          ))}
         </TabsContent>
-
-        <TabsContent value="details">
-          <ScrollArea className="h-[600px] pr-4">
-            <div className="space-y-4">
-              {results.map((result, index) => (
-                <AnalysisResultCard
-                  key={`${result.fileName}-${index}`}
-                  result={result}
-                />
-              ))}
-            </div>
-          </ScrollArea>
+        <TabsContent value="grid" className="grid grid-cols-2 gap-4">
+          {results.map((result, index) => (
+            <AnalysisResultCard key={index} result={result} />
+          ))}
         </TabsContent>
       </Tabs>
-    </Card>
+    </div>
   );
 } 

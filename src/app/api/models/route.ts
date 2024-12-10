@@ -1,25 +1,37 @@
 import { NextResponse } from 'next/server';
-import { DocumentIntelligenceModel, DocumentIntelligenceResponse } from '@/types/documentIntelligence';
+import type { ModelDefinition } from '@/types/processing';
 
 export async function GET() {
   try {
-    console.log('Pobieranie modeli z Azure...');
-    
+    // Lista predefiniowanych modeli do analizy faktur
+    const predefinedModels: ModelDefinition[] = [
+      {
+        id: 'prebuilt-invoice',
+        name: 'Faktury (ogólny)',
+        description: 'Model do analizy standardowych faktur',
+        fields: []
+      },
+      {
+        id: 'prebuilt-invoice.energy',
+        name: 'Faktury energetyczne',
+        description: 'Model zoptymalizowany pod faktury za energię',
+        fields: []
+      }
+    ];
+
+    // Pobierz listę dostępnych modeli z Azure
     if (!process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT || !process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY) {
       throw new Error('Brak wymaganych zmiennych środowiskowych');
     }
 
     const endpoint = process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT.replace(/\/$/, '');
-    const apiVersion = '2023-07-31';
-    const url = `${endpoint}/formrecognizer/documentModels?includeModelVersions=true&api-version=${apiVersion}`;
+    const url = `${endpoint}/formrecognizer/documentModels?api-version=2023-07-31`;
 
-    console.log('Wywołuję URL:', url);
+    console.log('Pobieranie modeli z:', url);
 
     const response = await fetch(url, {
-      method: 'GET',
       headers: {
-        'Ocp-Apim-Subscription-Key': process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY,
-        'Content-Type': 'application/json'
+        'Ocp-Apim-Subscription-Key': process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY
       }
     });
 
@@ -28,36 +40,42 @@ export async function GET() {
       console.error('Szczegóły błędu:', {
         status: response.status,
         statusText: response.statusText,
-        body: errorText
+        body: errorText,
+        url
       });
-      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+      throw new Error(`Błąd pobierania modeli: ${response.statusText}`);
     }
 
     const data = await response.json();
-    console.log('Odpowiedź z Azure:', data);
+    console.log('Odpowiedź z Azure:', JSON.stringify(data, null, 2));
 
-    const modelList: DocumentIntelligenceModel[] = (data.models || data.value || [])
-      .filter((model: any) => !model.modelId.startsWith('prebuilt-'))
+    // Mapuj modele z Azure
+    const azureModels = (data.value || [])
+      .filter((model: any) => {
+        // Pobierz tylko custom modele (nie prebuilt) i aktywne
+        const isPrebuilt = model.modelId?.toLowerCase().startsWith('prebuilt-');
+        const isActive = model.expirationDateTime ? new Date(model.expirationDateTime) > new Date() : true;
+        return !isPrebuilt && isActive;
+      })
       .map((model: any) => ({
-        modelId: model.modelId || model.id,
-        description: model.description || `Model ${model.modelId || model.id}`,
-        createdOn: model.createdDateTime ? new Date(model.createdDateTime) : new Date()
+        id: model.modelId,
+        name: model.description || model.modelId.split('-')[0],
+        description: model.description || `Model ${model.modelId}`,
+        fields: []
       }));
 
-    if (modelList.length === 0) {
-      console.warn('Nie znaleziono żadnych custom modeli');
-      return NextResponse.json(
-        { error: 'Nie znaleziono żadnych custom modeli' },
-        { status: 404 }
-      );
-    }
+    console.log('Znalezione modele z Azure:', azureModels);
 
-    console.log('Pobrano modele:', modelList);
-    return NextResponse.json(modelList);
+    // Połącz predefiniowane modele z modelami z Azure
+    const allModels = [...predefinedModels, ...azureModels];
+    
+    console.log('Wszystkie dostępne modele:', allModels);
+    return NextResponse.json(allModels);
+
   } catch (error) {
     console.error('Błąd podczas pobierania modeli:', error);
     return NextResponse.json(
-      { error: 'Wystąpił błąd podczas pobierania modeli: ' + (error as Error).message },
+      { error: error instanceof Error ? error.message : 'Nie udało się pobrać listy modeli' },
       { status: 500 }
     );
   }

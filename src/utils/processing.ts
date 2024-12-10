@@ -1,18 +1,5 @@
-import { ApiField, ProcessedField } from '@/types/processing';
-import { FIELD_GROUPS, type FieldGroupKey } from '@/config/fields';
-
-// Funkcja konwertująca pola z API do formatu wyświetlania
-export const convertApiFields = (fields: Record<string, ApiField>): Record<string, ProcessedField> => {
-  return Object.entries(fields).reduce((acc, [key, field]) => {
-    acc[key] = {
-      kind: field.kind,
-      content: field.content,
-      value: field.value,
-      confidence: field.confidence
-    };
-    return acc;
-  }, {} as Record<string, ProcessedField>);
-};
+import type { ProcessedField, FieldGroupKey } from '@/types/processing';
+import { FIELD_GROUPS } from '@/config/fields';
 
 // Funkcja sprawdzająca czy wszystkie wymagane pola w grupie są wypełnione
 export const isGroupComplete = (fields: Record<string, ProcessedField>, groupName: FieldGroupKey): boolean => {
@@ -21,7 +8,7 @@ export const isGroupComplete = (fields: Record<string, ProcessedField>, groupNam
 
   return group.requiredFields.every((fieldName: string) => {
     const field = fields[fieldName];
-    return field && field.value && field.value !== 'Nie znaleziono';
+    return field && field.content && field.content !== 'Nie znaleziono';
   });
 };
 
@@ -51,7 +38,7 @@ export const calculateGroupCompletion = (
   const group = FIELD_GROUPS[groupKey];
   if (!group) return 0;
 
-  const groupFields = group.fields as string[];
+  const groupFields = [...group.fields] as string[];
   const filledFields = groupFields.filter(fieldName => {
     const field = fields[fieldName];
     return field && field.content && field.confidence > 0.7;
