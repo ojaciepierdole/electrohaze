@@ -3,23 +3,34 @@
 import * as React from "react"
 import { DialogProps } from "@radix-ui/react-dialog"
 import { Command as CommandPrimitive } from "cmdk"
-import { Search } from "lucide-react"
+import { Search, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 
 const Command = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive>
->(({ className, ...props }, ref) => (
-  <CommandPrimitive
-    ref={ref}
-    className={cn(
-      "flex h-full w-full flex-col overflow-hidden rounded-md bg-popover text-popover-foreground",
-      className
+  React.ComponentPropsWithoutRef<typeof CommandPrimitive> & { onClose?: () => void }
+>(({ className, onClose, ...props }, ref) => (
+  <div className="relative">
+    {onClose && (
+      <button
+        onClick={onClose}
+        className="absolute right-2 top-2 p-2 hover:bg-accent rounded-sm z-50"
+      >
+        <X className="h-4 w-4" />
+        <span className="sr-only">Zamknij</span>
+      </button>
     )}
-    {...props}
-  />
+    <CommandPrimitive
+      ref={ref}
+      className={cn(
+        "flex h-full w-full flex-col overflow-hidden rounded-md bg-popover text-popover-foreground",
+        className
+      )}
+      {...props}
+    />
+  </div>
 ))
 Command.displayName = CommandPrimitive.displayName
 

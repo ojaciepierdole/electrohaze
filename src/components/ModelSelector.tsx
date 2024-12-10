@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
+import { Check, ChevronsUpDown, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Command,
@@ -16,7 +16,6 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
 import type { ModelDefinition } from '@/types/processing';
 
 interface ModelSelectorProps {
@@ -63,31 +62,7 @@ export function ModelSelector({
   }
 
   return (
-    <div className="space-y-2">
-      {selectedModels.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {selectedModels.map(modelId => {
-            const model = models.find(m => m.id === modelId);
-            if (!model) return null;
-            return (
-              <Badge
-                key={modelId}
-                variant="secondary"
-                className="flex items-center gap-1"
-              >
-                {model.id}
-                <button
-                  onClick={() => handleSelect(modelId)}
-                  className="ml-1 hover:text-destructive"
-                >
-                  ×
-                </button>
-              </Badge>
-            );
-          })}
-        </div>
-      )}
-
+    <div className="space-y-4">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -111,7 +86,10 @@ export function ModelSelector({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-full p-0">
-          <Command className="bg-white border rounded-lg shadow-sm">
+          <Command 
+            className="bg-white border rounded-lg shadow-sm"
+            onClose={() => setOpen(false)}
+          >
             <CommandInput 
               placeholder="Szukaj modelu..." 
               value={search}
@@ -150,6 +128,35 @@ export function ModelSelector({
           </Command>
         </PopoverContent>
       </Popover>
+
+      {selectedModels.length > 0 && (
+        <div className="grid grid-cols-3 gap-2">
+          {selectedModels.map(modelId => {
+            const model = models.find(m => m.id === modelId);
+            if (!model) return null;
+            return (
+              <div
+                key={modelId}
+                className="relative flex flex-col p-3 bg-white rounded-lg border shadow-sm"
+              >
+                <button
+                  onClick={() => handleSelect(modelId)}
+                  className="absolute top-1.5 right-1.5 p-1 hover:bg-muted/50 rounded-sm"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  <span className="sr-only">Usuń model</span>
+                </button>
+                <div className="font-medium text-sm">{model.id}</div>
+                {model.description && (
+                  <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                    {model.description}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 } 

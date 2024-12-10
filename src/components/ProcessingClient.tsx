@@ -66,6 +66,16 @@ export function ProcessingClient() {
 
   return (
     <div className="space-y-8">
+      <FileUpload
+        modelIds={selectedModels}
+        disabled={isLoading}
+        onStart={handleProcessingStart}
+        onComplete={handleProcessingComplete}
+        batchId={batchId}
+        status={processingStatus}
+        onStatusUpdate={updateProcessingStatus}
+      />
+
       <ModelSelector
         models={models}
         selectedModels={selectedModels}
@@ -75,25 +85,11 @@ export function ProcessingClient() {
         error={error}
       />
       
-      {selectedModels.length > 0 && (
-        <>
-          <FileUpload
-            modelIds={selectedModels}
-            disabled={isLoading}
-            onStart={handleProcessingStart}
-            onComplete={handleProcessingComplete}
-            batchId={batchId}
-            status={processingStatus}
-            onStatusUpdate={updateProcessingStatus}
-          />
-
-          {!processingStatus.isProcessing && results.length > 0 && (
-            <BatchProcessingResults 
-              results={results}
-              onExport={handleExport}
-            />
-          )}
-        </>
+      {!processingStatus.isProcessing && results.length > 0 && (
+        <BatchProcessingResults 
+          results={results}
+          onExport={handleExport}
+        />
       )}
     </div>
   );
