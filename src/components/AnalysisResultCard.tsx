@@ -112,10 +112,10 @@ function GroupedFields({
 
       {/* Nieznalezione pola */}
       {notFoundFields.length > 0 && (
-        <div className="mt-2">
+        <div className="mt-6 mb-2">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-2 text-sm bg-muted/60 rounded-lg px-3 py-2 w-fit hover:bg-muted/80 transition-colors"
           >
             <ChevronDown 
               className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
@@ -132,7 +132,7 @@ function GroupedFields({
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden"
               >
-                <div className="pt-2 space-y-1">
+                <div className="pt-4 space-y-1 opacity-80">
                   {notFoundFields.map(([fieldName, field]) => (
                     <FieldRow 
                       key={fieldName}
@@ -186,9 +186,11 @@ function FieldRow({
           <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
             {getFieldLabel(fieldName)}:
           </span>
-          <span className="border-b border-muted-foreground/30 flex-1" />
+          <div className="flex-1 flex items-center">
+            <span className="border-b border-muted-foreground/30 flex-1" />
+          </div>
         </div>
-        <div className="ml-[60px]">
+        <div className="flex items-center gap-2">
           <span className={`text-sm font-medium text-foreground ${
             isPPE ? 'font-mono tracking-wider' : ''
           }`}>
@@ -205,7 +207,7 @@ function FieldRow({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="flex items-center gap-2 flex-shrink-0 ml-4">
         {modelResults.map(model => {
           const confidence = field?.confidences?.[model.modelId] || 0;
           return (
