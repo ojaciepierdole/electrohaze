@@ -128,28 +128,25 @@ export class AnalyticsManager {
 
 // Zaktualizowane etykiety bez "(ogólne)"
 export const availableFields = [
-  // Dane faktury
-  { key: 'InvoiceNumber', label: 'Numer faktury', category: 'Faktura' },
-  { key: 'InvoiceDate', label: 'Data faktury', category: 'Faktura' },
-  { key: 'InvoiceType', label: 'Typ faktury', category: 'Faktura' },
-  { key: 'BillingStartDate', label: 'Okres od', category: 'Faktura' },
-  { key: 'BillingEndDate', label: 'Okres do', category: 'Faktura' },
+  // Punkt Poboru Energii
+  { key: 'PPENumber', label: 'Numer PPE', category: 'Punkt Poboru Energii' },
+  { key: 'Title', label: 'Tytuł', category: 'Punkt Poboru Energii' },
+  { key: 'FirstName', label: 'Imię', category: 'Punkt Poboru Energii' },
+  { key: 'LastName', label: 'Nazwisko', category: 'Punkt Poboru Energii' },
+  { key: 'PostalCode', label: 'Kod pocztowy', category: 'Punkt Poboru Energii' },
+  { key: 'City', label: 'Miasto', category: 'Punkt Poboru Energii' },
+  { key: 'Street', label: 'Ulica', category: 'Punkt Poboru Energii' },
+  { key: 'Building', label: 'Budynek', category: 'Punkt Poboru Energii' },
+  { key: 'Unit', label: 'Lokal', category: 'Punkt Poboru Energii' },
   
-  // Dane zużycia
-  { key: 'ConsumptionValue', label: 'Zużycie', category: 'Zużycie' },
-  { key: 'ConsumptionUnit', label: 'Jednostka', category: 'Zużycie' },
-  { key: 'MeterNumber', label: 'Numer licznika', category: 'Zużycie' },
-  { key: 'ReadingType', label: 'Typ odczytu', category: 'Zużycie' },
-  
-  // Punkt poboru
-  { key: 'PPENumber', label: 'Numer PPE', category: 'Punkt poboru' },
-  { key: 'DeliveryAddress', label: 'Adres PPE', category: 'Punkt poboru' },
-  { key: 'TariffGroup', label: 'Grupa taryfowa', category: 'Punkt poboru' },
-  
-  // Dane klienta
-  { key: 'CustomerName', label: 'Nazwa klienta', category: 'Klient' },
-  { key: 'CustomerAddress', label: 'Adres klienta', category: 'Klient' },
-  { key: 'CustomerTaxId', label: 'NIP', category: 'Klient' },
+  // Informacje o zużyciu
+  { key: 'TariffGroup', label: 'Taryfa', category: 'Informacje o zużyciu' },
+  { key: 'InvoiceType', label: 'Typ dokumentu', category: 'Informacje o zużyciu' },
+  { key: 'ReadingType', label: 'Typ odczytu', category: 'Informacje o zużyciu' },
+  { key: 'BillingStartDate', label: 'Okres od', category: 'Informacje o zużyciu' },
+  { key: 'BillingEndDate', label: 'Okres do', category: 'Informacje o zużyciu' },
+  { key: 'ConsumptionValue', label: 'Naliczone zużycie', category: 'Informacje o zużyciu' },
+  { key: 'Usage12m', label: 'Roczne zużycie', category: 'Informacje o zużyciu' },
   
   // Dane sprzedawcy
   { key: 'SupplierName', label: 'Nazwa sprzedawcy', category: 'Sprzedawca' },

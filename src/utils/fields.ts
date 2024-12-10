@@ -10,10 +10,33 @@ export function determineFieldGroup(fieldName: string): FieldGroupKey {
     return 'supplier_data';
   }
 
+  // Punkt Poboru Energii
+  if (fieldNameLower === 'ppenum' ||
+      fieldNameLower === 'title' ||
+      fieldNameLower === 'firstname' ||
+      fieldNameLower === 'lastname' ||
+      fieldNameLower === 'postalcode' ||
+      fieldNameLower === 'city' ||
+      fieldNameLower === 'street' ||
+      fieldNameLower === 'building' ||
+      fieldNameLower === 'unit') {
+    return 'delivery_point';
+  }
+
+  // Informacje o zużyciu
+  if (fieldNameLower.includes('consumption') || 
+      fieldNameLower.includes('usage') ||
+      fieldNameLower.includes('reading') ||
+      fieldNameLower.includes('billing') ||
+      fieldNameLower.includes('period') ||
+      fieldNameLower === 'tariff' ||
+      fieldNameLower === 'invoicetype') {
+    return 'consumption_info';
+  }
+
   // Dane biznesowe
   if (fieldNameLower.includes('business') ||
-      fieldNameLower.includes('taxid') ||
-      fieldNameLower === 'title') {
+      fieldNameLower.includes('taxid')) {
     return 'business_data';
   }
 
@@ -30,15 +53,6 @@ export function determineFieldGroup(fieldName: string): FieldGroupKey {
   if (fieldNameLower.startsWith('pa') || 
       fieldNameLower.includes('correspondence')) {
     return 'postal_address';
-  }
-
-  // Informacje o zużyciu
-  if (fieldNameLower.includes('consumption') || 
-      fieldNameLower.includes('usage') ||
-      fieldNameLower.includes('reading') ||
-      fieldNameLower.includes('billing') ||
-      fieldNameLower.includes('period')) {
-    return 'consumption_info';
   }
   
   // Domyślnie zwracamy dane biznesowe

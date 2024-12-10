@@ -210,59 +210,44 @@ function FieldRow({
   );
 }
 
-// Grupuj wyniki z różnych modeli
-const combinedFields = React.useMemo(() => {
-  const combined = {} as Record<FieldGroupKey, Record<string, {
-    content: string | null;
-    confidences: Record<string, number>;
-    type: string;
-    definition: any;
-  }>>;
-
-  // Inicjalizuj strukturę grup
-  Object.keys(FIELD_GROUPS).forEach(groupKey => {
-    combined[groupKey as FieldGroupKey] = {};
-  });
-
-  // Połącz wyniki z wszystkich modeli
-  modelResults.forEach(modelResult => {
-    Object.entries(modelResult.fields).forEach(([fieldName, field]) => {
-      const group = field.definition.group;
-      if (!combined[group][fieldName]) {
-        combined[group][fieldName] = {
-          content: field.content,
-          confidences: {},
-          type: field.type,
-          definition: field.definition
-        };
-      }
-      combined[group][fieldName].confidences[modelResult.modelId] = field.confidence;
-    });
-  });
-
-  return combined;
-}, [modelResults]);
-
-// Sprawdź czy wszystkie wymagane pola są wypełnione
-const hasAllRequiredFields = React.useMemo(() => {
-  return Object.entries(FIELD_GROUPS).every(([groupKey, group]) => {
-    return group.requiredFields.every(fieldName => {
-      const field = fields[fieldName];
-      return field && field.content;
-    });
-  });
-}, [fields]);
-
-// Sprawdź czy wszystkie pola mają wysoką pewność
-const hasHighConfidence = React.useMemo(() => {
-  return Object.values(fields).every(field => field.confidence > 0.9);
-}, [fields]);
-
 export function AnalysisResultCard({ result, modelResults }: AnalysisResultCardProps) {
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [logoError, setLogoError] = React.useState(false);
   const [logoLoaded, setLogoLoaded] = React.useState(false);
   const fields = modelResults[0].fields;
+
+  // Grupuj wyniki z różnych modeli
+  const combinedFields = React.useMemo(() => {
+    const combined = {} as Record<FieldGroupKey, Record<string, {
+      content: string | null;
+      confidences: Record<string, number>;
+      type: string;
+      definition: any;
+    }>>;
+
+    // Inicjalizuj strukturę grup
+    Object.keys(FIELD_GROUPS).forEach(groupKey => {
+      combined[groupKey as FieldGroupKey] = {};
+    });
+
+    // Połącz wyniki z wszystkich modeli
+    modelResults.forEach(modelResult => {
+      Object.entries(modelResult.fields).forEach(([fieldName, field]) => {
+        const group = field.definition.group;
+        if (!combined[group][fieldName]) {
+          combined[group][fieldName] = {
+            content: field.content,
+            confidences: {},
+            type: field.type,
+            definition: field.definition
+          };
+        }
+        combined[group][fieldName].confidences[modelResult.modelId] = field.confidence;
+      });
+    });
+
+    return combined;
+  }, [modelResults]);
 
   // Znajdź nazwę sprzedawcy
   const vendorName = React.useMemo(() => {
@@ -272,15 +257,12 @@ export function AnalysisResultCard({ result, modelResults }: AnalysisResultCardP
       field.definition.name.toLowerCase().includes('vendor') ||
       field.definition.name === 'businessname'
     );
-    console.log('Found supplier field:', supplierField);
     return supplierField?.content || null;
   }, [fields]);
 
   const logoUrl = React.useMemo(() => {
     if (!vendorName) return '';
-    const url = getVendorLogo(vendorName);
-    console.log('Generated logo URL:', url);
-    return url;
+    return getVendorLogo(vendorName);
   }, [vendorName]);
 
   // Oblicz średnią pewność dla każdego modelu
@@ -291,6 +273,21 @@ export function AnalysisResultCard({ result, modelResults }: AnalysisResultCardP
       fieldsCount: Object.keys(modelResult.fields).length
     }));
   }, [modelResults]);
+
+  // Sprawdź czy wszystkie wymagane pola są wypełnione
+  const hasAllRequiredFields = React.useMemo(() => {
+    return Object.entries(FIELD_GROUPS).every(([groupKey, group]) => {
+      return group.requiredFields.every(fieldName => {
+        const field = fields[fieldName];
+        return field && field.content;
+      });
+    });
+  }, [fields]);
+
+  // Sprawdź czy wszystkie pola mają wysoką pewność
+  const hasHighConfidence = React.useMemo(() => {
+    return Object.values(fields).every(field => field.confidence > 0.9);
+  }, [fields]);
 
   return (
     <Card className="overflow-hidden">

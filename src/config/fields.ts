@@ -1,7 +1,7 @@
 import { 
   Building, User, Mail, MapPin, 
   Gauge, Receipt, FileBarChart, 
-  Briefcase, Home, Send
+  Briefcase, Home, Send, Plug
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { FieldGroupKey } from '@/types/processing';
@@ -14,6 +14,38 @@ interface FieldGroup {
 }
 
 export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
+  delivery_point: {
+    name: 'Punkt Poboru Energii',
+    icon: Plug,
+    fields: [
+      'ppeNum',
+      'Title',
+      'FirstName',
+      'LastName',
+      'PostalCode',
+      'City',
+      'Street',
+      'Building',
+      'Unit'
+    ] as const,
+    requiredFields: ['ppeNum']
+  },
+
+  consumption_info: {
+    name: 'Informacje o zużyciu',
+    icon: Gauge,
+    fields: [
+      'Tariff',
+      'InvoiceType',
+      'ReadingType',
+      'BillingStartDate',
+      'BillingEndDate',
+      'ConsumptionValue',
+      'Usage12m'
+    ] as const,
+    requiredFields: ['ConsumptionValue']
+  },
+
   supplier_data: {
     name: 'Dane sprzedawcy',
     icon: Briefcase,
@@ -25,30 +57,12 @@ export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
     requiredFields: ['supplierName']
   },
 
-  delivery_point: {
-    name: 'Punkt poboru',
-    icon: MapPin,
-    fields: [
-      'ppeNum',
-      'dpStreet',
-      'dpBuilding',
-      'dpUnit',
-      'dpCity',
-      'dpPostalCode',
-      'Tariff'
-    ] as const,
-    requiredFields: ['ppeNum', 'Tariff']
-  },
-
   business_data: {
     name: 'Dane biznesowe',
     icon: FileBarChart,
     fields: [
-      'FirstName',
-      'LastName',
       'BusinessName',
-      'taxID',
-      'InvoiceType'
+      'taxID'
     ] as const,
     requiredFields: ['BusinessName']
   },
@@ -80,20 +94,6 @@ export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
       'paPostalCode'
     ] as const,
     requiredFields: []
-  },
-
-  consumption_info: {
-    name: 'Informacje o zużyciu',
-    icon: Gauge,
-    fields: [
-      'ConsumptionValue',
-      'ConsumptionUnit',
-      'Usage12m',
-      'ReadingType',
-      'BillingStartDate',
-      'BillingEndDate'
-    ] as const,
-    requiredFields: ['ConsumptionValue']
   }
 };
 
@@ -107,24 +107,19 @@ export const FIELD_LABELS: Record<string, string> = {
   OSD_region: 'Region',
   BusinessName: 'Nazwa firmy',
 
-  // Dane biznesowe
+  // Punkt Poboru Energii
+  ppeNum: 'Numer PPE',
+  Title: 'Tytuł',
   FirstName: 'Imię',
   LastName: 'Nazwisko',
-  ppeNum: 'Numer PPE',
-  dpStreet: 'Ulica',
-  dpBuilding: 'Budynek',
-  dpUnit: 'Lokal',
-  dpCity: 'Miejscowość',
-  Tariff: 'Taryfa',
-  InvoiceType: 'Typ dokumentu',
-  taxID: 'NIP',
-
-  // Adres podstawowy
   Street: 'Ulica',
   Building: 'Budynek',
   Unit: 'Lokal',
   City: 'Miejscowość',
   PostalCode: 'Kod pocztowy',
+  Tariff: 'Taryfa',
+  InvoiceType: 'Typ dokumentu',
+  taxID: 'NIP',
 
   // Adres korespondencyjny
   paTitle: 'Tytuł',
@@ -138,7 +133,7 @@ export const FIELD_LABELS: Record<string, string> = {
   paBusinessName: 'Nazwa firmy',
 
   // Informacje o zużyciu
-  ConsumptionValue: 'Zużycie za okres',
+  ConsumptionValue: 'Naliczone zużycie',
   ConsumptionUnit: 'Jednostka',
   Usage12m: 'Roczne zużycie',
   ReadingType: 'Typ odczytu',
