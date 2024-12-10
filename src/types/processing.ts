@@ -177,3 +177,48 @@ export interface GroupedResult {
     [modelId: string]: ProcessingResult['results'][0];
   };
 } 
+
+export interface AddressSet {
+  // Podstawowy zestaw danych
+  Title?: string;
+  FirstName?: string;
+  LastName?: string;
+  Street?: string;
+  Building?: string;
+  Unit?: string;
+  City?: string;
+  PostalCode?: string;
+
+  // Adres korespondencyjny (prefiks 'pa')
+  paTitle?: string;
+  paFirstName?: string;
+  paLastName?: string;
+  paStreet?: string;
+  paBuilding?: string;
+  paUnit?: string;
+  paCity?: string;
+  paPostalCode?: string;
+
+  // Punkt poboru energii (prefiks 'ppe')
+  ppeTitle?: string;
+  ppeFirstName?: string;
+  ppeLastName?: string;
+  ppeStreet?: string;
+  ppeBuilding?: string;
+  ppeUnit?: string;
+  ppeCity?: string;
+  ppePostalCode?: string;
+
+  // Dane biznesowe (prefiks 'dp')
+  dpTitle?: string;
+  dpFirstName?: string;
+  dpLastName?: string;
+  dpStreet?: string;
+  dpBuilding?: string;
+  dpUnit?: string;
+  dpCity?: string;
+  dpPostalCode?: string;
+
+  // Inne pola mogą być dodane w przyszłości
+  [key: string]: string | undefined;
+} 
