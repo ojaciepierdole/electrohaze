@@ -57,10 +57,20 @@ export function AnalysisResultCard({ result }: AnalysisResultCardProps) {
   const vendorName = React.useMemo(() => {
     const supplierField = Object.values(fields).find(field => 
       field.definition.name.toLowerCase().includes('supplier') ||
-      field.definition.name.toLowerCase().includes('sprzedawca')
+      field.definition.name.toLowerCase().includes('sprzedawca') ||
+      field.definition.name.toLowerCase().includes('vendor') ||
+      field.definition.name === 'businessname'
     );
+    console.log('Found supplier field:', supplierField);
     return supplierField?.content || null;
   }, [fields]);
+
+  const logoUrl = React.useMemo(() => {
+    if (!vendorName) return '';
+    const url = getVendorLogo(vendorName);
+    console.log('Generated logo URL:', url);
+    return url;
+  }, [vendorName]);
 
   // Oblicz średnią pewność dla każdego modelu
   const modelConfidences = React.useMemo(() => {
@@ -123,16 +133,22 @@ export function AnalysisResultCard({ result }: AnalysisResultCardProps) {
         className="w-full p-6 flex justify-between items-start hover:bg-muted/50 transition-colors"
       >
         <div className="flex items-start gap-4">
-          {vendorName && !logoError && (
+          {vendorName && !logoError && logoUrl && (
             <div className="flex-shrink-0 w-8 h-8">
               <img 
-                src={getVendorLogo(vendorName)}
-                alt={vendorName}
+                src={logoUrl}
+                alt={`Logo ${vendorName}`}
                 className={`w-full h-full object-contain transition-opacity duration-200 ${
                   logoLoaded ? 'opacity-100' : 'opacity-0'
                 }`}
-                onError={() => setLogoError(true)}
-                onLoad={() => setLogoLoaded(true)}
+                onError={(e) => {
+                  console.error('Logo loading error:', e);
+                  setLogoError(true);
+                }}
+                onLoad={() => {
+                  console.log('Logo loaded successfully');
+                  setLogoLoaded(true);
+                }}
               />
             </div>
           )}

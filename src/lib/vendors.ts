@@ -9,6 +9,8 @@ const VENDOR_IDS: Record<string, string> = {
 };
 
 export function getVendorLogo(vendorName: string): string {
+  if (!vendorName) return '';
+  
   const normalizedName = vendorName.toLowerCase().trim();
   
   // Szukaj dopasowania w nazwach sprzedawców
@@ -18,9 +20,9 @@ export function getVendorLogo(vendorName: string): string {
   );
   
   if (!matchedVendor) {
-    return `https://logo.dev/api/company/default?size=64`;
+    return `https://logo.dev/api/company/default?token=${process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN}`;
   }
 
   const companyId = VENDOR_IDS[matchedVendor];
-  return `https://logo.dev/api/company/${companyId}?size=64`;
+  return `https://logo.dev/api/company/${companyId}?token=${process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN}`;
 } 
