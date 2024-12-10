@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Camera, X, Plus, Send, ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { DragDropContext, Droppable, Draggable, DropResult, DraggableProvided, DroppableProvided } from 'react-beautiful-dnd';
 import { PDFDocument } from 'pdf-lib';
 
 interface ScannedPage {
@@ -441,7 +441,7 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
     setTimeout(() => setToast(null), 2000);
   };
 
-  const onDragEnd = (result: any) => {
+  const onDragEnd = (result: DropResult) => {
     if (!result.destination) return;
 
     const items = Array.from(scannedPages);
@@ -451,7 +451,7 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
     // Aktualizuj numerację
     const updatedItems = items.map((item, index) => ({
       ...item,
-      order: index + 1
+      order: index
     }));
 
     setScannedPages(updatedItems);

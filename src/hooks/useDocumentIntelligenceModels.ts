@@ -1,29 +1,47 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DocumentIntelligenceResponse, DocumentIntelligenceModel } from '@/types/documentIntelligence';
+import type { ModelDefinition } from '@/types/processing';
 
-interface UseDocumentIntelligenceModelsReturn {
-  data: DocumentIntelligenceModel[] | null;
-  isLoading: boolean;
-  error: Error | null;
-}
-
-export function useDocumentIntelligenceModels(): UseDocumentIntelligenceModelsReturn {
-  const [data, setData] = useState<DocumentIntelligenceModel[] | null>(null);
+export function useDocumentIntelligenceModels() {
+  const [data, setData] = useState<ModelDefinition[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const response = await fetch('/api/document-intelligence/models');
-        if (!response.ok) {
-          throw new Error('Nie udało się pobrać modeli');
+        setIsLoading(true);
+        setError(null);
+
+        // Pobierz listę modeli
+        const modelsResponse = await fetch('/api/models');
+        if (!modelsResponse.ok) {
+          throw new Error('Błąd podczas pobierania modeli');
         }
-        const data: DocumentIntelligenceResponse = await response.json();
-        setData(data.models);
+        const models = await modelsResponse.json();
+
+        // Dla każdego modelu pobierz jego pola
+        const modelsWithFields = await Promise.all(
+          models.map(async (model: any) => {
+            const fieldsResponse = await fetch(`/api/models/${model.modelId}/fields`);
+            if (!fieldsResponse.ok) {
+              throw new Error(`Błąd podczas pobierania pól dla modelu ${model.modelId}`);
+            }
+            const fields = await fieldsResponse.json();
+
+            return {
+              id: model.modelId,
+              name: model.description || model.modelId,
+              description: `Model ID: ${model.modelId}`,
+              fields
+            };
+          })
+        );
+
+        setData(modelsWithFields);
       } catch (err) {
+        console.error('Błąd:', err);
         setError(err instanceof Error ? err : new Error('Wystąpił nieznany błąd'));
       } finally {
         setIsLoading(false);

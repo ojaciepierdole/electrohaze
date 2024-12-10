@@ -1,10 +1,9 @@
 export interface DocumentIntelligenceModel {
   modelId: string;
   description: string;
-  createdDateTime?: string;
+  createdOn: Date;
 }
 
 export interface DocumentIntelligenceResponse {
   models: DocumentIntelligenceModel[];
-  nextLink?: string;
 } 

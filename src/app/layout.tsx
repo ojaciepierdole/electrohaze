@@ -1,46 +1,25 @@
-import type { Metadata } from "next";
-import "./globals.css";
-import { ClientLayout } from "@/components/ClientLayout";
+import './globals.css';
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+
+const inter = Inter({ subsets: ['latin', 'latin-ext'] });
 
 export const metadata: Metadata = {
-  title: "Analizator Faktur",
-  description: "Analiza dokumentów PDF z wykorzystaniem Azure Document Intelligence",
-  openGraph: {
-    title: "Analizator Faktur",
-    description: "Analiza dokumentów PDF z wykorzystaniem Azure Document Intelligence",
-    images: [
-      {
-        url: "public/iconapp.png",
-        width: 1200,
-        height: 630,
-        alt: "Ikona aplikacji"
-      }
-    ],
-    locale: "pl_PL",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Nazwa Twojego Projektu",
-    description: "Analiza dokumentów PDF z wykorzystaniem Azure Document Intelligence",
-    images: ["public/iconapp.png"],
-  },
+  title: 'PDF Analyzer - Analiza dokumentów',
+  description: 'Aplikacja do analizy dokumentów PDF przy użyciu Azure Document Intelligence',
 };
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="pl">
-      <head>
-        <link rel="icon" href="/favicon.ico" />
-      </head>
-      <body>
-        <ClientLayout>
+      <body className={inter.className}>
+        <div className="min-h-screen bg-gray-50">
           {children}
-        </ClientLayout>
+        </div>
       </body>
     </html>
   );
