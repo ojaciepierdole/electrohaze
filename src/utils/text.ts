@@ -5,17 +5,22 @@
  * - W przeciwnym razie zostawia bez zmian
  */
 export function formatText(text: string | null | undefined): string {
-  if (!text) return '';
+  // Jeśli text jest null, undefined lub nie jest stringiem, zwróć pusty string
+  if (!text || typeof text !== 'string') return '';
 
   // Sprawdź czy tekst jest w całości wielkimi lub małymi literami
-  const isAllUpper = text === text.toUpperCase();
-  const isAllLower = text === text.toLowerCase();
+  // Używamy trim() aby pozbyć się białych znaków na początku i końcu
+  const trimmedText = text.trim();
+  if (!trimmedText) return '';
+
+  const isAllUpper = trimmedText === trimmedText.toUpperCase();
+  const isAllLower = trimmedText === trimmedText.toLowerCase();
 
   if (isAllUpper || isAllLower) {
     // Zamień pierwszą literę na wielką, resztę na małe
-    return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+    return trimmedText.charAt(0).toUpperCase() + trimmedText.slice(1).toLowerCase();
   }
 
   // Jeśli tekst ma mieszane wielkości liter, zostaw go bez zmian
-  return text;
+  return trimmedText;
 } 

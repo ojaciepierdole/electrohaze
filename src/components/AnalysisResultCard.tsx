@@ -3,25 +3,46 @@
 import * as React from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import type { ProcessingResult, FieldGroupKey } from '@/types/processing';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FIELD_GROUPS } from '@/config/fields';
-import type { ProcessingResult, FieldGroupKey, GroupedResult } from '@/types/processing';
-import { format } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { getFieldLabel } from '@/utils/address-helpers';
+import { formatText } from '@/utils/text';
 import { truncateFileName } from '@/utils/processing';
 import { getVendorLogo } from '@/lib/vendors';
-import { Button } from '@/components/ui/button';
-import { formatText } from '@/utils/text';
-import { getFieldLabel } from '@/utils/address-helpers';
 
 interface AnalysisResultCardProps {
-  result: GroupedResult;
+  result: {
+    fileName: string;
+    modelResults: {
+      [modelId: string]: ProcessingResult['results'][0];
+    };
+  };
   modelResults: ProcessingResult['results'][0][];
 }
 
+interface FieldRowProps {
+  fieldName: string;
+  field: {
+    content: string | null;
+    confidence: number;
+    type: string;
+    confidences?: Record<string, number>;
+  } | null | undefined;
+  modelResults: ProcessingResult['results'][0][];
+  isRequired: boolean;
+}
+
+interface GroupedFieldsProps {
+  fields: Array<[string, FieldRowProps['field']]>;
+  modelResults: ProcessingResult['results'][0][];
+  isRequired: (fieldName: string) => boolean;
+}
+
 function formatFieldValue(value: string | null, type: string, fieldName: string): string {
-  if (!value) return 'b/d';
+  if (!value) return '—';
   
   // Usuń znaki specjalne z końca
   value = value.replace(/[:.,]$/, '');
@@ -32,14 +53,11 @@ function formatFieldValue(value: string | null, type: string, fieldName: string)
       // Usuń część czasową jeśli istnieje
       const dateStr = value.split('T')[0];
       const date = new Date(dateStr);
-      
-      // Jeśli to okres (od/do), użyj krótszego formatu
-      if (fieldName.toLowerCase().includes('okres')) {
-        return format(date, 'yyyy-MM-dd', { locale: pl });
-      }
-      
-      // Dla innych dat użyj pełnego formatu
-      return format(date, 'd MMMM yyyy', { locale: pl });
+      return date.toLocaleDateString('pl-PL', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
     } catch {
       return value;
     }
@@ -57,6 +75,12 @@ function formatFieldValue(value: string | null, type: string, fieldName: string)
   return value;
 }
 
+function getConfidenceColor(confidence: number): string {
+  if (confidence > 0.9) return 'bg-green-100 text-green-700';
+  if (confidence > 0.7) return 'bg-yellow-100 text-yellow-700';
+  return 'bg-red-100 text-red-700';
+}
+
 function getConfidenceBadgeVariant(confidence: number): "default" | "outline" | "secondary" | "destructive" {
   if (confidence >= 0.95) return "outline";
   if (confidence >= 0.85) return "secondary";
@@ -64,35 +88,64 @@ function getConfidenceBadgeVariant(confidence: number): "default" | "outline" | 
   return "destructive";
 }
 
-interface ModelConfidence {
-  modelId: string;
-  confidence: number;
-  fieldsCount: number;
+function FieldRow({ fieldName, field, modelResults, isRequired }: FieldRowProps) {
+  const hasValue = Boolean(field?.content);
+  const formattedValue = formatFieldValue(
+    field?.content ? formatText(field.content) : null,
+    field?.type || '',
+    fieldName
+  );
+
+  const isPPE = fieldName === 'ppeNum';
+
+  return (
+    <div className={`flex items-center justify-between py-1.5 px-2 rounded group`}>
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <div className="flex items-center gap-2 w-[240px] flex-shrink-0">
+          <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+            {getFieldLabel(fieldName)}:
+          </span>
+          <div className="flex-1 flex items-center">
+            <span className="border-b border-muted-foreground/30 flex-1" />
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`text-sm font-medium text-foreground ${
+            isPPE ? 'font-mono tracking-wider' : ''
+          }`}>
+            {formattedValue}
+          </span>
+          {isRequired && (
+            <Badge 
+              variant="outline"
+              className="text-xs px-1.5 py-0 ml-2"
+            >
+              Wymagane
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+        {modelResults.map(model => {
+          const confidence = field?.confidences?.[model.modelId] || 0;
+          return (
+            <span 
+              key={model.modelId}
+              className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+                getConfidenceColor(confidence)
+              }`}
+            >
+              {(confidence * 100).toFixed(1)}%
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
-function getConfidenceColor(confidence: number): string {
-  if (confidence >= 0.95) return 'text-green-600 bg-green-50';
-  if (confidence >= 0.85) return 'text-blue-600 bg-blue-50';
-  if (confidence >= 0.75) return 'text-yellow-600 bg-yellow-50';
-  return 'text-red-600 bg-red-50';
-}
-
-interface GroupedFieldsProps {
-  fields: [string, {
-    content: string | null;
-    confidences: Record<string, number>;
-    type: string;
-    definition: any;
-  } | undefined][];
-  modelResults: ProcessingResult['results'][0][];
-  isRequired: (fieldName: string) => boolean;
-}
-
-function GroupedFields({ 
-  fields, 
-  modelResults, 
-  isRequired 
-}: GroupedFieldsProps) {
+function GroupedFields({ fields, modelResults, isRequired }: GroupedFieldsProps) {
   const [isExpanded, setIsExpanded] = React.useState(false);
   const foundFields = fields.filter(([_, field]) => Boolean(field?.content));
   const notFoundFields = fields.filter(([_, field]) => !field?.content);
@@ -152,86 +205,12 @@ function GroupedFields({
   );
 }
 
-interface FieldRowProps {
-  fieldName: string;
-  field: {
-    content: string | null;
-    confidences: Record<string, number>;
-    type: string;
-    definition: any;
-  } | undefined;
-  modelResults: ProcessingResult['results'][0][];
-  isRequired: boolean;
-}
-
-function FieldRow({ 
-  fieldName, 
-  field, 
-  modelResults, 
-  isRequired 
-}: FieldRowProps) {
-  const hasValue = Boolean(field?.content);
-  const formattedValue = formatFieldValue(
-    field?.content ? formatText(field.content) : field?.content,
-    field?.type || '',
-    fieldName
-  );
-
-  const isPPE = fieldName === 'ppeNum';
-
-  return (
-    <div className={`flex items-center justify-between py-1.5 px-2 rounded group`}>
-      <div className="flex items-center gap-2 min-w-0 flex-1">
-        <div className="flex items-center gap-2 w-[240px] flex-shrink-0">
-          <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
-            {getFieldLabel(fieldName)}:
-          </span>
-          <div className="flex-1 flex items-center">
-            <span className="border-b border-muted-foreground/30 flex-1" />
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className={`text-sm font-medium text-foreground ${
-            isPPE ? 'font-mono tracking-wider' : ''
-          }`}>
-            {formattedValue}
-          </span>
-          {isRequired && (
-            <Badge 
-              variant="outline"
-              className="text-xs px-1.5 py-0 ml-2"
-            >
-              Wymagane
-            </Badge>
-          )}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-        {modelResults.map(model => {
-          const confidence = field?.confidences?.[model.modelId] || 0;
-          return (
-            <span 
-              key={model.modelId}
-              className={`text-xs font-medium px-1.5 py-0.5 rounded ${
-                getConfidenceColor(confidence)
-              }`}
-            >
-              {(confidence * 100).toFixed(1)}%
-            </span>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 function SectionHeader({ 
   group, 
   groupFields, 
   modelResults 
 }: { 
-  group: FieldGroup;
+  group: typeof FIELD_GROUPS[FieldGroupKey];
   groupFields: Record<string, any>;
   modelResults: ProcessingResult['results'][0][];
 }) {
@@ -272,12 +251,34 @@ export function AnalysisResultCard({ result, modelResults }: AnalysisResultCardP
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [logoError, setLogoError] = React.useState(false);
   const [logoLoaded, setLogoLoaded] = React.useState(false);
+  
+  if (!modelResults.length) {
+    return null;
+  }
+  
   const fields = modelResults[0].fields;
+
+  // Znajdź nazwę sprzedawcy
+  const vendorName = React.useMemo(() => {
+    const supplierField = Object.values(fields).find(field => 
+      field.definition.name.toLowerCase().includes('supplier') ||
+      field.definition.name.toLowerCase().includes('sprzedawca') ||
+      field.definition.name.toLowerCase().includes('vendor') ||
+      field.definition.name === 'businessname'
+    );
+    return supplierField?.content || null;
+  }, [fields]);
+
+  const logoUrl = React.useMemo(() => {
+    if (!vendorName) return '';
+    return getVendorLogo(vendorName);
+  }, [vendorName]);
 
   // Grupuj wyniki z różnych modeli
   const combinedFields = React.useMemo(() => {
     const combined = {} as Record<FieldGroupKey, Record<string, {
       content: string | null;
+      confidence: number;
       confidences: Record<string, number>;
       type: string;
       definition: any;
@@ -308,6 +309,7 @@ export function AnalysisResultCard({ result, modelResults }: AnalysisResultCardP
         if (!combined[group][fieldName]) {
           combined[group][fieldName] = {
             content: field.content,
+            confidence: field.confidence,
             confidences: {},
             type: field.type,
             definition: field.definition
@@ -319,22 +321,6 @@ export function AnalysisResultCard({ result, modelResults }: AnalysisResultCardP
 
     return combined;
   }, [modelResults]);
-
-  // Znajdź nazwę sprzedawcy
-  const vendorName = React.useMemo(() => {
-    const supplierField = Object.values(fields).find(field => 
-      field.definition.name.toLowerCase().includes('supplier') ||
-      field.definition.name.toLowerCase().includes('sprzedawca') ||
-      field.definition.name.toLowerCase().includes('vendor') ||
-      field.definition.name === 'businessname'
-    );
-    return supplierField?.content || null;
-  }, [fields]);
-
-  const logoUrl = React.useMemo(() => {
-    if (!vendorName) return '';
-    return getVendorLogo(vendorName);
-  }, [vendorName]);
 
   // Oblicz średnią pewność dla każdego modelu
   const modelConfidences = React.useMemo(() => {
@@ -361,7 +347,7 @@ export function AnalysisResultCard({ result, modelResults }: AnalysisResultCardP
   }, [fields]);
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="bg-white shadow-lg">
       <button 
         onClick={() => setIsExpanded(prev => !prev)}
         className="w-full text-left"
@@ -377,14 +363,8 @@ export function AnalysisResultCard({ result, modelResults }: AnalysisResultCardP
                     className={`w-full h-full object-contain transition-opacity duration-200 ${
                       logoLoaded ? 'opacity-100' : 'opacity-0'
                     }`}
-                    onError={(e) => {
-                      console.error('Logo loading error:', e);
-                      setLogoError(true);
-                    }}
-                    onLoad={() => {
-                      console.log('Logo loaded successfully');
-                      setLogoLoaded(true);
-                    }}
+                    onError={() => setLogoError(true)}
+                    onLoad={() => setLogoLoaded(true)}
                   />
                 </div>
               )}

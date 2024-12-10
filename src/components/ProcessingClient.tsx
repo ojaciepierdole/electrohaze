@@ -10,6 +10,64 @@ import type {
   BatchProcessingStatus 
 } from '@/types/processing';
 import { useDocumentIntelligenceModels } from '@/hooks/useDocumentIntelligenceModels';
+import { compressFiles } from '@/utils/compression';
+import { Progress } from "@/components/ui/progress";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+const ProgressIndicator = ({ 
+  status, 
+  totalModels 
+}: { 
+  status: BatchProcessingStatus;
+  totalModels: number;
+}) => {
+  if (!status.isProcessing) return null;
+
+  return (
+    <Card className="w-full bg-white shadow-lg">
+      <CardHeader className="pb-2 border-b">
+        <CardTitle className="text-xl font-bold">Status przetwarzania</CardTitle>
+      </CardHeader>
+      <CardContent className="p-6 space-y-8">
+        <div className="space-y-4">
+          <div className="flex justify-between text-base font-medium">
+            <span>Całkowity postęp</span>
+            <span className="text-primary font-bold">{Math.round(status.totalProgress)}%</span>
+          </div>
+          <div className="relative w-full">
+            <Progress 
+              value={status.totalProgress} 
+              className="h-4 w-full"
+            />
+          </div>
+          <div className="text-sm text-muted-foreground text-center">
+            Przetworzono {status.currentFileIndex * totalModels + (status.currentModelIndex + 1)} z {status.totalFiles * totalModels} operacji
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex justify-between text-base font-medium">
+            <span className="truncate max-w-[80%]">
+              {status.currentFileName 
+                ? `Przetwarzanie: ${status.currentFileName}`
+                : 'Przygotowywanie plików...'}
+            </span>
+            <span className="text-primary font-bold">{Math.round(status.fileProgress)}%</span>
+          </div>
+          <div className="relative w-full">
+            <Progress 
+              value={status.fileProgress} 
+              className="h-4 w-full"
+            />
+          </div>
+          <div className="text-sm text-muted-foreground text-center">
+            Model {status.currentModelIndex + 1} z {totalModels} | Plik {status.currentFileIndex + 1} z {status.totalFiles}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 export function ProcessingClient() {
   const [selectedModels, setSelectedModels] = React.useState<string[]>([]);
@@ -30,39 +88,34 @@ export function ProcessingClient() {
 
   const { data: models = [], isLoading, error } = useDocumentIntelligenceModels();
 
-  // Rozpocznij nową partię przy starcie przetwarzania
-  const handleProcessingStart = React.useCallback(() => {
-    setResults([]);
-    setBatchId(Date.now().toString());
-    setProcessingStatus((prev: BatchProcessingStatus) => ({ 
-      ...prev, 
-      isProcessing: true 
-    }));
+  // Obliczamy całkowity postęp na podstawie plików i modeli
+  const calculateProgress = React.useCallback((fileIndex: number, modelIndex: number, totalFiles: number, totalModels: number) => {
+    // Całkowita liczba operacji to liczba plików * liczba modeli
+    const totalOperations = totalFiles * totalModels;
+    // Aktualny numer operacji to (fileIndex * totalModels) + modelIndex
+    const currentOperation = (fileIndex * totalModels) + modelIndex;
+    // Obliczamy procent postępu
+    return (currentOperation / totalOperations) * 100;
   }, []);
 
-  // Dodaj wyniki do aktualnej partii
+  const handleProcessingStart = React.useCallback(() => {
+    console.log('Rozpoczynam przetwarzanie');
+    setResults([]);
+    setBatchId(Date.now().toString());
+  }, []);
+
   const handleProcessingComplete = React.useCallback((newResults: ProcessingResult[]) => {
+    console.log('Zakończono przetwarzanie', newResults);
     setResults((prev: ProcessingResult[]) => {
-      // Usuń poprzednie wyniki dla tych samych plików
       const existingFileNames = new Set(newResults.map(r => r.fileName));
       const filteredPrev = prev.filter(r => !existingFileNames.has(r.fileName));
-      
-      // Dodaj nowe wyniki
       return [...filteredPrev, ...newResults];
     });
-    setProcessingStatus((prev: BatchProcessingStatus) => ({ 
-      ...prev, 
-      isProcessing: false 
-    }));
   }, []);
 
   const handleExport = React.useCallback(() => {
     console.log('Eksport wyników:', results);
   }, [results]);
-
-  const updateProcessingStatus = (status: Partial<BatchProcessingStatus>) => {
-    setProcessingStatus((prev: BatchProcessingStatus) => ({ ...prev, ...status }));
-  };
 
   return (
     <div className="space-y-8">
@@ -73,17 +126,46 @@ export function ProcessingClient() {
         onComplete={handleProcessingComplete}
         batchId={batchId}
         status={processingStatus}
-        onStatusUpdate={updateProcessingStatus}
+        onStatusUpdate={(status) => {
+          // Jeśli aktualizujemy indeksy, przeliczamy postęp
+          if ('currentFileIndex' in status || 'currentModelIndex' in status) {
+            const fileIndex = 'currentFileIndex' in status ? status.currentFileIndex : processingStatus.currentFileIndex;
+            const modelIndex = 'currentModelIndex' in status ? status.currentModelIndex : processingStatus.currentModelIndex;
+            const totalFiles = processingStatus.totalFiles;
+            const totalModels = selectedModels.length;
+
+            const totalProgress = calculateProgress(fileIndex, modelIndex, totalFiles, totalModels);
+            const fileProgress = (modelIndex + 1) / totalModels * 100;
+
+            setProcessingStatus(prev => ({
+              ...prev,
+              ...status,
+              totalProgress,
+              fileProgress
+            }));
+          } else {
+            setProcessingStatus(prev => ({ ...prev, ...status }));
+          }
+        }}
       />
 
       <ModelSelector
         models={models}
         selectedModels={selectedModels}
         onModelSelect={setSelectedModels}
-        disabled={isLoading}
+        disabled={isLoading || processingStatus.isProcessing}
         isLoading={isLoading}
         error={error}
       />
+      
+      {processingStatus.isProcessing && (
+        <div className="relative">
+          <ProgressIndicator 
+            status={processingStatus}
+            totalModels={selectedModels.length}
+          />
+        </div>
+      )}
       
       {!processingStatus.isProcessing && results.length > 0 && (
         <BatchProcessingResults 

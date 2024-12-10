@@ -1,8 +1,20 @@
 import type { ProcessedField, FieldGroupKey, LegacyFields, ModernFields } from '@/types/processing';
 import { FIELD_GROUPS } from '@/config/fields';
 
+// Funkcja skracająca nazwę pliku
+export function truncateFileName(fileName: string | null | undefined, maxLength: number = 40): string {
+  if (!fileName) return 'Nieznany plik';
+  if (fileName.length <= maxLength) return fileName;
+  
+  const extension = fileName.split('.').pop();
+  const nameWithoutExt = fileName.slice(0, fileName.lastIndexOf('.'));
+  const truncated = nameWithoutExt.slice(0, maxLength - 3 - (extension?.length || 0));
+  
+  return `${truncated}...${extension ? `.${extension}` : ''}`;
+}
+
 // Funkcja sprawdzająca czy wszystkie wymagane pola w grupie są wypełnione
-export const isGroupComplete = (fields: Record<string, ProcessedField>, groupName: FieldGroupKey): boolean => {
+export function isGroupComplete(fields: Record<string, ProcessedField>, groupName: FieldGroupKey): boolean {
   const group = FIELD_GROUPS[groupName];
   if (!group) return false;
 
@@ -10,25 +22,25 @@ export const isGroupComplete = (fields: Record<string, ProcessedField>, groupNam
     const field = fields[fieldName];
     return field && field.content && field.content !== 'Nie znaleziono';
   });
-};
+}
 
 // Funkcja sprawdzająca czy dokument spełnia baseline
-export const checkPositiveBaseline = (fields: Record<string, ProcessedField>): boolean => {
+export function checkPositiveBaseline(fields: Record<string, ProcessedField>): boolean {
   // Sprawdź czy kluczowe pola są wypełnione z wysoką pewnością
   const requiredFields = ['invoiceNumber', 'invoiceDate', 'totalAmount', 'supplierName'];
   return requiredFields.every(fieldName => {
     const field = fields[fieldName];
     return field && field.content && field.confidence > 0.8;
   });
-};
+}
 
 // Funkcja sprawdzająca czy wszystkie pola mają wysoką pewność
-export const checkTopScore = (fields: Record<string, ProcessedField>): boolean => {
+export function checkTopScore(fields: Record<string, ProcessedField>): boolean {
   // Sprawdź czy wszystkie znalezione pola mają wysoką pewność
   return Object.values(fields).every(field => 
     field.content === null || field.confidence > 0.9
   );
-};
+}
 
 // Funkcja obliczająca procent wypełnienia grupy
 export const calculateGroupCompletion = (
@@ -45,18 +57,6 @@ export const calculateGroupCompletion = (
   });
 
   return Math.round((filledFields.length / groupFields.length) * 100);
-};
-
-// Funkcja skracająca nazwę pliku
-export const truncateFileName = (fileName: string | null | undefined, maxLength: number = 40): string => {
-  if (!fileName) return 'Nieznany plik';
-  if (fileName.length <= maxLength) return fileName;
-  
-  const extension = fileName.split('.').pop();
-  const nameWithoutExt = fileName.slice(0, fileName.lastIndexOf('.'));
-  const truncated = nameWithoutExt.slice(0, maxLength - 3 - (extension?.length || 0));
-  
-  return `${truncated}...${extension ? `.${extension}` : ''}`;
 };
 
 // Funkcja zwracająca kolor dla danego procentu ukończenia

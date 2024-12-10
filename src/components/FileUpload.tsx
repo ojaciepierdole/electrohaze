@@ -9,7 +9,6 @@ import { Card } from '@/components/ui/card';
 import { SelectedFilesList } from '@/components/SelectedFilesList';
 import { DocumentScanner } from '@/components/DocumentScanner';
 import type { ProcessingResult, BatchProcessingStatus, ModelDefinition } from '@/types/processing';
-import { ProcessingStatus } from '@/components/ProcessingStatus';
 import { useDocumentIntelligenceModels } from '@/hooks/useDocumentIntelligenceModels';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -77,6 +76,7 @@ export function FileUpload({
   const startProcessing = async () => {
     if (status.isProcessing || files.length === 0) return;
     
+    console.log('FileUpload: Rozpoczynam przetwarzanie');
     setIsExpanded(false);
     onStatusUpdate({
       isProcessing: true,
@@ -93,6 +93,7 @@ export function FileUpload({
         const file = files[fileIndex];
         const startTime = Date.now();
 
+        console.log(`FileUpload: Przetwarzam plik ${fileIndex + 1}/${files.length}: ${file.name}`);
         onStatusUpdate({
           currentFileIndex: fileIndex,
           currentFileName: file.name,
@@ -101,6 +102,7 @@ export function FileUpload({
 
         for (let modelIndex = 0; modelIndex < modelIds.length; modelIndex++) {
           const modelId = modelIds[modelIndex];
+          console.log(`FileUpload: Używam modelu ${modelIndex + 1}/${modelIds.length}: ${modelId}`);
           onStatusUpdate({
             currentModelIndex: modelIndex,
             currentModelId: modelId
@@ -130,6 +132,7 @@ export function FileUpload({
           const fileProgress = ((modelIndex + 1) / modelIds.length) * 100;
           const totalProgress = ((fileIndex * modelIds.length + modelIndex + 1) / (files.length * modelIds.length)) * 100;
           
+          console.log(`FileUpload: Postęp - plik: ${fileProgress}%, całkowity: ${totalProgress}%`);
           onStatusUpdate({
             fileProgress: fileProgress,
             totalProgress: totalProgress
@@ -137,8 +140,10 @@ export function FileUpload({
         }
       }
 
+      console.log('FileUpload: Zakończono przetwarzanie wszystkich plików');
       handleComplete(results);
     } catch (err) {
+      console.error('FileUpload: Błąd przetwarzania:', err);
       onStatusUpdate({
         error: err instanceof Error ? err.message : 'Wystąpił błąd podczas przetwarzania',
         isProcessing: false
@@ -163,7 +168,7 @@ export function FileUpload({
   }
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden bg-white shadow-lg">
       <div className="p-4 border-b bg-muted/40">
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
@@ -215,8 +220,15 @@ export function FileUpload({
                   Wybrano {files.length} {files.length === 1 ? 'plik' : 'plików'}
                 </span>
                 <Button
-                  onClick={startProcessing}
-                  disabled={disabled || files.length === 0 || status.isProcessing}
+                  onClick={() => {
+                    console.log('Kliknięto przycisk', status.isProcessing ? 'Zatrzymaj' : 'Rozpocznij');
+                    if (status.isProcessing) {
+                      stopProcessing();
+                    } else {
+                      startProcessing();
+                    }
+                  }}
+                  disabled={disabled || files.length === 0}
                   variant={status.isProcessing ? "destructive" : "default"}
                   className="gap-2"
                 >
