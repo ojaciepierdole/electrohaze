@@ -12,22 +12,24 @@ export interface ProcessedField {
 export interface BatchProcessingStatus {
   isProcessing: boolean;
   currentFileIndex: number;
-  currentFileName: string;
+  currentFileName: string | null;
   currentModelIndex: number;
-  currentModelId: string;
+  currentModelId: string | null;
   fileProgress: number;
   totalProgress: number;
   results: ProcessingResult[];
+  error: string | null;
 }
 
 export interface ProcessingResult {
   fileName: string;
-  modelId: string;
+  results: Array<{
+    modelId: string;
+    fields: Record<string, ProcessedField>;
+    confidence: number;
+    pageCount: number;
+  }>;
   processingTime: number;
-  supplierName: string;
-  fields: Record<string, ProcessedField>;
-  positiveBaseline: boolean;
-  topScore: boolean;
 }
 
 export interface AnalysisField {

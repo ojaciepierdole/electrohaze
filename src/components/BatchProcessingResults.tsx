@@ -18,10 +18,13 @@ export function BatchProcessingResults({
   if (!results.length) return null;
 
   const totalTime = results.reduce((sum, r) => sum + r.processingTime, 0);
-  const avgConfidence = results.reduce((sum, r) => {
-    const fields = Object.values(r.fields);
-    const avgFieldConfidence = fields.reduce((s, f) => s + f.confidence, 0) / fields.length;
-    return sum + avgFieldConfidence;
+  
+  // Oblicz średnią pewność ze wszystkich modeli i ich pól
+  const avgConfidence = results.reduce((sum, result) => {
+    const modelConfidences = result.results.reduce((modelSum, modelResult) => {
+      return modelSum + modelResult.confidence;
+    }, 0);
+    return sum + (modelConfidences / result.results.length);
   }, 0) / results.length;
 
   return (

@@ -48,12 +48,15 @@ export const calculateGroupCompletion = (
 };
 
 // Funkcja skracająca nazwę pliku
-export const truncateFileName = (fileName: string, maxLength: number = 40): string => {
+export const truncateFileName = (fileName: string | null | undefined, maxLength: number = 40): string => {
+  if (!fileName) return 'Nieznany plik';
   if (fileName.length <= maxLength) return fileName;
+  
   const extension = fileName.split('.').pop();
   const nameWithoutExt = fileName.slice(0, fileName.lastIndexOf('.'));
   const truncated = nameWithoutExt.slice(0, maxLength - 3 - (extension?.length || 0));
-  return `${truncated}...${extension}`;
+  
+  return `${truncated}...${extension ? `.${extension}` : ''}`;
 };
 
 // Funkcja zwracająca kolor dla danego procentu ukończenia
