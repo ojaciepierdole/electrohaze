@@ -82,7 +82,7 @@ export function ModelSelector({
                 variant="secondary"
                 className="flex items-center gap-1"
               >
-                {model.name}
+                {model.id}
                 <button
                   onClick={() => handleSelect(modelId)}
                   className="ml-1 hover:text-destructive"

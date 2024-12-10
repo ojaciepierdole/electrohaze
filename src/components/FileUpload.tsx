@@ -66,6 +66,7 @@ export function FileUpload({ modelIds, disabled, onComplete }: FileUploadProps) 
   if (showScanner) {
     return (
       <DocumentScanner
+        selectedModels={models.filter(m => modelIds.includes(m.id))}
         onScanComplete={handleScanComplete}
         onClose={() => setShowScanner(false)}
       />

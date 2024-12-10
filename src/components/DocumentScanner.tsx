@@ -1,302 +1,60 @@
-import { useState, useRef, useEffect } from 'react';
-import { Camera, X, Plus, Send, ArrowLeft } from 'lucide-react';
+'use client';
+
+import * as React from 'react';
+import { Camera, X, Send, ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { DragDropContext, Droppable, Draggable, DropResult, DraggableProvided, DroppableProvided } from 'react-beautiful-dnd';
-import { PDFDocument } from 'pdf-lib';
-
-interface ScannedPage {
-  id: string;
-  imageUrl: string;
-  order: number;
-}
+import { Button } from '@/components/ui/button';
+import { CircularProgress } from '@/components/ui/circular-progress';
+import type { ModelDefinition } from '@/types/processing';
 
 interface DocumentScannerProps {
-  onScanComplete: (images: File[]) => void;
+  selectedModels: ModelDefinition[];
+  onScanComplete: (files: File[]) => void;
   onClose: () => void;
 }
 
-// Dodajemy zmienną globalną dla śledzenia stanu ładowania OpenCV
-declare global {
-  interface Window {
-    cv: any;
-    cvLoading?: Promise<void>;
-  }
-}
+export function DocumentScanner({ selectedModels, onScanComplete, onClose }: DocumentScannerProps) {
+  const [isScanning, setIsScanning] = React.useState(false);
+  const [isProcessing, setIsProcessing] = React.useState(false);
+  const [scannedPages, setScannedPages] = React.useState<{ id: string; imageUrl: string }[]>([]);
+  const [error, setError] = React.useState<string | null>(null);
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+  const streamRef = React.useRef<MediaStream | null>(null);
 
-// Funkcja do ładowania OpenCV (poza komponentem)
-const loadOpenCV = async () => {
-  if (window.cv) return Promise.resolve();
-  if (window.cvLoading) return window.cvLoading;
-
-  window.cvLoading = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'https://docs.opencv.org/4.5.4/opencv.js';
-    script.async = true;
-    script.onload = () => {
-      if (window.cv) {
-        window.cv.onRuntimeInitialized = () => {
-          resolve();
-        };
-      } else {
-        reject(new Error('OpenCV load failed'));
-      }
-    };
-    script.onerror = () => reject(new Error('Failed to load OpenCV script'));
-    document.body.appendChild(script);
-  });
-
-  return window.cvLoading;
-};
-
-const performDeskew = async (imageBlob: Blob): Promise<Blob> => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const cv = window.cv;
-      if (!cv) throw new Error('OpenCV not loaded');
-
-      // Konwertuj blob na canvas
-      const imageUrl = URL.createObjectURL(imageBlob);
-      const img = document.createElement('img');
-      
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = imageUrl;
-      });
-
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Failed to get canvas context');
-      
-      ctx.drawImage(img, 0, 0);
-      URL.revokeObjectURL(imageUrl);
-
-      // Konwertuj do formatu OpenCV
-      const src = cv.imread(canvas);
-      const dst = new cv.Mat();
-      
-      // Konwertuj do skali szarości
-      cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
-      
-      // Wykryj krawędzie
-      cv.Canny(dst, dst, 50, 150, 3);
-      
-      // Znajdź kontury
-      const contours = new cv.MatVector();
-      const hierarchy = new cv.Mat();
-      cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-      let maxArea = 0;
-      let maxContourIndex = -1;
-
-      // Znajdź największy kontur
-      for (let i = 0; i < contours.size(); i++) {
-        const contour = contours.get(i);
-        const area = cv.contourArea(contour);
-        if (area > maxArea) {
-          maxArea = area;
-          maxContourIndex = i;
-        }
-      }
-
-      if (maxContourIndex === -1) {
-        throw new Error('No document contour found');
-      }
-
-      // Znajdź punkty narożne dokumentu
-      const contour = contours.get(maxContourIndex);
-      const perimeter = cv.arcLength(contour, true);
-      const approx = new cv.Mat();
-      cv.approxPolyDP(contour, approx, 0.02 * perimeter, true);
-
-      // Prostowanie dokumentu
-      if (approx.rows === 4) {
-        // Sortuj punkty
-        const points = [];
-        for (let i = 0; i < 4; i++) {
-          points.push({
-            x: approx.data32S[i * 2],
-            y: approx.data32S[i * 2 + 1]
-          });
-        }
-
-        // Transformacja perspektywy
-        const dstPoints = cv.matFromArray(4, 1, cv.CV_32FC2, [
-          0, 0,
-          src.cols, 0,
-          src.cols, src.rows,
-          0, src.rows
-        ]);
-        const srcPoints = cv.matFromArray(4, 1, cv.CV_32FC2, points.flatMap(p => [p.x, p.y]));
-        const matrix = cv.getPerspectiveTransform(srcPoints, dstPoints);
-        cv.warpPerspective(src, src, matrix, new cv.Size(src.cols, src.rows));
-
-        // Zwolnij pamięć
-        dstPoints.delete();
-        srcPoints.delete();
-        matrix.delete();
-      }
-
-      // Konwertuj wynik na canvas
-      const outputCanvas = document.createElement('canvas');
-      cv.imshow(outputCanvas, src);
-
-      // Zwolnij pamięć
-      src.delete();
-      dst.delete();
-      contours.delete();
-      hierarchy.delete();
-      approx.delete();
-
-      // Konwertuj canvas na blob
-      outputCanvas.toBlob((blob) => {
-        if (blob) resolve(blob);
-        else reject(new Error('Failed to create blob'));
-      }, 'image/jpeg', 0.95);
-
-    } catch (error) {
-      reject(error);
-    }
-  });
-};
-
-interface DetectedDocument {
-  corners: { x: number; y: number }[];
-  isGoodPerspective: boolean;
-}
-
-export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProps) {
-  const [isScanning, setIsScanning] = useState(false);
-  const [scannedPages, setScannedPages] = useState<ScannedPage[]>([]);
-  const [draggedItem, setDraggedItem] = useState<ScannedPage | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [showCaptureFlash, setShowCaptureFlash] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processingStatus, setProcessingStatus] = useState('');
-  const [isDocumentDetected, setIsDocumentDetected] = useState(false);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const frameRef = useRef<HTMLDivElement>(null);
-  const processingRef = useRef(false);
-  const [isOpenCVReady, setIsOpenCVReady] = useState(false);
-  const [initProgress, setInitProgress] = useState(0);
-  const [detectedDocument, setDetectedDocument] = useState<DetectedDocument | null>(null);
-  const lastGoodDetection = useRef<DetectedDocument | null>(null);
-  const [processingPages, setProcessingPages] = useState<Set<string>>(new Set());
-
-  // Automatycznie uruchamiamy skaner po załadowaniu
-  useEffect(() => {
-    let mounted = true;
-
-    const initScanner = async () => {
-      try {
-        setInitProgress(10);
-        await loadOpenCV();
-        if (!mounted) return;
-        setInitProgress(50);
-        
-        await startScanning();
-        if (!mounted) return;
-        setInitProgress(80);
-        
-        setIsOpenCVReady(true);
-        setInitProgress(100);
-      } catch (error) {
-        console.error('Failed to initialize scanner:', error);
-        if (mounted) {
-          setError('Nie udało się zainicjalizować skanera');
-        }
-      }
-    };
-
-    initScanner();
-
-    return () => {
-      mounted = false;
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-    };
+  // Inicjalizacja kamery
+  React.useEffect(() => {
+    startCamera();
+    return () => stopCamera();
   }, []);
 
-  useEffect(() => {
-    if (isScanning && videoRef.current && isOpenCVReady) {
-      const processFrame = () => {
-        if (videoRef.current && !processingRef.current) {
-          detectDocument(videoRef.current);
-        }
-        if (isScanning) {
-          requestAnimationFrame(processFrame);
-        }
-      };
-
-      requestAnimationFrame(processFrame);
-    }
-  }, [isScanning, isOpenCVReady]);
-
-  const startScanning = async () => {
+  const startCamera = async () => {
     try {
-      setError(null);
-      setIsScanning(true);
-      
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'environment',
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
-        },
-        audio: false
+        video: { facingMode: 'environment' }
       });
-
       streamRef.current = stream;
-      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        try {
-          await videoRef.current.play();
-        } catch (e) {
-          console.error('Error playing video:', e);
-          setError('Nie udało się uruchomić kamery');
-          setIsScanning(false);
-        }
+        await videoRef.current.play();
       }
-    } catch (error) {
-      console.error('Error accessing camera:', error);
-      setError('Brak dostępu do kamery');
-      setIsScanning(false);
+    } catch (err) {
+      setError('Nie udało się uzyskać dostępu do kamery');
+      console.error('Camera error:', err);
     }
   };
 
-  const stopScanning = () => {
+  const stopCamera = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
     }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    setIsScanning(false);
   };
 
   const captureImage = async () => {
-    if (!videoRef.current || isCapturing) return;
+    if (!videoRef.current || isProcessing) return;
 
     try {
-      setIsCapturing(true);
-      
-      // Sprawdzamy czy OpenCV jest dostępne
-      if (!window.cv) {
-        console.error('OpenCV is not available');
-        showToast('Błąd inicjalizacji skanera');
-        return;
-      }
-
-      // Tworzymy kopię obrazu z kamery
+      setIsProcessing(true);
       const video = videoRef.current;
       const canvas = document.createElement('canvas');
       canvas.width = video.videoWidth;
@@ -308,292 +66,72 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
       const flashElement = document.createElement('div');
       flashElement.className = 'absolute inset-0 bg-white/75 z-50';
       video.parentElement?.appendChild(flashElement);
-
-      // Robimy zdjęcie
+      
+      // Zrób zdjęcie
       ctx.drawImage(video, 0, 0);
       
-      // Usuwamy flash
+      // Usuń flash
       setTimeout(() => flashElement.remove(), 100);
 
-      // Konwertujemy na blob
+      // Konwertuj na blob
       const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.95); // Zwiększamy jakość
+        canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.95);
       });
 
-      // Dodajemy surowe zdjęcie do galerii
+      // Dodaj do listy zeskanowanych stron
       const pageId = Date.now().toString();
-      const newPage: ScannedPage = {
-        id: pageId,
-        imageUrl: URL.createObjectURL(blob),
-        order: scannedPages.length
-      };
-      
-      setScannedPages(prev => [...prev, newPage]);
-      showToast('Przetwarzanie dokumentu...');
+      const imageUrl = URL.createObjectURL(blob);
+      setScannedPages(prev => [...prev, { id: pageId, imageUrl }]);
 
-      // Rozpoczynamy przetwarzanie w tle
-      setProcessingPages(prev => new Set(prev).add(pageId));
-
-      // Przetwarzamy zdjęcie w osobnym bloku try-catch
-      try {
-        // Czekamy na załadowanie OpenCV jeśli potrzeba
-        if (!isOpenCVReady) {
-          await loadOpenCV();
-          setIsOpenCVReady(true);
-        }
-
-        const processedBlob = await performDeskew(blob);
-        
-        // Aktualizujemy zdjęcie w galerii
-        setScannedPages(prev => prev.map(page => 
-          page.id === pageId 
-            ? { ...page, imageUrl: URL.createObjectURL(processedBlob) }
-            : page
-        ));
-        
-        showToast('Dokument przetworzony');
-      } catch (error) {
-        console.error('Błąd podczas przetwarzania:', error);
-        showToast('Błąd przetwarzania dokumentu');
-      } finally {
-        setProcessingPages(prev => {
-          const next = new Set(prev);
-          next.delete(pageId);
-          return next;
-        });
-      }
-
-    } catch (error) {
-      console.error('Error capturing image:', error);
-      showToast('Błąd podczas robienia zdjęcia');
-    } finally {
-      setIsCapturing(false);
-    }
-  };
-
-  const handleDragStart = (page: ScannedPage) => {
-    setDraggedItem(page);
-  };
-
-  const handleDragOver = (e: React.DragEvent, targetPage: ScannedPage) => {
-    e.preventDefault();
-    if (!draggedItem || draggedItem.id === targetPage.id) return;
-
-    setScannedPages(prev => {
-      const newPages = [...prev];
-      const draggedIndex = newPages.findIndex(p => p.id === draggedItem.id);
-      const targetIndex = newPages.findIndex(p => p.id === targetPage.id);
-      
-      newPages.splice(draggedIndex, 1);
-      newPages.splice(targetIndex, 0, draggedItem);
-      
-      return newPages.map((page, index) => ({ ...page, order: index }));
-    });
-  };
-
-  const handleDelete = (pageId: string) => {
-    setScannedPages(prev => prev.filter(page => page.id !== pageId));
-  };
-
-  const createPDFFromImages = async (pages: ScannedPage[]): Promise<File> => {
-    setProcessingStatus('Tworzenie dokumentu PDF...');
-    const pdfDoc = await PDFDocument.create();
-    
-    for (const page of pages) {
-      setProcessingStatus(`Dodawanie strony ${page.order + 1}...`);
-      const response = await fetch(page.imageUrl);
-      const imageBytes = await response.arrayBuffer();
-      const image = await pdfDoc.embedJpg(imageBytes);
-      
-      const pageWidth = image.width;
-      const pageHeight = image.height;
-      const pdfPage = pdfDoc.addPage([pageWidth, pageHeight]);
-      
-      pdfPage.drawImage(image, {
-        x: 0,
-        y: 0,
-        width: pageWidth,
-        height: pageHeight,
-      });
-    }
-
-    setProcessingStatus('Finalizowanie dokumentu...');
-    const pdfBytes = await pdfDoc.save();
-    return new File([pdfBytes], 'scanned_document.pdf', { type: 'application/pdf' });
-  };
-
-  const handleComplete = async () => {
-    try {
-      setIsProcessing(true);
-      const pdfFile = await createPDFFromImages(scannedPages);
-      onScanComplete([pdfFile]);
-    } catch (error) {
-      console.error('Error creating PDF:', error);
-      setError('Nie udało się utworzyć dokumentu PDF');
+    } catch (err) {
+      setError('Błąd podczas robienia zdjęcia');
+      console.error('Capture error:', err);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const [toast, setToast] = useState<string | null>(null);
-  const showToast = (message: string) => {
-    setToast(message);
-    setTimeout(() => setToast(null), 2000);
-  };
-
-  const onDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
-
-    const items = Array.from(scannedPages);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
-
-    // Aktualizuj numerację
-    const updatedItems = items.map((item, index) => ({
-      ...item,
-      order: index
-    }));
-
-    setScannedPages(updatedItems);
-  };
-
-  const detectDocument = (video: HTMLVideoElement) => {
-    if (!canvasRef.current || processingRef.current || !window.cv) return;
-    processingRef.current = true;
-
-    const cv = window.cv;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0);
-
+  const handleComplete = async () => {
     try {
-      const src = cv.imread(canvas);
-      const dst = new cv.Mat();
-      
-      // Konwertuj do skali szarości
-      cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
-      cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0);
-      cv.Canny(dst, dst, 75, 200);
-      
-      // Znajdź kontury
-      const contours = new cv.MatVector();
-      const hierarchy = new cv.Mat();
-      cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-      let maxArea = 0;
-      let maxContourIndex = -1;
-      const totalArea = canvas.width * canvas.height;
-
-      // Znajdź największy kontur
-      for (let i = 0; i < contours.size(); i++) {
-        const contour = contours.get(i);
-        const area = cv.contourArea(contour);
-        if (area > maxArea && area < totalArea * 0.95) { // Ignoruj zbyt duże kontury
-          maxArea = area;
-          maxContourIndex = i;
-        }
-      }
-
-      if (maxContourIndex !== -1) {
-        const contour = contours.get(maxContourIndex);
-        const perimeter = cv.arcLength(contour, true);
-        const approx = new cv.Mat();
-        cv.approxPolyDP(contour, approx, 0.02 * perimeter, true);
-
-        if (approx.rows === 4) {
-          setIsDocumentDetected(true);
-        } else {
-          setIsDocumentDetected(false);
-        }
-
-        approx.delete();
-      }
-
-      // Zwolnij pamięć
-      src.delete();
-      dst.delete();
-      contours.delete();
-      hierarchy.delete();
-    } catch (error) {
-      console.error('Error detecting document:', error);
+      setIsProcessing(true);
+      // Konwertuj zeskanowane strony na pliki
+      const files = await Promise.all(
+        scannedPages.map(async (page) => {
+          const response = await fetch(page.imageUrl);
+          const blob = await response.blob();
+          return new File([blob], `scan_${page.id}.jpg`, { type: 'image/jpeg' });
+        })
+      );
+      onScanComplete(files);
+    } catch (err) {
+      setError('Błąd podczas przetwarzania zeskanowanych stron');
+      console.error('Processing error:', err);
+    } finally {
+      setIsProcessing(false);
     }
-
-    processingRef.current = false;
-  };
-
-  const checkPerspective = (
-    corners: { x: number; y: number }[],
-    width: number,
-    height: number
-  ): boolean => {
-    // Sortuj narożniki według pozycji
-    const sortedCorners = [...corners].sort((a, b) => {
-      if (Math.abs(a.y - b.y) < 10) return a.x - b.x;
-      return a.y - b.y;
-    });
-
-    // Sprawdź czy dokument jest wystarczająco duży
-    const minArea = width * height * 0.2; // Minimum 20% ekranu
-    const documentArea = calculateQuadArea(sortedCorners);
-    if (documentArea < minArea) return false;
-
-    // Sprawdź czy kąty są zbliżone do 90 stopni
-    const angles = calculateQuadAngles(sortedCorners);
-    return angles.every(angle => Math.abs(angle - 90) < 20);
-  };
-
-  const calculateQuadArea = (corners: { x: number; y: number }[]): number => {
-    // Implementacja obliczania pola czworokąta
-    return Math.abs(
-      (corners[0].x * corners[1].y + corners[1].x * corners[2].y +
-       corners[2].x * corners[3].y + corners[3].x * corners[0].y) -
-      (corners[1].x * corners[0].y + corners[2].x * corners[1].y +
-       corners[3].x * corners[2].y + corners[0].x * corners[3].y)
-    ) / 2;
-  };
-
-  const calculateQuadAngles = (corners: { x: number; y: number }[]): number[] => {
-    // Implementacja obliczania kątów czworokąta
-    return corners.map((corner, i) => {
-      const prev = corners[(i + 3) % 4];
-      const next = corners[(i + 1) % 4];
-      
-      const angle = Math.atan2(next.y - corner.y, next.x - corner.x) -
-                   Math.atan2(prev.y - corner.y, prev.x - corner.x);
-      
-      return Math.abs(angle * 180 / Math.PI);
-    });
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
-      {error ? (
-        <div className="flex-1 flex items-center justify-center flex-col gap-4 p-4">
-          <p className="text-white text-lg">{error}</p>
-          <button
+    <div className="fixed inset-0 bg-black z-50">
+      <div className="relative h-full flex flex-col">
+        {/* Header */}
+        <div className="p-4 flex items-center justify-between bg-black/50">
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onClose}
-            className="px-4 py-2 bg-white rounded text-black"
+            className="text-white"
           >
-            Zamknij
-          </button>
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+          <div className="text-white font-medium">
+            Skanowanie ({scannedPages.length})
+          </div>
+          <div className="w-10" /> {/* Spacer */}
         </div>
-      ) : isScanning ? (
-        <div className="relative w-full h-full bg-black">
-          <button
-            onClick={() => {
-              stopScanning();
-              setIsScanning(false);
-            }}
-            className="absolute top-4 left-1/2 transform -translate-x-1/2 px-4 py-2 bg-red-500 text-white rounded-full z-10 flex items-center gap-2 hover:bg-red-600 transition-colors"
-          >
-            <X size={16} />
-            Zakończ
-          </button>
 
+        {/* Camera Preview */}
+        <div className="relative flex-1">
           <video
             ref={videoRef}
             autoPlay
@@ -602,274 +140,77 @@ export function DocumentScanner({ onScanComplete, onClose }: DocumentScannerProp
             className="absolute inset-0 w-full h-full object-cover"
           />
           
-          <canvas ref={canvasRef} className="hidden" />
-
-          <div
-            ref={frameRef}
-            className={`absolute inset-0 border-2 transition-colors duration-200 ${
-              isDocumentDetected ? 'border-green-500' : 'border-white'
-            }`}
-          />
-
-          <AnimatePresence>
-            {isDocumentDetected && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
-              >
-                <div className="bg-green-500/50 text-white px-4 py-2 rounded-full">
-                  Dokument wykryty
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <AnimatePresence>
-            {scannedPages.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                className="absolute bottom-28 inset-x-0 flex justify-center"
-              >
-                <div className="bg-black/75 text-white px-4 py-2 rounded-full">
-                  {scannedPages.length} {scannedPages.length === 1 ? 'zdjęcie' : 'zdjęcia'}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center">
-            <motion.button
-              onClick={captureImage}
-              disabled={isCapturing}
-              whileTap={{ scale: 0.9 }}
-              className={`p-4 rounded-full transition-all ${
-                isCapturing 
-                  ? 'bg-gray-300' 
-                  : 'bg-white hover:bg-gray-100'
-              }`}
-              aria-label="Zrób zdjęcie"
-            >
-              <Camera 
-                className={`text-black transition-colors ${
-                  isCapturing ? 'opacity-50' : ''
-                }`} 
-                size={24} 
-              />
-            </motion.button>
-          </div>
-
-          {/* Ramka dokumentu */}
-          <div className="absolute inset-4 border-2 border-white/50 rounded-lg pointer-events-none">
+          {/* Scanning Frame */}
+          <div className="absolute inset-4 border-2 border-white/50 rounded-lg">
             <div className="absolute -left-2 -top-2 w-4 h-4 border-t-2 border-l-2 border-white" />
             <div className="absolute -right-2 -top-2 w-4 h-4 border-t-2 border-r-2 border-white" />
             <div className="absolute -left-2 -bottom-2 w-4 h-4 border-b-2 border-l-2 border-white" />
             <div className="absolute -right-2 -bottom-2 w-4 h-4 border-b-2 border-r-2 border-white" />
           </div>
-
-          {/* Wskaźnik wykrycia dokumentu */}
-          <AnimatePresence>
-            {isDocumentDetected && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                className="absolute bottom-32 inset-x-0 flex justify-center"
-              >
-                <div className="bg-green-500/80 text-white px-4 py-2 rounded-full flex items-center gap-2">
-                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                  Dokument gotowy do zeskanowania
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Ramka dokumentu */}
-          {detectedDocument && (
-            <svg
-              className="absolute inset-0 w-full h-full pointer-events-none"
-              style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.5))' }}
-            >
-              <path
-                d={`M ${detectedDocument.corners.map(c => `${c.x}% ${c.y}%`).join(' L ')} Z`}
-                fill="none"
-                strokeWidth="2"
-                stroke={detectedDocument.isGoodPerspective ? '#22c55e' : '#3b82f6'}
-                className="transition-colors duration-200"
-              />
-              {detectedDocument.corners.map((corner, i) => (
-                <circle
-                  key={i}
-                  cx={`${corner.x}%`}
-                  cy={`${corner.y}%`}
-                  r="4"
-                  fill={detectedDocument.isGoodPerspective ? '#22c55e' : '#3b82f6'}
-                  className="transition-colors duration-200"
-                />
-              ))}
-            </svg>
-          )}
-
-          {/* Wskaźnik gotowości do zdjęcia */}
-          <AnimatePresence>
-            {detectedDocument?.isGoodPerspective && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                className="absolute bottom-32 inset-x-0 flex justify-center"
-              >
-                <div className="bg-green-500/80 text-white px-4 py-2 rounded-full flex items-center gap-2">
-                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                  Dokument gotowy do zeskanowania
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
-      ) : (
-        <div className="flex-1 p-4 overflow-y-auto bg-gray-900">
-          <div className="flex items-center justify-between mb-4">
-            <button
-              onClick={onClose}
-              className="p-2 rounded-full bg-gray-800 text-white hover:bg-gray-700 transition-colors"
-            >
-              <ArrowLeft size={20} />
-            </button>
-            <h2 className="text-white text-lg font-medium">
-              Zeskanowane strony ({scannedPages.length})
-            </h2>
-            <div className="w-8" />
-          </div>
 
-          <DragDropContext onDragEnd={onDragEnd}>
-            <Droppable droppableId="scanned-pages">
-              {(provided) => (
-                <div {...provided.droppableProps} ref={provided.innerRef} className="grid grid-cols-2 gap-4 mb-4">
-                  {scannedPages.map((page, index) => (
-                    <Draggable key={page.id} draggableId={page.id} index={index}>
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
-                          {...provided.dragHandleProps}
-                          className={`relative aspect-[3/4] bg-gray-800 rounded-lg overflow-hidden ${
-                            snapshot.isDragging ? 'ring-2 ring-blue-500 shadow-lg' : ''
-                          }`}
-                        >
-                          <Image
-                            src={page.imageUrl}
-                            alt={`Strona ${page.order + 1}`}
-                            fill
-                            className="object-cover"
-                          />
-                          {processingPages.has(page.id) && (
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                              <div className="text-white text-center">
-                                <div className="animate-spin rounded-full h-8 w-8 border-2 border-white border-t-transparent mb-2" />
-                                <p className="text-sm">Przetwarzanie...</p>
-                              </div>
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/50 opacity-0 hover:opacity-100 transition-opacity">
-                            <div className="absolute top-2 right-2 flex gap-2">
-                              <button
-                                onClick={() => handleDelete(page.id)}
-                                className="p-1.5 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
-                              >
-                                <X size={16} />
-                              </button>
-                            </div>
-                            <div className="absolute bottom-2 left-2 flex items-center gap-2">
-                              <span className="px-2 py-1 rounded bg-black/75 text-white text-sm font-medium">
-                                Strona {index + 1}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </Draggable>
-                  ))}
-                  {provided.placeholder}
-                  <button
-                    onClick={startScanning}
-                    className="aspect-[3/4] border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:text-white hover:border-white transition-colors group"
-                  >
-                    <Plus size={24} className="group-hover:scale-110 transition-transform" />
-                    <span className="mt-2 text-sm">Dodaj stronę</span>
-                  </button>
-                </div>
-              )}
-            </Droppable>
-          </DragDropContext>
-
-          {scannedPages.length > 0 && (
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-gray-900">
-              <AnimatePresence>
-                {isProcessing && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 20 }}
-                    className="mb-4 text-center text-white text-sm"
-                  >
-                    {processingStatus}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              <button
+        {/* Controls */}
+        <div className="p-4 bg-black/50">
+          <div className="flex justify-between items-center">
+            <div className="text-white text-sm">
+              {selectedModels.map(model => model.name).join(', ')}
+            </div>
+            {scannedPages.length > 0 && (
+              <Button
                 onClick={handleComplete}
                 disabled={isProcessing}
-                className={`w-full py-3 rounded-lg flex items-center justify-center gap-2 transition-colors ${
-                  isProcessing
-                    ? 'bg-blue-400 text-white/80'
-                    : 'bg-blue-500 text-white hover:bg-blue-600'
-                }`}
+                className="gap-2"
               >
-                <Send size={20} />
-                {isProcessing ? 'Przygotowywanie dokumentu...' : 'Wyślij do analizy'}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      <style jsx>{`
-        @keyframes flash {
-          0% { opacity: 0; }
-          50% { opacity: 1; }
-          100% { opacity: 0; }
-        }
-        .animate-flash {
-          animation: flash 200ms ease-out;
-        }
-      `}</style>
-      {!isOpenCVReady && !error && (
-        <div className="absolute inset-0 bg-black flex items-center justify-center">
-          <div className="w-64 space-y-4">
-            <div className="text-white text-center mb-6">
-              <p className="text-lg font-medium mb-2">Inicjalizacja skanera</p>
-              <p className="text-sm text-gray-400">Przygotowywanie modułów...</p>
-            </div>
-            
-            <div className="relative h-2 bg-white/20 rounded-full overflow-hidden">
-              <motion.div
-                className="absolute inset-y-0 left-0 bg-white rounded-full"
-                initial={{ width: "0%" }}
-                animate={{ width: `${initProgress}%` }}
-                transition={{ duration: 0.3 }}
-              />
-            </div>
-            
-            <p className="text-center text-white/60 text-sm">
-              {initProgress}%
-            </p>
+                <Send className="w-4 h-4" />
+                Zakończ
+              </Button>
+            )}
+          </div>
+          
+          <div className="mt-4 flex justify-center">
+            <Button
+              size="lg"
+              variant="outline"
+              className="rounded-full w-16 h-16 p-0 border-4"
+              onClick={captureImage}
+              disabled={isProcessing}
+            >
+              {isProcessing ? (
+                <CircularProgress value={100} size={24} />
+              ) : (
+                <Camera className="w-8 h-8" />
+              )}
+            </Button>
           </div>
         </div>
-      )}
+
+        {/* Thumbnails */}
+        {scannedPages.length > 0 && (
+          <div className="absolute bottom-32 left-0 right-0 p-4 overflow-x-auto">
+            <div className="flex gap-2">
+              {scannedPages.map((page) => (
+                <div
+                  key={page.id}
+                  className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden border-2 border-white"
+                >
+                  <Image
+                    src={page.imageUrl}
+                    alt={`Strona ${page.id}`}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 px-4 py-2 bg-red-500 text-white rounded">
+            {error}
+          </div>
+        )}
+      </div>
     </div>
   );
 } 
