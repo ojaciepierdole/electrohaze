@@ -102,13 +102,13 @@ export function ModelSelector({
               Nie znaleziono modelu
             </CommandEmpty>
             <CommandGroup className="bg-white">
-              <ScrollArea className="h-64">
+              <ScrollArea className="max-h-64">
                 {filteredModels.map((model) => (
                   <CommandItem
                     key={model.id}
                     value={model.id}
                     onSelect={() => handleSelect(model.id)}
-                    className="px-4 py-2 cursor-pointer hover:bg-muted/50 data-[selected=true]:bg-muted"
+                    className="px-4 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
                   >
                     <Check
                       className={`mr-2 h-4 w-4 ${
