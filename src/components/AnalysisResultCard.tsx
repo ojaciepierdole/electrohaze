@@ -158,7 +158,12 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
 
   // Oblicz statystyki dokumentu
   const documentStats = React.useMemo(() => {
-    return calculateDocumentConfidence(modelResults[0]?.fields || {});
+    // Agreguj wyniki ze wszystkich modeli
+    const allFields = modelResults.reduce((acc, model) => ({
+      ...acc,
+      ...model.fields
+    }), {});
+    return calculateDocumentConfidence(allFields);
   }, [modelResults]);
 
   // Oblicz procenty kompletności i pewności

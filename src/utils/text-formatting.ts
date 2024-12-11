@@ -224,14 +224,21 @@ export function calculateDocumentConfidence(
 }
 
 export function aggregateDocumentsConfidence(
-  documents: Array<{ fields: Record<string, any> }>
+  documents: Array<{ modelResults: Array<{ fields: Record<string, any> }> }>
 ): {
   averageConfidence: number;
   totalFilledFields: number;
   totalFields: number;
   documentsCount: number;
 } {
-  const documentConfidences = documents.map(doc => calculateDocumentConfidence(doc.fields));
+  const documentConfidences = documents.map(doc => {
+    // Agreguj pola ze wszystkich modeli
+    const allFields = doc.modelResults.reduce((acc, model) => ({
+      ...acc,
+      ...model.fields
+    }), {});
+    return calculateDocumentConfidence(allFields);
+  });
 
   const totalFilledFields = documentConfidences.reduce(
     (sum, doc) => sum + doc.totalFilledFields,
