@@ -1,13 +1,12 @@
 import { FIELD_GROUPS } from '@/config/fields';
 
 export type FieldGroupKey = 
+  | 'buyer_data'
+  | 'delivery_point'
+  | 'consumption_info'
+  | 'postal_address'
   | 'supplier'
-  | 'product'
-  | 'delivery'
-  | 'general'
-  | 'payer'
-  | 'invoice'
-  | 'consumption';
+  | 'billing';
 
 export interface FieldGroup {
   label: string;
@@ -220,16 +219,9 @@ export interface AddressSet {
   ppeUnit?: string;
   ppeCity?: string;
   ppePostalCode?: string;
-
-  // Dane biznesowe (prefiks 'dp')
-  dpTitle?: string;
-  dpFirstName?: string;
-  dpLastName?: string;
-  dpStreet?: string;
-  dpBuilding?: string;
-  dpUnit?: string;
-  dpCity?: string;
-  dpPostalCode?: string;
+  Municipality?: string;
+  District?: string;
+  Province?: string;
 
   // Inne pola mogą być dodane w przyszłości
   [key: string]: string | undefined;

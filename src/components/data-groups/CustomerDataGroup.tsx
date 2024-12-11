@@ -20,7 +20,7 @@ interface CustomerDataGroupProps {
 
 export function CustomerDataGroup({ data }: CustomerDataGroupProps) {
   // Oblicz statystyki grupy
-  const confidence = calculateGroupConfidence(data);
+  const confidence = calculateGroupConfidence(data, 'buyer_data');
   const missingFields = getMissingFields(data, FIELD_MAPPING);
   const isEmpty = confidence.filledFields === 0;
 

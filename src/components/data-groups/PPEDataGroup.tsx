@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle } from 'lucide-react';
-import type { PPEData, DeliveryPointData } from '@/types/fields';
+import type { PPEData } from '@/types/fields';
 import { 
   formatPersonName, 
   formatAddress, 
@@ -15,45 +15,40 @@ import {
 } from '@/utils/text-formatting';
 
 const FIELD_MAPPING: Record<string, string> = {
-  // Dane identyfikacyjne
+  // Dane identyfikacyjne PPE
   ppeNum: 'Kod PPE',
-  // Dane osobowe
-  dpFirstName: 'Imię',
-  dpLastName: 'Nazwisko',
-  // Adres
-  dpStreet: 'Ulica',
-  dpBuilding: 'Numer budynku',
-  dpUnit: 'Numer lokalu',
-  dpPostalCode: 'Kod pocztowy',
-  dpCity: 'Miejscowość',
-  // Dane administracyjne
-  Municipality: 'Gmina',
-  District: 'Powiat',
-  Province: 'Województwo',
   // Dane techniczne
   MeterNumber: 'Numer licznika',
   TariffGroup: 'Grupa taryfowa',
   ContractNumber: 'Numer umowy',
-  ContractType: 'Typ umowy'
+  ContractType: 'Typ umowy',
+  // Dane adresowe
+  Street: 'Ulica',
+  Building: 'Numer budynku',
+  Unit: 'Numer lokalu',
+  PostalCode: 'Kod pocztowy',
+  City: 'Miejscowość',
+  // Dane administracyjne
+  Municipality: 'Gmina',
+  District: 'Powiat',
+  Province: 'Województwo'
 };
 
 interface PPEDataGroupProps {
-  data: Partial<PPEData & DeliveryPointData>;
+  data: Partial<PPEData>;
 }
 
 export function PPEDataGroup({ data }: PPEDataGroupProps) {
   // Oblicz statystyki grupy
-  const confidence = calculateGroupConfidence(data);
+  const confidence = calculateGroupConfidence(data, 'delivery_point');
   const missingFields = getMissingFields(data, FIELD_MAPPING);
   const isEmpty = confidence.filledFields === 0;
 
   // Formatuj wartości
   const formattedData = {
     ...data,
-    dpFirstName: formatPersonName(data.dpFirstName || null),
-    dpLastName: formatPersonName(data.dpLastName || null),
-    dpStreet: formatAddress(data.dpStreet || null),
-    dpCity: formatAddress(data.dpCity || null),
+    Street: formatAddress(data.Street || null),
+    City: formatAddress(data.City || null),
     Municipality: formatAddress(data.Municipality || null),
     District: formatAddress(data.District || null),
     Province: formatAddress(data.Province || null),
@@ -101,11 +96,11 @@ export function PPEDataGroup({ data }: PPEDataGroupProps) {
           {/* Wypełnione pola */}
           <div className="space-y-2">
             {Object.entries(FIELD_MAPPING).map(([key, label]) => (
-              formattedData[key as keyof (PPEData & DeliveryPointData)] ? (
+              formattedData[key as keyof PPEData] ? (
                 <div key={key} className="flex items-center justify-between gap-4">
                   <dt className="text-sm text-gray-500 min-w-[150px]">{label}</dt>
                   <dd className="text-sm font-medium flex-1">
-                    {formattedData[key as keyof (PPEData & DeliveryPointData)]}
+                    {formattedData[key as keyof PPEData]}
                   </dd>
                 </div>
               ) : null

@@ -7,25 +7,15 @@ export interface CustomerData {
 
 export interface PPEData {
   ppeNum?: string;
+  MeterNumber?: string;
+  TariffGroup?: string;
+  ContractNumber?: string;
+  ContractType?: string;
   Street?: string;
   Building?: string;
   Unit?: string;
   PostalCode?: string;
   City?: string;
-  MeterNumber?: string;
-  TariffGroup?: string;
-  ContractNumber?: string;
-  ContractType?: string;
-}
-
-export interface DeliveryPointData {
-  dpFirstName?: string;
-  dpLastName?: string;
-  dpStreet?: string;
-  dpBuilding?: string;
-  dpUnit?: string;
-  dpPostalCode?: string;
-  dpCity?: string;
   Municipality?: string;
   District?: string;
   Province?: string;
@@ -78,4 +68,11 @@ export interface BillingData {
 
 export interface FieldMapping {
   [key: string]: string;
+}
+
+export interface DeliveryPointField {
+  address: string;
+  postalCode: string;
+  city: string;
+  street: string;
 } 

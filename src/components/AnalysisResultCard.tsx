@@ -1,11 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { FileText } from 'lucide-react';
 import type { ProcessingResult, GroupedResult, AddressSet } from '@/types/processing';
-import type { CustomerData, PPEData, DeliveryPointData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
+import type { CustomerData, PPEData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
 import { CustomerDataGroup } from './data-groups/CustomerDataGroup';
 import { PPEDataGroup } from './data-groups/PPEDataGroup';
 import { CorrespondenceDataGroup } from './data-groups/CorrespondenceDataGroup';
@@ -76,21 +78,22 @@ export function AnalysisResultCard({ result }: AnalysisResultCardProps) {
       ppe: {
         // Dane identyfikacyjne PPE
         ppeNum: fields.ppeNum?.content || null,
-        // Dane osobowe z punktu dostawy
-        dpFirstName: dpNames.firstName || enrichedAddress.dpFirstName || null,
-        dpLastName: dpNames.lastName || enrichedAddress.dpLastName || null,
-        // Dane adresowe z punktu dostawy
-        dpStreet: enrichedAddress.dpStreet || null,
-        dpBuilding: enrichedAddress.dpBuilding || null,
-        dpUnit: enrichedAddress.dpUnit || null,
-        dpPostalCode: enrichedAddress.dpPostalCode || null,
-        dpCity: enrichedAddress.dpCity || null,
         // Dane techniczne
         MeterNumber: fields.MeterNumber?.content || null,
         TariffGroup: fields.TariffGroup?.content || null,
         ContractNumber: fields.ContractNumber?.content || null,
         ContractType: fields.ContractType?.content || null,
-      } as PPEData & DeliveryPointData,
+        // Dane adresowe
+        Street: enrichedAddress.Street || null,
+        Building: enrichedAddress.Building || null,
+        Unit: enrichedAddress.Unit || null,
+        PostalCode: enrichedAddress.PostalCode || null,
+        City: enrichedAddress.City || null,
+        // Dane administracyjne
+        Municipality: enrichedAddress.Municipality || null,
+        District: enrichedAddress.District || null,
+        Province: enrichedAddress.Province || null,
+      } as PPEData,
       
       correspondence: {
         paFirstName: paNames.firstName || enrichedAddress.paFirstName || null,

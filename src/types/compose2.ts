@@ -45,6 +45,11 @@ export interface Compose2Result {
   };
 
   // Adres korespondencyjny
+  paTitle?: {
+    type: string;
+    content?: string;
+    confidence: number;
+  };
   paFirstName?: {
     type: string;
     content?: string;
@@ -81,43 +86,68 @@ export interface Compose2Result {
     confidence: number;
   };
 
-  // Adres dostawy
-  dpFirstName?: {
-    type: string;
-    content?: string;
-    confidence: number;
-  };
-  dpLastName?: {
-    type: string;
-    content?: string;
-    confidence: number;
-  };
-  dpStreet?: {
-    type: string;
-    content?: string;
-    confidence: number;
-  };
-  dpBuilding?: {
-    type: string;
-    content?: string;
-    confidence: number;
-  };
-  dpUnit?: {
-    type: string;
-    content?: string;
-    confidence: number;
-  };
-  dpPostalCode?: {
-    type: string;
-    content?: string;
-    confidence: number;
-  };
-  dpCity?: {
-    type: string;
-    content?: string;
-    confidence: number;
-  };
+  // Punkt poboru energii
   ppeNum?: {
+    type: string;
+    content?: string;
+    confidence: number;
+  };
+  Street?: {
+    type: string;
+    content?: string;
+    confidence: number;
+  };
+  Building?: {
+    type: string;
+    content?: string;
+    confidence: number;
+  };
+  Unit?: {
+    type: string;
+    content?: string;
+    confidence: number;
+  };
+  PostalCode?: {
+    type: string;
+    content?: string;
+    confidence: number;
+  };
+  City?: {
+    type: string;
+    content?: string;
+    confidence: number;
+  };
+  Municipality?: {
+    type: string;
+    content?: string;
+    confidence: number;
+  };
+  District?: {
+    type: string;
+    content?: string;
+    confidence: number;
+  };
+  Province?: {
+    type: string;
+    content?: string;
+    confidence: number;
+  };
+  MeterNumber?: {
+    type: string;
+    content?: string;
+    confidence: number;
+  };
+  TariffGroup?: {
+    type: string;
+    content?: string;
+    confidence: number;
+  };
+  ContractNumber?: {
+    type: string;
+    content?: string;
+    confidence: number;
+  };
+  ContractType?: {
     type: string;
     content?: string;
     confidence: number;

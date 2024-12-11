@@ -54,7 +54,7 @@ export function enrichAddressData(data: AddressSet): AddressSet {
 
   const prefixes = ['', 'pa', 'ppe'] as const;
   
-  // Na końcu wykonujemy standardowe uzupełnianie danych
+  // Wykonujemy standardowe uzupełnianie danych
   for (let i = 0; i < prefixes.length; i++) {
     for (let j = i + 1; j < prefixes.length; j++) {
       const prefix1 = prefixes[i];

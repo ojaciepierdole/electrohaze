@@ -34,7 +34,7 @@ interface SupplierDataGroupProps {
 
 export function SupplierDataGroup({ data }: SupplierDataGroupProps) {
   // Oblicz statystyki grupy
-  const confidence = calculateGroupConfidence(data);
+  const confidence = calculateGroupConfidence(data, 'supplier');
   const missingFields = getMissingFields(data, FIELD_MAPPING);
   const isEmpty = confidence.filledFields === 0;
 

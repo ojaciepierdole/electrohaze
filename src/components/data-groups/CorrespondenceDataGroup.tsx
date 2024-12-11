@@ -38,7 +38,7 @@ interface CorrespondenceDataGroupProps {
 
 export function CorrespondenceDataGroup({ data }: CorrespondenceDataGroupProps) {
   // Oblicz statystyki grupy
-  const confidence = calculateGroupConfidence(data);
+  const confidence = calculateGroupConfidence(data, 'postal_address');
   const missingFields = getMissingFields(data, FIELD_MAPPING);
   const isEmpty = confidence.filledFields === 0;
 

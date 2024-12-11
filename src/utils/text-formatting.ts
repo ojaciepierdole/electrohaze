@@ -1,3 +1,5 @@
+import type { SupplierData, BillingData } from '@/types/fields';
+
 export function formatDate(dateString: string | null): string | null {
   if (!dateString) return null;
   try {
@@ -35,25 +37,129 @@ export function formatPersonName(value: string | null): string | null {
   return value.toUpperCase();
 }
 
-export interface GroupConfidence {
-  totalFields: number;
-  filledFields: number;
-  averageConfidence: number;
+export function formatPostalCode(value: string | null): string | null {
+  if (!value) return null;
+  // Usuń wszystkie białe znaki i formatuj jako XX-XXX
+  const cleaned = value.replace(/\s+/g, '');
+  if (cleaned.length === 5) {
+    return `${cleaned.slice(0, 2)}-${cleaned.slice(2)}`;
+  }
+  return value;
 }
 
-export function calculateGroupConfidence(fields: Record<string, any>): GroupConfidence {
-  const totalFields = Object.keys(fields).length;
-  const filledFields = Object.values(fields).filter(v => v !== null && v !== undefined).length;
-  const confidenceSum = Object.values(fields).reduce((sum, v) => {
-    if (typeof v === 'number') return sum + v;
-    if (typeof v === 'string' && v.length > 0) return sum + 1;
-    return sum;
+export function formatCity(value: string | null): string | null {
+  if (!value) return null;
+  // Zamień pierwszą literę na wielką, resztę na małe
+  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+}
+
+export function formatStreet(value: string | null): string | null {
+  if (!value) return null;
+  // Zamień pierwszą literę każdego słowa na wielką
+  return value
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+// Definicje typów dla pól Azure
+export const AZURE_FIELDS = {
+  buyer_data: [
+    'FirstName',
+    'LastName',
+    'BusinessName',
+    'taxID',
+    'supplierName',
+    'supplierTaxID',
+    'OSD_name',
+    'OSD_region'
+  ],
+  delivery_point: [
+    'ppeNum',
+    'Street',
+    'Building',
+    'Unit',
+    'PostalCode',
+    'City',
+    'Municipality',
+    'District',
+    'Province',
+    'MeterNumber',
+    'TariffGroup',
+    'ContractNumber',
+    'ContractType'
+  ],
+  postal_address: [
+    'paTitle',
+    'paFirstName',
+    'paLastName',
+    'paStreet',
+    'paBuilding',
+    'paUnit',
+    'paPostalCode',
+    'paCity'
+  ],
+  consumption_info: [
+    'BillingStartDate',
+    'BillingEndDate',
+    'BilledUsage',
+    'ReadingType',
+    '12mUsage',
+    'InvoiceType'
+  ],
+  supplier: [
+    'supplierName',
+    'supplierTaxID',
+    'supplierStreet',
+    'supplierBuilding',
+    'supplierUnit',
+    'supplierPostalCode',
+    'supplierCity',
+    'supplierBankAccount',
+    'supplierBankName',
+    'supplierEmail',
+    'supplierPhone',
+    'supplierWebsite',
+    'OSD_name',
+    'OSD_region'
+  ],
+  billing: [
+    'BillingStartDate',
+    'BillingEndDate',
+    'ProductName',
+    'Tariff',
+    'BilledUsage',
+    'ReadingType',
+    '12mUsage',
+    'InvoiceType',
+    'BillBreakdown',
+    'EnergySaleBreakdown'
+  ]
+} as const;
+
+export type FieldGroupKey = keyof typeof AZURE_FIELDS;
+
+export function calculateGroupConfidence(
+  fields: Record<string, any>,
+  groupType: FieldGroupKey
+): { averageConfidence: number; filledFields: number } {
+  const azureFields = AZURE_FIELDS[groupType];
+  const relevantFields = Object.entries(fields)
+    .filter(([key]) => {
+      const fieldArray = azureFields as readonly string[];
+      return fieldArray.includes(key);
+    });
+
+  const totalFields = azureFields.length;
+  const filledFields = relevantFields.filter(([_, v]) => v !== null && v !== undefined).length;
+  const confidenceSum = relevantFields.reduce((sum, [_, value]) => {
+    return sum + (value?.confidence || 0);
   }, 0);
 
   return {
-    totalFields,
-    filledFields,
-    averageConfidence: filledFields > 0 ? confidenceSum / filledFields : 0
+    averageConfidence: filledFields > 0 ? confidenceSum / filledFields : 0,
+    filledFields
   };
 }
 

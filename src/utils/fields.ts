@@ -3,21 +3,7 @@ import type { FieldGroupKey } from '@/types/processing';
 export function determineFieldGroup(fieldName: string): FieldGroupKey {
   const fieldNameLower = fieldName.toLowerCase();
   
-  // Dane sprzedawcy
-  if (fieldNameLower.includes('supplier') || 
-      fieldNameLower.includes('vendor') ||
-      fieldNameLower.includes('osd_')) {
-    return 'supplier';
-  }
-
-  // Dane produktu
-  if (fieldNameLower.includes('product') ||
-      fieldNameLower.includes('tariff') ||
-      fieldNameLower.includes('sale')) {
-    return 'product';
-  }
-
-  // Punkt dostawy
+  // Punkt poboru energii
   if (fieldNameLower.includes('ppe') ||
       fieldNameLower.includes('meter') ||
       fieldNameLower.includes('delivery') ||
@@ -26,43 +12,45 @@ export function determineFieldGroup(fieldName: string): FieldGroupKey {
       fieldNameLower === 'unit' ||
       fieldNameLower === 'city' ||
       fieldNameLower === 'postalcode') {
-    return 'delivery';
+    return 'delivery_point';
   }
 
-  // Dane ogólne
+  // Dane nabywcy
   if (fieldNameLower.includes('customer') ||
       fieldNameLower.includes('business') ||
-      fieldNameLower.includes('taxid')) {
-    return 'general';
+      fieldNameLower.includes('taxid') ||
+      fieldNameLower.includes('supplier') || 
+      fieldNameLower.includes('vendor') ||
+      fieldNameLower.includes('osd_')) {
+    return 'buyer_data';
   }
 
-  // Płatnik
+  // Adres korespondencyjny
   if (fieldNameLower.startsWith('pa') || 
       fieldNameLower.includes('correspondence') ||
       fieldNameLower.includes('payer')) {
-    return 'payer';
+    return 'postal_address';
   }
 
-  // Faktura
-  if (fieldNameLower.includes('invoice') ||
+  // Informacje o zużyciu
+  if (fieldNameLower.includes('consumption') ||
+      fieldNameLower.includes('usage') ||
+      fieldNameLower.includes('reading') ||
+      fieldNameLower.includes('billing') ||
+      fieldNameLower.includes('period') ||
+      fieldNameLower.includes('product') ||
+      fieldNameLower.includes('tariff') ||
+      fieldNameLower.includes('sale') ||
+      fieldNameLower.includes('invoice') ||
       fieldNameLower.includes('amount') ||
       fieldNameLower.includes('vat') ||
       fieldNameLower.includes('net') ||
       fieldNameLower.includes('total') ||
       fieldNameLower.includes('currency') ||
       fieldNameLower.includes('date')) {
-    return 'invoice';
+    return 'consumption_info';
   }
 
-  // Zużycie
-  if (fieldNameLower.includes('consumption') ||
-      fieldNameLower.includes('usage') ||
-      fieldNameLower.includes('reading') ||
-      fieldNameLower.includes('billing') ||
-      fieldNameLower.includes('period')) {
-    return 'consumption';
-  }
-
-  // Domyślnie zwracamy dane ogólne
-  return 'general';
+  // Domyślnie zwracamy dane nabywcy
+  return 'buyer_data';
 } 

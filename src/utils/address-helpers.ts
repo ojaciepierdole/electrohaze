@@ -1,22 +1,11 @@
 import type { AddressSet } from '@/types/processing';
 
-// Mapowanie pól z przedrostkiem "dp" na standardowe pola
-const DP_FIELD_MAPPING: Record<string, keyof AddressSet> = {
-  'dpFirstName': 'FirstName',
-  'dpLastName': 'LastName',
-  'dpStreet': 'Street',
-  'dpBuilding': 'Building',
-  'dpUnit': 'Unit',
-  'dpCity': 'City',
-  'dpPostalCode': 'PostalCode',
-  'dpCompanyName': 'CompanyName'
-};
-
 // Mapowanie pól na polskie etykiety
 const POLISH_LABELS: Record<string, string> = {
   // Dane nabywcy (bez prefiksów)
   'FirstName': 'Imię',
   'LastName': 'Nazwisko',
+  'CompanyName': 'Nazwa firmy',
   'Street': 'Ulica',
   'Building': 'Budynek',
   'Unit': 'Lokal',
@@ -29,13 +18,9 @@ const POLISH_LABELS: Record<string, string> = {
   'OSD_name': 'Dystrybutor',
   'OSD_region': 'Region',
   'ProductName': 'Produkt',
-  'dpStreet': 'Ulica',
-  'dpBuilding': 'Budynek',
-  'dpUnit': 'Lokal',
-  'dpPostalCode': 'Kod pocztowy',
-  'dpCity': 'Miejscowość',
-  'dpFirstName': 'Imię',
-  'dpLastName': 'Nazwisko',
+  'Municipality': 'Gmina',
+  'District': 'Powiat',
+  'Province': 'Województwo',
 
   // Informacje o zużyciu
   'Tariff': 'Taryfa',
@@ -57,57 +42,31 @@ const POLISH_LABELS: Record<string, string> = {
   'paCity': 'Miejscowość'
 };
 
-function normalizeFieldName(field: string): string {
-  // Usuń dwukropek jeśli istnieje
-  const withoutColon = field.endsWith(':') ? field.slice(0, -1) : field;
-  return withoutColon.replace(/^(dp|pa|ppe)/, ''); // Usuń prefiks jeśli istnieje
-}
+export function copyFields(data: AddressSet): AddressSet {
+  const enriched = { ...data };
 
-function getPolishLabel(field: string): string {
-  // Usuń dwukropek jeśli istnieje
-  const baseField = field.endsWith(':') ? field.slice(0, -1) : field;
-  
-  // Normalizuj nazwę pola (usuń prefiksy)
-  const normalizedField = normalizeFieldName(baseField);
-  
-  // Zwróć polską etykietę lub oryginalną nazwę z dwukropkiem
-  return POLISH_LABELS[normalizedField] || `${normalizedField}:`;
-}
+  // Kopiujemy wartości między standardowymi polami a polami z prefiksami
+  const prefixes = ['pa', 'ppe'] as const;
+  const standardFields = ['Title', 'FirstName', 'LastName', 'Street', 'Building', 'Unit', 'City', 'PostalCode'] as const;
 
-function normalizeUnit(unit: string): string {
-  // Usuń przedrostek "M" lub "m." i wszystkie spacje
-  return unit.replace(/^[Mm]\.?\s*/, '').trim();
-}
-
-function findSplitConfirmationInOtherSets(
-  data: AddressSet, 
-  currentPrefix: string, 
-  value: string
-): { building?: string; unit?: string } | null {
-  const prefixes = ['', 'pa', 'ppe'].filter(p => p !== currentPrefix);
-  
-  // Szukamy potwierdzenia w innych zestawach danych
   for (const prefix of prefixes) {
-    const buildingField = `${prefix}Building` as keyof AddressSet;
-    const unitField = `${prefix}Unit` as keyof AddressSet;
-    
-    const otherBuilding = data[buildingField] as string;
-    const otherUnit = data[unitField] as string;
-    
-    if (otherBuilding && otherUnit) {
-      // Sprawdzamy czy połączenie building/unit z innego zestawu
-      // odpowiada naszej wartości do rozdzielenia
-      const combined = `${otherBuilding}/${otherUnit}`.replace(/\s+/g, '');
-      if (value.replace(/\s+/g, '') === combined) {
-        return {
-          building: otherBuilding,
-          unit: otherUnit
-        };
+    for (const field of standardFields) {
+      const prefixedField = `${prefix}${field}` as keyof AddressSet;
+      const standardField = field as keyof AddressSet;
+
+      if (!enriched[standardField] && enriched[prefixedField]) {
+        enriched[standardField] = enriched[prefixedField];
+      } else if (!enriched[prefixedField] && enriched[standardField]) {
+        enriched[prefixedField] = enriched[standardField];
       }
     }
   }
-  
-  return null;
+
+  return enriched;
+}
+
+function normalizeFieldName(field: string): string {
+  return field.replace(/^(pa|ppe)/, '');
 }
 
 function parseAddressNumbers(
@@ -152,74 +111,53 @@ function parseAddressNumbers(
   return { building: value };
 }
 
-function copyDpFields(data: AddressSet): AddressSet {
-  const enriched = { ...data };
+export function normalizeAndSplitAddressNumbers(data: AddressSet): AddressSet {
+  // Najpierw kopiujemy wartości między polami
+  let enriched = copyFields(data);
+  const prefixes = ['', 'pa', 'ppe'] as const;
+  
+  // Dla każdego prefiksu
+  for (const prefix of prefixes) {
+    const buildingField = `${prefix}Building` as keyof AddressSet;
+    const unitField = `${prefix}Unit` as keyof AddressSet;
 
-  // Kopiujemy wartości z pól dp do standardowych pól
-  for (const [dpField, standardField] of Object.entries(DP_FIELD_MAPPING)) {
-    const value = enriched[dpField as keyof AddressSet];
-    if (value && (!enriched[standardField] || enriched[standardField] === '')) {
-      enriched[standardField] = value;
+    // Jeśli mamy numer budynku, ale nie mamy numeru lokalu
+    if (enriched[buildingField] && !enriched[unitField]) {
+      const result = parseAddressNumbers(enriched[buildingField], enriched, prefix);
+      enriched[buildingField] = result.building;
+      if (result.unit) {
+        enriched[unitField] = result.unit;
+      }
     }
   }
 
   return enriched;
 }
 
-export function normalizeAndSplitAddressNumbers(data: AddressSet): AddressSet {
-  // Najpierw kopiujemy wartości z pól dp
-  let enriched = copyDpFields(data);
-  const prefixes = ['', 'pa', 'ppe'] as const;
+function findSplitConfirmationInOtherSets(
+  data: AddressSet,
+  currentPrefix: string,
+  value: string
+): { building?: string; unit?: string } | null {
+  const prefixes = ['', 'pa', 'ppe'];
+  const otherPrefixes = prefixes.filter(p => p !== currentPrefix);
 
-  // Dla każdego prefiksu sprawdzamy i rozdzielamy numery
-  for (const prefix of prefixes) {
+  for (const prefix of otherPrefixes) {
     const buildingField = `${prefix}Building` as keyof AddressSet;
     const unitField = `${prefix}Unit` as keyof AddressSet;
 
-    if (enriched[buildingField]) {
-      const parsed = parseAddressNumbers(
-        enriched[buildingField] as string,
-        enriched,
-        prefix
-      );
-      
-      enriched[buildingField] = parsed.building;
-      
-      if (parsed.unit && (!enriched[unitField] || enriched[unitField] === '')) {
-        enriched[unitField] = parsed.unit;
-      }
-    }
-
-    // Sprawdzamy też pole Unit
-    if (enriched[unitField]) {
-      // Normalizujemy numer lokalu
-      enriched[unitField] = normalizeUnit(enriched[unitField] as string);
-
-      if (enriched[unitField].includes('/')) {
-        const parsed = parseAddressNumbers(
-          enriched[unitField] as string,
-          enriched,
-          prefix
-        );
-        
-        if (!enriched[buildingField] || enriched[buildingField] === '') {
-          enriched[buildingField] = parsed.building;
-        }
-        
-        enriched[unitField] = parsed.unit || '';
+    if (data[buildingField] && data[unitField]) {
+      const combined = `${data[buildingField]}/${data[unitField]}`.replace(/\s+/g, '');
+      if (combined === value) {
+        return {
+          building: data[buildingField],
+          unit: data[unitField]
+        };
       }
     }
   }
 
-  // Na koniec kopiujemy znormalizowane wartości z powrotem do pól dp
-  for (const [dpField, standardField] of Object.entries(DP_FIELD_MAPPING)) {
-    const standardValue = enriched[standardField];
-    if (standardValue) {
-      enriched[dpField as keyof AddressSet] = standardValue;
-    }
-  }
-
-  return enriched;
+  return null;
 }
 
 // Eksportujemy funkcję do pobierania polskich etykiet

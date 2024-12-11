@@ -38,13 +38,18 @@ export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
       'OSD_name',
       'OSD_region',
       'ProductName',
-      'dpStreet',
-      'dpBuilding',
-      'dpUnit',
-      'dpPostalCode',
-      'dpCity',
-      'dpFirstName',
-      'dpLastName'
+      'Street',
+      'Building',
+      'Unit',
+      'PostalCode',
+      'City',
+      'Municipality',
+      'District',
+      'Province',
+      'MeterNumber',
+      'TariffGroup',
+      'ContractNumber',
+      'ContractType'
     ] as const,
     requiredFields: ['ppeNum', 'supplierName']
   },
@@ -75,9 +80,52 @@ export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
       'paBuilding',
       'paUnit',
       'paPostalCode',
-      'paCity'
+      'paCity',
+      'Municipality',
+      'District',
+      'Province'
     ] as const,
     requiredFields: []
+  },
+
+  supplier: {
+    name: 'Dane sprzedawcy',
+    icon: Building,
+    fields: [
+      'supplierName',
+      'supplierTaxID',
+      'supplierStreet',
+      'supplierBuilding',
+      'supplierUnit',
+      'supplierPostalCode',
+      'supplierCity',
+      'supplierBankAccount',
+      'supplierBankName',
+      'supplierEmail',
+      'supplierPhone',
+      'supplierWebsite',
+      'OSD_name',
+      'OSD_region'
+    ] as const,
+    requiredFields: ['supplierName']
+  },
+
+  billing: {
+    name: 'Dane rozliczeniowe',
+    icon: Receipt,
+    fields: [
+      'BillingStartDate',
+      'BillingEndDate',
+      'ProductName',
+      'Tariff',
+      'BilledUsage',
+      'ReadingType',
+      '12mUsage',
+      'InvoiceType',
+      'BillBreakdown',
+      'EnergySaleBreakdown'
+    ] as const,
+    requiredFields: ['BilledUsage']
   }
 };
 

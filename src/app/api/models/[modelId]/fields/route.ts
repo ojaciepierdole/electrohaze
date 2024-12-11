@@ -124,7 +124,7 @@ function determineFieldGroup(fieldName: string): FieldGroupKey {
   }
   
   // Domyślna grupa
-  return 'invoice_data';
+  return 'buyer_data';
 }
 
 function isAzureFieldSchema(schema: unknown): schema is AzureFieldSchema {
