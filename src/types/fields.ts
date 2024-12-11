@@ -31,9 +31,6 @@ export interface CorrespondenceData {
   paUnit?: string;
   paPostalCode?: string;
   paCity?: string;
-  Municipality?: string;
-  District?: string;
-  Province?: string;
 }
 
 export interface SupplierData {

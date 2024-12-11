@@ -5,31 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle } from 'lucide-react';
 import type { CorrespondenceData } from '@/types/fields';
-import { 
-  formatPersonName, 
-  formatAddress, 
-  calculateGroupConfidence, 
-  getMissingFields,
-  calculateOptimalColumns,
-  type ColumnLayout 
-} from '@/utils/text-formatting';
+import { formatPersonName, formatAddress, formatPostalCode, formatCity, formatStreet, calculateGroupConfidence, getMissingFields, calculateOptimalColumns } from '@/utils/text-formatting';
 
-const FIELD_MAPPING: Record<string, string> = {
-  // Dane osobowe
+const FIELD_MAPPING: Record<keyof CorrespondenceData, string> = {
   paFirstName: 'Imię',
   paLastName: 'Nazwisko',
   paBusinessName: 'Nazwa firmy',
   paTitle: 'Tytuł',
-  // Dane adresowe
   paStreet: 'Ulica',
   paBuilding: 'Numer budynku',
   paUnit: 'Numer lokalu',
   paPostalCode: 'Kod pocztowy',
-  paCity: 'Miejscowość',
-  // Dane administracyjne
-  Municipality: 'Gmina',
-  District: 'Powiat',
-  Province: 'Województwo'
+  paCity: 'Miejscowość'
 };
 
 interface CorrespondenceDataGroupProps {
@@ -41,6 +28,13 @@ export function CorrespondenceDataGroup({ data }: CorrespondenceDataGroupProps) 
   const confidence = calculateGroupConfidence(data, 'postal_address');
   const missingFields = getMissingFields(data, FIELD_MAPPING);
   const isEmpty = confidence.filledFields === 0;
+  const completionPercentage = Math.round((confidence.filledFields / confidence.totalFields) * 100);
+
+  // Oblicz optymalny układ kolumn dla brakujących pól
+  const { columns, gridClass } = React.useMemo(
+    () => calculateOptimalColumns(missingFields),
+    [missingFields]
+  );
 
   // Formatuj wartości
   const formattedData = {
@@ -48,18 +42,13 @@ export function CorrespondenceDataGroup({ data }: CorrespondenceDataGroupProps) 
     paFirstName: formatPersonName(data.paFirstName || null),
     paLastName: formatPersonName(data.paLastName || null),
     paBusinessName: formatPersonName(data.paBusinessName || null),
-    paStreet: formatAddress(data.paStreet || null),
-    paCity: formatAddress(data.paCity || null),
-    Municipality: formatAddress(data.Municipality || null),
-    District: formatAddress(data.District || null),
-    Province: formatAddress(data.Province || null),
+    paTitle: formatPersonName(data.paTitle || null),
+    paStreet: formatStreet(data.paStreet || null),
+    paBuilding: formatAddress(data.paBuilding || null),
+    paUnit: formatAddress(data.paUnit || null),
+    paPostalCode: formatPostalCode(data.paPostalCode || null),
+    paCity: formatCity(data.paCity || null),
   };
-
-  // Oblicz optymalny układ kolumn
-  const { columns, gridClass } = React.useMemo(
-    () => calculateOptimalColumns(missingFields),
-    [missingFields]
-  );
 
   if (isEmpty) {
     return (
@@ -88,21 +77,19 @@ export function CorrespondenceDataGroup({ data }: CorrespondenceDataGroupProps) 
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-medium">Adres korespondencyjny</CardTitle>
           <Badge variant="outline">
-            {Math.round(confidence.averageConfidence * 100)}% kompletności
+            {completionPercentage}% kompletności ({confidence.filledFields}/{confidence.totalFields})
           </Badge>
         </div>
       </CardHeader>
       <CardContent className="p-4">
-        <div className="space-y-4">
+        <div className="space-y-6">
           {/* Wypełnione pola */}
-          <div className="space-y-2">
-            {Object.entries(FIELD_MAPPING).map(([key, label]) => (
-              formattedData[key as keyof CorrespondenceData] ? (
-                <div key={key} className="flex items-center justify-between gap-4">
-                  <dt className="text-sm text-gray-500 min-w-[150px]">{label}</dt>
-                  <dd className="text-sm font-medium flex-1">
-                    {formattedData[key as keyof CorrespondenceData]}
-                  </dd>
+          <div className="grid grid-cols-2 gap-4">
+            {(Object.keys(FIELD_MAPPING) as Array<keyof CorrespondenceData>).map((key) => (
+              formattedData[key] ? (
+                <div key={key} className="space-y-1">
+                  <dt className="text-sm text-gray-500">{FIELD_MAPPING[key]}</dt>
+                  <dd className="text-sm font-medium">{formattedData[key]}</dd>
                 </div>
               ) : null
             ))}
@@ -115,15 +102,15 @@ export function CorrespondenceDataGroup({ data }: CorrespondenceDataGroupProps) 
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-500">Brakujące dane:</h4>
                 <div className={`grid gap-x-12 gap-y-2 ${gridClass}`}>
-                  {columns.map((column: Array<{ key: string; label: string }>, columnIndex: number) => (
-                    <React.Fragment key={columnIndex}>
-                      {column.map(({ key, label }: { key: string; label: string }) => (
+                  {columns.map((column, columnIndex) => (
+                    <div key={columnIndex} className="space-y-2">
+                      {column.map(({ key, label }) => (
                         <div key={key} className="flex items-center gap-2">
                           <span className="text-sm text-gray-400">{label}</span>
                           <span className="text-sm text-gray-300">—</span>
                         </div>
                       ))}
-                    </React.Fragment>
+                    </div>
                   ))}
                 </div>
               </div>

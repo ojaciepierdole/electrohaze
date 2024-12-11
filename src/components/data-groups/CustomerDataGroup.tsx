@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle } from 'lucide-react';
 import type { CustomerData } from '@/types/fields';
-import { formatPersonName, calculateGroupConfidence, getMissingFields } from '@/utils/text-formatting';
+import { formatPersonName, calculateGroupConfidence, getMissingFields, calculateOptimalColumns } from '@/utils/text-formatting';
 
 const FIELD_MAPPING: Record<keyof CustomerData, string> = {
   FirstName: 'Imię',
@@ -23,6 +23,13 @@ export function CustomerDataGroup({ data }: CustomerDataGroupProps) {
   const confidence = calculateGroupConfidence(data, 'buyer_data');
   const missingFields = getMissingFields(data, FIELD_MAPPING);
   const isEmpty = confidence.filledFields === 0;
+  const completionPercentage = Math.round((confidence.filledFields / confidence.totalFields) * 100);
+
+  // Oblicz optymalny układ kolumn dla brakujących pól
+  const { columns, gridClass } = React.useMemo(
+    () => calculateOptimalColumns(missingFields),
+    [missingFields]
+  );
 
   // Formatuj wartości
   const formattedData = {
@@ -59,7 +66,7 @@ export function CustomerDataGroup({ data }: CustomerDataGroupProps) {
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-medium">Dane klienta</CardTitle>
           <Badge variant="outline">
-            {Math.round(confidence.averageConfidence * 100)}% kompletności
+            {completionPercentage}% kompletności ({confidence.filledFields}/{confidence.totalFields})
           </Badge>
         </div>
       </CardHeader>
@@ -83,11 +90,15 @@ export function CustomerDataGroup({ data }: CustomerDataGroupProps) {
               <div className="border-t border-gray-200 my-4" />
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-500">Brakujące dane:</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  {missingFields.map(({ key, label }) => (
-                    <div key={key} className="flex items-center gap-2">
-                      <span className="text-sm text-gray-400">{label}</span>
-                      <span className="text-sm text-gray-300">—</span>
+                <div className={`grid gap-x-12 gap-y-2 ${gridClass}`}>
+                  {columns.map((column, columnIndex) => (
+                    <div key={columnIndex} className="space-y-2">
+                      {column.map(({ key, label }) => (
+                        <div key={key} className="flex items-center gap-2">
+                          <span className="text-sm text-gray-400">{label}</span>
+                          <span className="text-sm text-gray-300">—</span>
+                        </div>
+                      ))}
                     </div>
                   ))}
                 </div>

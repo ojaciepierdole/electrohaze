@@ -65,18 +65,21 @@ export function formatStreet(value: string | null): string | null {
 
 // Definicje typów dla pól Azure
 export const AZURE_FIELDS = {
-  buyer_data: [
-    'FirstName',
-    'LastName',
-    'BusinessName',
-    'taxID',
-    'supplierName',
-    'supplierTaxID',
-    'OSD_name',
-    'OSD_region'
-  ],
   delivery_point: [
+    'dpFirstName',
+    'dpLastName',
+    'dpStreet',
+    'dpBuilding',
+    'dpUnit',
+    'dpPostalCode',
+    'dpCity'
+  ],
+  ppe: [
     'ppeNum',
+    'MeterNumber',
+    'TariffGroup',
+    'ContractNumber',
+    'ContractType',
     'Street',
     'Building',
     'Unit',
@@ -84,29 +87,24 @@ export const AZURE_FIELDS = {
     'City',
     'Municipality',
     'District',
-    'Province',
-    'MeterNumber',
-    'TariffGroup',
-    'ContractNumber',
-    'ContractType'
+    'Province'
   ],
   postal_address: [
-    'paTitle',
     'paFirstName',
     'paLastName',
+    'paBusinessName',
+    'paTitle',
     'paStreet',
     'paBuilding',
     'paUnit',
     'paPostalCode',
     'paCity'
   ],
-  consumption_info: [
-    'BillingStartDate',
-    'BillingEndDate',
-    'BilledUsage',
-    'ReadingType',
-    '12mUsage',
-    'InvoiceType'
+  buyer_data: [
+    'FirstName',
+    'LastName',
+    'BusinessName',
+    'taxID'
   ],
   supplier: [
     'supplierName',
@@ -143,23 +141,28 @@ export type FieldGroupKey = keyof typeof AZURE_FIELDS;
 export function calculateGroupConfidence(
   fields: Record<string, any>,
   groupType: FieldGroupKey
-): { averageConfidence: number; filledFields: number } {
+): { averageConfidence: number; filledFields: number; totalFields: number } {
   const azureFields = AZURE_FIELDS[groupType];
-  const relevantFields = Object.entries(fields)
-    .filter(([key]) => {
-      const fieldArray = azureFields as readonly string[];
-      return fieldArray.includes(key);
-    });
-
   const totalFields = azureFields.length;
-  const filledFields = relevantFields.filter(([_, v]) => v !== null && v !== undefined).length;
-  const confidenceSum = relevantFields.reduce((sum, [_, value]) => {
-    return sum + (value?.confidence || 0);
-  }, 0);
+
+  // Filtruj tylko pola, które są zdefiniowane w AZURE_FIELDS dla danej grupy
+  const relevantFields = Object.entries(fields)
+    .filter(([key]) => azureFields.includes(key as (typeof azureFields)[number]));
+
+  // Zlicz wypełnione pola (nie null, nie undefined, nie pusty string)
+  const filledFields = relevantFields.filter(([_, v]) => 
+    v !== null && v !== undefined && v !== ''
+  ).length;
+
+  // Oblicz średnią pewność tylko dla wypełnionych pól
+  const confidenceSum = relevantFields
+    .filter(([_, v]) => v !== null && v !== undefined && v !== '')
+    .reduce((sum, [_, value]) => sum + (value?.confidence || 0), 0);
 
   return {
     averageConfidence: filledFields > 0 ? confidenceSum / filledFields : 0,
-    filledFields
+    filledFields,
+    totalFields
   };
 }
 
