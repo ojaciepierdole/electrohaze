@@ -147,7 +147,7 @@ export function calculateGroupConfidence(
 
   // Filtruj tylko pola, które są zdefiniowane w AZURE_FIELDS dla danej grupy
   const relevantFields = Object.entries(fields)
-    .filter(([key]) => azureFields.includes(key as (typeof azureFields)[number]));
+    .filter(([key]) => (azureFields as readonly string[]).includes(key));
 
   // Zlicz wypełnione pola (nie null, nie undefined, nie pusty string)
   const filledFields = relevantFields.filter(([_, v]) => 

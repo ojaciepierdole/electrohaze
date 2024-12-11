@@ -68,8 +68,11 @@ export interface FieldMapping {
 }
 
 export interface DeliveryPointField {
-  address: string;
-  postalCode: string;
-  city: string;
-  street: string;
+  dpFirstName?: string;
+  dpLastName?: string;
+  dpStreet?: string;
+  dpBuilding?: string;
+  dpUnit?: string;
+  dpPostalCode?: string;
+  dpCity?: string;
 } 
