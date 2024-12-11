@@ -24,16 +24,22 @@ const FIELD_MAPPING: Record<keyof SupplierData, string> = {
   OSD_region: 'Region OSD'
 };
 
+// Pola, które są mapowane z Azure Document Intelligence
+const AZURE_MAPPED_FIELDS = ['supplierName', 'OSD_name', 'OSD_region'] as const;
+
 interface SupplierDataGroupProps {
   data: Partial<SupplierData>;
 }
 
 export function SupplierDataGroup({ data }: SupplierDataGroupProps) {
-  // Oblicz statystyki grupy
+  // Oblicz statystyki grupy tylko dla pól z Azure
   const confidence = calculateGroupConfidence(data, 'supplier');
-  const missingFields = getMissingFields(data, FIELD_MAPPING);
   const isEmpty = confidence.filledFields === 0;
   const completionPercentage = Math.round((confidence.filledFields / confidence.totalFields) * 100);
+  const confidencePercentage = Math.round(confidence.averageConfidence * 100);
+
+  // Oblicz brakujące pola dla wszystkich pól
+  const missingFields = getMissingFields(data, FIELD_MAPPING);
 
   // Oblicz optymalny układ kolumn dla brakujących pól
   const { columns, gridClass } = React.useMemo(
@@ -80,23 +86,47 @@ export function SupplierDataGroup({ data }: SupplierDataGroupProps) {
       <CardHeader className="border-b">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-medium">Dane sprzedawcy</CardTitle>
-          <Badge variant="outline">
-            {completionPercentage}% kompletności ({confidence.filledFields}/{confidence.totalFields})
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline">
+              {completionPercentage}% kompletności ({confidence.filledFields}/{confidence.totalFields})
+            </Badge>
+            <Badge variant={confidencePercentage > 80 ? "success" : confidencePercentage > 60 ? "warning" : "destructive"}>
+              {confidencePercentage}% pewności
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="p-4">
         <div className="space-y-6">
           {/* Wypełnione pola */}
           <div className="grid grid-cols-2 gap-4">
-            {(Object.keys(FIELD_MAPPING) as Array<keyof SupplierData>).map((key) => (
+            {/* Najpierw wyświetl pola z Azure */}
+            {AZURE_MAPPED_FIELDS.map((key) => (
               formattedData[key] ? (
                 <div key={key} className="space-y-1">
                   <dt className="text-sm text-gray-500">{FIELD_MAPPING[key]}</dt>
                   <dd className="text-sm font-medium">{formattedData[key]}</dd>
+                  {confidence.fieldConfidences[key] && (
+                    <dd className="text-xs text-gray-400">
+                      Pewność: {Math.round(confidence.fieldConfidences[key] * 100)}%
+                    </dd>
+                  )}
                 </div>
               ) : null
             ))}
+            
+            {/* Następnie wyświetl pozostałe pola */}
+            {(Object.keys(FIELD_MAPPING) as Array<keyof SupplierData>)
+              .filter(key => !AZURE_MAPPED_FIELDS.includes(key as any))
+              .map((key) => (
+                formattedData[key] ? (
+                  <div key={key} className="space-y-1">
+                    <dt className="text-sm text-gray-500">{FIELD_MAPPING[key]}</dt>
+                    <dd className="text-sm font-medium text-gray-600">{formattedData[key]}</dd>
+                  </div>
+                ) : null
+              ))
+            }
           </div>
 
           {/* Brakujące pola */}

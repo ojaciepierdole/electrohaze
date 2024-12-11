@@ -108,17 +108,6 @@ export const AZURE_FIELDS = {
   ],
   supplier: [
     'supplierName',
-    'supplierTaxID',
-    'supplierStreet',
-    'supplierBuilding',
-    'supplierUnit',
-    'supplierPostalCode',
-    'supplierCity',
-    'supplierBankAccount',
-    'supplierBankName',
-    'supplierEmail',
-    'supplierPhone',
-    'supplierWebsite',
     'OSD_name',
     'OSD_region'
   ],
@@ -138,10 +127,29 @@ export const AZURE_FIELDS = {
 
 export type FieldGroupKey = keyof typeof AZURE_FIELDS;
 
+export interface FieldConfidence {
+  value: string | null;
+  confidence: number;
+}
+
+export interface GroupConfidence {
+  averageConfidence: number;  // średnia pewność dla wypełnionych pól
+  filledFields: number;       // liczba wypełnionych pól
+  totalFields: number;        // całkowita liczba pól
+  fieldConfidences: Record<string, number>; // pewności dla poszczególnych pól
+}
+
+export interface DocumentConfidence {
+  groups: Record<FieldGroupKey, GroupConfidence>;
+  averageConfidence: number;  // średnia pewność dla całego dokumentu
+  totalFilledFields: number;  // suma wypełnionych pól
+  totalFields: number;        // suma wszystkich pól
+}
+
 export function calculateGroupConfidence(
   fields: Record<string, any>,
   groupType: FieldGroupKey
-): { averageConfidence: number; filledFields: number; totalFields: number } {
+): GroupConfidence {
   const azureFields = AZURE_FIELDS[groupType];
   const totalFields = azureFields.length;
 
@@ -149,20 +157,107 @@ export function calculateGroupConfidence(
   const relevantFields = Object.entries(fields)
     .filter(([key]) => (azureFields as readonly string[]).includes(key));
 
-  // Zlicz wypełnione pola (nie null, nie undefined, nie pusty string)
-  const filledFields = relevantFields.filter(([_, v]) => 
-    v !== null && v !== undefined && v !== ''
-  ).length;
+  // Zbierz wypełnione pola i ich pewności
+  const filledFieldsWithConfidence = relevantFields
+    .filter(([_, v]) => v !== null && v !== undefined && v !== '')
+    .map(([key, value]) => ({
+      key,
+      confidence: value?.confidence || 0
+    }));
+
+  const filledFields = filledFieldsWithConfidence.length;
+
+  // Zbierz pewności dla wszystkich pól
+  const fieldConfidences = filledFieldsWithConfidence.reduce((acc, { key, confidence }) => ({
+    ...acc,
+    [key]: confidence
+  }), {} as Record<string, number>);
 
   // Oblicz średnią pewność tylko dla wypełnionych pól
-  const confidenceSum = relevantFields
-    .filter(([_, v]) => v !== null && v !== undefined && v !== '')
-    .reduce((sum, [_, value]) => sum + (value?.confidence || 0), 0);
+  const confidenceSum = filledFieldsWithConfidence.reduce((sum, { confidence }) => sum + confidence, 0);
+  const averageConfidence = filledFields > 0 ? confidenceSum / filledFields : 0;
 
   return {
-    averageConfidence: filledFields > 0 ? confidenceSum / filledFields : 0,
+    averageConfidence,
     filledFields,
+    totalFields,
+    fieldConfidences
+  };
+}
+
+export function calculateDocumentConfidence(
+  documentFields: Record<string, any>
+): DocumentConfidence {
+  // Oblicz statystyki dla każdej grupy
+  const groups = Object.keys(AZURE_FIELDS).reduce((acc, groupKey) => ({
+    ...acc,
+    [groupKey]: calculateGroupConfidence(documentFields, groupKey as FieldGroupKey)
+  }), {} as Record<FieldGroupKey, GroupConfidence>);
+
+  // Oblicz sumy dla całego dokumentu
+  const totalFilledFields = Object.values(groups).reduce(
+    (sum, group) => sum + group.filledFields, 
+    0
+  );
+
+  const totalFields = Object.values(groups).reduce(
+    (sum, group) => sum + group.totalFields, 
+    0
+  );
+
+  // Oblicz średnią pewność ważoną liczbą wypełnionych pól
+  const weightedConfidenceSum = Object.values(groups).reduce(
+    (sum, group) => sum + (group.averageConfidence * group.filledFields),
+    0
+  );
+
+  const averageConfidence = totalFilledFields > 0 
+    ? weightedConfidenceSum / totalFilledFields 
+    : 0;
+
+  return {
+    groups,
+    averageConfidence,
+    totalFilledFields,
     totalFields
+  };
+}
+
+export function aggregateDocumentsConfidence(
+  documents: Array<{ fields: Record<string, any> }>
+): {
+  averageConfidence: number;
+  totalFilledFields: number;
+  totalFields: number;
+  documentsCount: number;
+} {
+  const documentConfidences = documents.map(doc => calculateDocumentConfidence(doc.fields));
+
+  const totalFilledFields = documentConfidences.reduce(
+    (sum, doc) => sum + doc.totalFilledFields,
+    0
+  );
+
+  const totalFields = documentConfidences.reduce(
+    (sum, doc) => sum + doc.totalFields,
+    0
+  );
+
+  // Oblicz średnią pewność ważoną liczbą wypełnionych pól
+  const weightedConfidenceSum = documentConfidences.reduce(
+    (sum, doc) => sum + (doc.averageConfidence * doc.totalFilledFields),
+    0
+  );
+
+  const averageConfidence = totalFilledFields > 0
+    ? weightedConfidenceSum / totalFilledFields
+    : 0;
+
+  return {
+    averageConfidence,
+    totalFilledFields,
+    totalFields,
+    documentsCount: documents.length
   };
 }
 

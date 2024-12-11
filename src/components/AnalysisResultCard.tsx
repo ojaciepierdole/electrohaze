@@ -1,28 +1,31 @@
 'use client';
 
 import * as React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { FileText } from 'lucide-react';
-import type { ProcessingResult, GroupedResult, AddressSet } from '@/types/processing';
+import type { ProcessingResult, GroupedResult } from '@/types/processing';
 import type { CustomerData, PPEData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
 import { CustomerDataGroup } from './data-groups/CustomerDataGroup';
 import { PPEDataGroup } from './data-groups/PPEDataGroup';
 import { CorrespondenceDataGroup } from './data-groups/CorrespondenceDataGroup';
 import { SupplierDataGroup } from './data-groups/SupplierDataGroup';
 import { BillingDataGroup } from './data-groups/BillingDataGroup';
+import { DeliveryPointDataGroup } from './data-groups/DeliveryPointDataGroup';
+import { AnalysisSummary } from './AnalysisSummary';
 import { enrichAddressData } from '@/utils/address-enrichment';
 import { processNames } from '@/utils/name-helpers';
+import { calculateDocumentConfidence } from '@/utils/text-formatting';
 
 interface AnalysisResultCardProps {
   result: ProcessingResult | GroupedResult;
+  totalTime?: number;
+  onExport?: () => void;
 }
 
-export function AnalysisResultCard({ result }: AnalysisResultCardProps) {
+export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResultCardProps) {
   const modelResults = ('results' in result 
-    ? (result as { results: Array<{ modelId: string; fields: Record<string, { content: string | null; confidence: number }>; confidence: number; pageCount: number; }> }).results 
+    ? (result as { results: Array<{ modelId: string; fields: Record<string, any>; confidence: number; pageCount: number; }> }).results 
     : result.modelResults);
 
   // Konwertuj pola do odpowiednich struktur danych
@@ -30,7 +33,7 @@ export function AnalysisResultCard({ result }: AnalysisResultCardProps) {
     const fields = modelResults[0]?.fields || {};
     
     // Przygotuj dane do wzbogacenia
-    const addressData: AddressSet = {
+    const addressData = {
       // Dane podstawowe
       FirstName: fields.FirstName?.content || undefined,
       LastName: fields.LastName?.content || undefined,
@@ -140,26 +143,102 @@ export function AnalysisResultCard({ result }: AnalysisResultCardProps) {
         BillBreakdown: fields.BillBreakdown?.content || null,
         EnergySaleBreakdown: fields.EnergySaleBreakdown?.content || null,
       } as BillingData,
+
+      delivery_point: {
+        dpFirstName: dpNames.firstName || enrichedAddress.dpFirstName || null,
+        dpLastName: dpNames.lastName || enrichedAddress.dpLastName || null,
+        dpStreet: enrichedAddress.dpStreet || null,
+        dpBuilding: enrichedAddress.dpBuilding || null,
+        dpUnit: enrichedAddress.dpUnit || null,
+        dpPostalCode: enrichedAddress.dpPostalCode || null,
+        dpCity: enrichedAddress.dpCity || null,
+      }
     };
   }, [modelResults]);
 
+  // Oblicz statystyki dokumentu
+  const documentStats = React.useMemo(() => {
+    return calculateDocumentConfidence(modelResults[0]?.fields || {});
+  }, [modelResults]);
+
+  // Oblicz procenty kompletności i pewności
+  const completionPercentage = Math.round((documentStats.totalFilledFields / documentStats.totalFields) * 100);
+  const confidencePercentage = Math.round(documentStats.averageConfidence * 100);
+
+  // Jeśli mamy wiele dokumentów, pokaż podsumowanie
+  if ('results' in result && totalTime !== undefined) {
+    return (
+      <div className="space-y-6">
+        <AnalysisSummary 
+          documents={[{ fields: modelResults[0]?.fields || {} }]} 
+          totalTime={totalTime}
+          onExport={onExport}
+        />
+
+        <Card className="bg-white shadow-sm">
+          <div className="p-4 border-b">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-muted-foreground" />
+                <h3 className="font-medium truncate max-w-[200px]" title={result.fileName}>
+                  {result.fileName}
+                </h3>
+              </div>
+              <Badge variant={modelResults[0].confidence > 0.8 ? "success" : modelResults[0].confidence > 0.6 ? "warning" : "destructive"}>
+                {(modelResults[0].confidence * 100).toFixed(1)}% pewności modelu
+              </Badge>
+            </div>
+            <div className="flex items-center gap-4">
+              <Badge variant="outline">
+                {completionPercentage}% kompletności ({documentStats.totalFilledFields}/{documentStats.totalFields})
+              </Badge>
+              <Badge variant={confidencePercentage > 80 ? "success" : confidencePercentage > 60 ? "warning" : "destructive"}>
+                {confidencePercentage}% pewności pól
+              </Badge>
+            </div>
+          </div>
+
+          <div className="p-4 space-y-6">
+            <SupplierDataGroup data={data.supplier} />
+            <PPEDataGroup data={data.ppe} />
+            <DeliveryPointDataGroup data={data.delivery_point} />
+            <CustomerDataGroup data={data.customer} />
+            <CorrespondenceDataGroup data={data.correspondence} />
+            <BillingDataGroup data={data.billing} />
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <Card className="bg-white shadow-sm">
-      <div className="flex items-center justify-between p-4 border-b">
-        <div className="flex items-center gap-2">
-          <FileText className="w-5 h-5 text-muted-foreground" />
-          <h3 className="font-medium truncate max-w-[200px]" title={result.fileName}>
-            {result.fileName}
-          </h3>
+      <div className="p-4 border-b">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-muted-foreground" />
+            <h3 className="font-medium truncate max-w-[200px]" title={result.fileName}>
+              {result.fileName}
+            </h3>
+          </div>
+          <Badge variant={modelResults[0].confidence > 0.8 ? "success" : modelResults[0].confidence > 0.6 ? "warning" : "destructive"}>
+            {(modelResults[0].confidence * 100).toFixed(1)}% pewności modelu
+          </Badge>
         </div>
-        <Badge variant={modelResults[0].confidence > 0.8 ? "success" : modelResults[0].confidence > 0.6 ? "warning" : "destructive"}>
-          {(modelResults[0].confidence * 100).toFixed(1)}%
-        </Badge>
+        <div className="flex items-center gap-4">
+          <Badge variant="outline">
+            {completionPercentage}% kompletności ({documentStats.totalFilledFields}/{documentStats.totalFields})
+          </Badge>
+          <Badge variant={confidencePercentage > 80 ? "success" : confidencePercentage > 60 ? "warning" : "destructive"}>
+            {confidencePercentage}% pewności pól
+          </Badge>
+        </div>
       </div>
 
       <div className="p-4 space-y-6">
         <SupplierDataGroup data={data.supplier} />
         <PPEDataGroup data={data.ppe} />
+        <DeliveryPointDataGroup data={data.delivery_point} />
         <CustomerDataGroup data={data.customer} />
         <CorrespondenceDataGroup data={data.correspondence} />
         <BillingDataGroup data={data.billing} />
