@@ -8,13 +8,20 @@ import { Download } from 'lucide-react';
 import { aggregateDocumentsConfidence } from '@/utils/text-formatting';
 
 interface AnalysisSummaryProps {
-  documents: Array<{ fields: Record<string, any> }>;
+  documents: Array<{ modelResults: Array<{ fields: Record<string, any> }> }>;
   totalTime: number;
   onExport?: () => void;
 }
 
 export function AnalysisSummary({ documents, totalTime, onExport }: AnalysisSummaryProps) {
-  const stats = aggregateDocumentsConfidence(documents);
+  const processedDocuments = documents.map(doc => ({
+    fields: doc.modelResults.reduce((acc, model) => ({
+      ...acc,
+      ...model.fields
+    }), {})
+  }));
+
+  const stats = aggregateDocumentsConfidence(processedDocuments);
   const completionPercentage = Math.round((stats.totalFilledFields / stats.totalFields) * 100);
   const confidencePercentage = Math.round(stats.averageConfidence * 100);
   const averageTimePerFile = totalTime / stats.documentsCount;
@@ -25,8 +32,13 @@ export function AnalysisSummary({ documents, totalTime, onExport }: AnalysisSumm
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-medium">Podsumowanie analizy</CardTitle>
           {onExport && (
-            <Button variant="outline" size="sm" onClick={onExport}>
-              <Download className="w-4 h-4 mr-2" />
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onExport}
+              className="gap-2"
+            >
+              <Download className="w-4 h-4" />
               Eksportuj wyniki
             </Button>
           )}
@@ -44,7 +56,7 @@ export function AnalysisSummary({ documents, totalTime, onExport }: AnalysisSumm
             <dd className="flex flex-col">
               <span className="text-2xl font-medium">{totalTime.toFixed(1)}s</span>
               <span className="text-sm text-gray-500">
-                ({averageTimePerFile.toFixed(1)}s/plik)
+                {averageTimePerFile.toFixed(1)}s/plik
               </span>
             </dd>
           </div>

@@ -57,7 +57,7 @@ export interface BillingData {
   Tariff?: string;
   BilledUsage?: string;
   ReadingType?: string;
-  "12mUsage"?: string;
+  usage12m?: string;
   InvoiceType?: string;
   BillBreakdown?: string;
   EnergySaleBreakdown?: string;

@@ -1,7 +1,14 @@
 export interface DocumentIntelligenceModel {
-  modelId: string;
-  description: string;
-  createdOn: Date;
+  id: string;
+  name: string;
+  description?: string;
+  fields?: Array<{
+    name: string;
+    type: string;
+    isRequired: boolean;
+    description: string;
+    group?: string;
+  }>;
 }
 
 export interface DocumentIntelligenceResponse {

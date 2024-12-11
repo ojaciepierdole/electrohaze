@@ -15,8 +15,12 @@ export function BatchProcessingResults({ results, onExport }: BatchProcessingRes
     <div className="space-y-4">
       <VirtualizedResultsList
         results={results}
-        CardComponent={AnalysisResultCard}
-        onExport={onExport}
+        CardComponent={({ result }) => (
+          <AnalysisResultCard 
+            result={result} 
+            onExport={onExport}
+          />
+        )}
       />
     </div>
   );

@@ -66,7 +66,7 @@ export function CustomerDataGroup({ data }: CustomerDataGroupProps) {
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-medium">Dane klienta</CardTitle>
           <Badge variant="outline">
-            {completionPercentage}% kompletności ({confidence.filledFields}/{confidence.totalFields})
+            {completionPercentage}% kompletności
           </Badge>
         </div>
       </CardHeader>

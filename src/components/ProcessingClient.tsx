@@ -11,12 +11,19 @@ import type {
   ModelDefinition, 
   ProcessingResult, 
   BatchProcessingStatus,
-  AnalysisLogEntry 
+  AnalysisLogEntry,
+  AnalysisResult
 } from '@/types/processing';
 import { useDocumentIntelligenceModels } from '@/hooks/useDocumentIntelligenceModels';
 import { calculateMedian, calculateConfidence } from '@/utils';
 import { TimeCard } from './TimeCard';
 import { AnalysisResultCard } from '@/components/AnalysisResultCard';
+import { exportToCSV } from '@/utils/export';
+import { insertDocumentWithData } from '@/lib/supabase/document-helpers';
+import type { DocumentInsertData } from '@/lib/supabase/document-helpers';
+import { useDocumentProcessing } from '@/hooks/useDocumentProcessing';
+import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export function ProcessingClient() {
   const [selectedModels, setSelectedModels] = React.useState<string[]>([]);
@@ -41,6 +48,7 @@ export function ProcessingClient() {
   });
 
   const { data: models = [], isLoading, error } = useDocumentIntelligenceModels();
+  const { isProcessing, progress, saveDocument } = useDocumentProcessing();
 
   // Obliczamy całkowity postęp na podstawie plików i modeli
   const calculateProgress = React.useCallback((fileIndex: number, modelIndex: number, totalFiles: number, totalModels: number) => {
@@ -68,8 +76,162 @@ export function ProcessingClient() {
   }, []);
 
   const handleExport = React.useCallback(() => {
-    console.log('Eksport wyników:', results);
+    if (!results.length) return;
+
+    const exportData = results.map(result => {
+      // Bezpieczne pobieranie pól
+      const modelResults = result.modelResults || [];
+      const firstModel = modelResults[0] || {};
+      const fields = firstModel.fields || {};
+
+      const data = {
+        // Metadane
+        Plik: result.fileName || '',
+        'Czas przetwarzania (ms)': result.processingTime || 0,
+        'Pewność modelu': firstModel.confidence || 0,
+        'Liczba stron': firstModel.pageCount || 1,
+
+        // Dane sprzedawcy
+        'Nazwa sprzedawcy': fields.supplierName?.content || '',
+        'NIP sprzedawcy': fields.supplierTaxID?.content || '',
+        'Adres sprzedawcy': [
+          fields.supplierStreet?.content,
+          fields.supplierBuilding?.content,
+          fields.supplierUnit?.content
+        ].filter(Boolean).join(' ') || '',
+        'Kod pocztowy sprzedawcy': fields.supplierPostalCode?.content || '',
+        'Miasto sprzedawcy': fields.supplierCity?.content || '',
+        'Nazwa OSD': fields.OSD_name?.content || '',
+        'Region OSD': fields.OSD_region?.content || '',
+
+        // Dane PPE
+        'Numer PPE': fields.ppeNum?.content || '',
+        'Numer licznika': fields.MeterNumber?.content || '',
+        'Grupa taryfowa': fields.TariffGroup?.content || '',
+        'Numer umowy': fields.ContractNumber?.content || '',
+        'Typ umowy': fields.ContractType?.content || '',
+        'Adres PPE': [
+          fields.Street?.content,
+          fields.Building?.content,
+          fields.Unit?.content
+        ].filter(Boolean).join(' ') || '',
+        'Kod pocztowy PPE': fields.PostalCode?.content || '',
+        'Miasto PPE': fields.City?.content || '',
+        'Gmina': fields.Municipality?.content || '',
+        'Powiat': fields.District?.content || '',
+        'Województwo': fields.Province?.content || '',
+
+        // Dane klienta
+        'Imię klienta': fields.FirstName?.content || '',
+        'Nazwisko klienta': fields.LastName?.content || '',
+        'Nazwa firmy': fields.BusinessName?.content || '',
+        'NIP': fields.taxID?.content || '',
+
+        // Dane korespondencyjne
+        'Imię (korespondencja)': fields.paFirstName?.content || '',
+        'Nazwisko (korespondencja)': fields.paLastName?.content || '',
+        'Nazwa firmy (korespondencja)': fields.paBusinessName?.content || '',
+        'Tytuł (korespondencja)': fields.paTitle?.content || '',
+        'Adres korespondencyjny': [
+          fields.paStreet?.content,
+          fields.paBuilding?.content,
+          fields.paUnit?.content
+        ].filter(Boolean).join(' ') || '',
+        'Kod pocztowy (korespondencja)': fields.paPostalCode?.content || '',
+        'Miasto (korespondencja)': fields.paCity?.content || '',
+
+        // Dane rozliczeniowe
+        'Data rozpoczęcia': fields.BillingStartDate?.content || '',
+        'Data zakończenia': fields.BillingEndDate?.content || '',
+        'Nazwa produktu': fields.ProductName?.content || '',
+        'Taryfa': fields.Tariff?.content || '',
+        'Zużycie': fields.BilledUsage?.content || '',
+        'Typ odczytu': fields.ReadingType?.content || '',
+        'Zużycie 12m': fields.usage12m?.content || '',
+        'Typ faktury': fields.InvoiceType?.content || '',
+      };
+
+      return data;
+    });
+
+    exportToCSV(exportData, `analiza-faktur-${new Date().toISOString().split('T')[0]}.csv`);
   }, [results]);
+
+  const handleAnalyzeComplete = async (results: AnalysisResult) => {
+    const documentData: DocumentInsertData = {
+      document: {
+        status: 'completed' as const,
+        confidence: results.confidence || 0,
+        original_filename: results.fileName || '',
+        file_url: results.fileUrl || '',
+      },
+      ppeData: {
+        ppe_number: results.ppeData?.ppeNumber || null,
+        meter_number: results.ppeData?.meterNumber || null,
+        tariff_group: results.ppeData?.tariffGroup || null,
+        contract_number: results.ppeData?.contractNumber || null,
+        contract_type: results.ppeData?.contractType || null,
+        street: results.ppeData?.street || null,
+        building: results.ppeData?.building || null,
+        unit: results.ppeData?.unit || null,
+        postal_code: results.ppeData?.postalCode || null,
+        city: results.ppeData?.city || null,
+        municipality: results.ppeData?.municipality || null,
+        district: results.ppeData?.district || null,
+        province: results.ppeData?.province || null,
+        confidence: results.ppeData?.confidence || 0,
+      },
+      correspondenceData: {
+        first_name: results.correspondenceData?.firstName || null,
+        last_name: results.correspondenceData?.lastName || null,
+        business_name: results.correspondenceData?.businessName || null,
+        title: results.correspondenceData?.title || null,
+        street: results.correspondenceData?.street || null,
+        building: results.correspondenceData?.building || null,
+        unit: results.correspondenceData?.unit || null,
+        postal_code: results.correspondenceData?.postalCode || null,
+        city: results.correspondenceData?.city || null,
+        confidence: results.correspondenceData?.confidence || 0,
+      },
+      supplierData: {
+        supplier_name: results.supplierData?.supplierName || null,
+        tax_id: results.supplierData?.taxId || null,
+        street: results.supplierData?.street || null,
+        building: results.supplierData?.building || null,
+        unit: results.supplierData?.unit || null,
+        postal_code: results.supplierData?.postalCode || null,
+        city: results.supplierData?.city || null,
+        bank_account: results.supplierData?.bankAccount || null,
+        bank_name: results.supplierData?.bankName || null,
+        email: results.supplierData?.email || null,
+        phone: results.supplierData?.phone || null,
+        website: results.supplierData?.website || null,
+        osd_name: results.supplierData?.osdName || null,
+        osd_region: results.supplierData?.osdRegion || null,
+        confidence: results.supplierData?.confidence || 0,
+      },
+      billingData: {
+        billing_start_date: results.billingData?.billingStartDate || null,
+        billing_end_date: results.billingData?.billingEndDate || null,
+        billed_usage: results.billingData?.billedUsage || null,
+        usage_12m: results.billingData?.usage12m || null,
+        confidence: results.billingData?.confidence || 0,
+      },
+      customerData: {
+        first_name: results.customerData?.firstName || null,
+        last_name: results.customerData?.lastName || null,
+        business_name: results.customerData?.businessName || null,
+        tax_id: results.customerData?.taxId || null,
+        confidence: results.customerData?.confidence || 0,
+      },
+    };
+
+    try {
+      await saveDocument(documentData);
+    } catch (error) {
+      // Błąd jest już obsługiwany przez hook
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -138,11 +300,15 @@ export function ProcessingClient() {
                   const modelConfidences = r.modelResults.map(mr => {
                     // Jeśli model ma pola, oblicz średnią pewność pól
                     if (mr.fields && Object.keys(mr.fields).length > 0) {
-                      const fieldConfidences = Object.values(mr.fields).map(f => f.confidence);
-                      return fieldConfidences.reduce((a, b) => a + b, 0) / fieldConfidences.length;
+                      const fieldConfidences = Object.values(mr.fields)
+                        .filter(f => typeof f.confidence === 'number')
+                        .map(f => f.confidence);
+                      return fieldConfidences.length > 0 
+                        ? fieldConfidences.reduce((a, b) => a + b, 0) / fieldConfidences.length 
+                        : 0;
                     }
                     // Jeśli nie ma pól, użyj ogólnej pewności modelu
-                    return mr.confidence;
+                    return mr.confidence || 0;
                   });
                   // Oblicz średnią z wszystkich modeli
                   return sum + (modelConfidences.reduce((a, b) => a + b, 0) / modelConfidences.length);
@@ -201,6 +367,21 @@ export function ProcessingClient() {
             />
           </div>
         </div>
+      )}
+      
+      {isProcessing && (
+        <div className="mt-4">
+          <Progress value={progress} className="w-full" />
+          <p className="text-sm text-muted-foreground mt-2">
+            Zapisywanie wyników analizy...
+          </p>
+        </div>
+      )}
+      
+      {error && (
+        <Alert variant="destructive" className="mt-4">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
     </div>
   );

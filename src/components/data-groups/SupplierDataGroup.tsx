@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle } from 'lucide-react';
 import type { SupplierData } from '@/types/fields';
-import { formatAddress, formatPostalCode, formatCity, formatStreet, calculateGroupConfidence, getMissingFields, calculateOptimalColumns } from '@/utils/text-formatting';
+import { formatAddress, formatPostalCode, formatCity, formatStreet, formatSupplierName, calculateGroupConfidence, getMissingFields, calculateOptimalColumns } from '@/utils/text-formatting';
 
 const FIELD_MAPPING: Record<keyof SupplierData, string> = {
   supplierName: 'Nazwa',
@@ -50,14 +50,14 @@ export function SupplierDataGroup({ data }: SupplierDataGroupProps) {
   // Formatuj wartości
   const formattedData = {
     ...data,
-    supplierName: formatAddress(data.supplierName || null),
-    supplierStreet: formatStreet(data.supplierStreet || null),
-    supplierBuilding: formatAddress(data.supplierBuilding || null),
-    supplierUnit: formatAddress(data.supplierUnit || null),
+    supplierName: formatSupplierName(data.supplierName || null),
+    supplierStreet: data.supplierStreet?.split('/')[0] || null,
+    supplierBuilding: data.supplierStreet?.split('/')[1] || data.supplierBuilding || null,
+    supplierUnit: data.supplierStreet?.split('/')[2] || data.supplierUnit || null,
     supplierPostalCode: formatPostalCode(data.supplierPostalCode || null),
     supplierCity: formatCity(data.supplierCity || null),
-    OSD_name: formatAddress(data.OSD_name || null),
-    OSD_region: formatAddress(data.OSD_region || null),
+    OSD_name: formatSupplierName(data.OSD_name || null),
+    OSD_region: formatSupplierName(data.OSD_region || null),
   };
 
   if (isEmpty) {
@@ -88,7 +88,7 @@ export function SupplierDataGroup({ data }: SupplierDataGroupProps) {
           <CardTitle className="text-lg font-medium">Dane sprzedawcy</CardTitle>
           <div className="flex items-center gap-2">
             <Badge variant="outline">
-              {completionPercentage}% kompletności ({confidence.filledFields}/{confidence.totalFields})
+              {completionPercentage}% kompletności
             </Badge>
             <Badge variant={confidencePercentage > 80 ? "success" : confidencePercentage > 60 ? "warning" : "destructive"}>
               {confidencePercentage}% pewności

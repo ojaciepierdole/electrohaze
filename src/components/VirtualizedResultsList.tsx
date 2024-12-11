@@ -6,7 +6,7 @@ import type { ProcessingResult } from '@/types/processing';
 
 interface VirtualizedResultsListProps {
   results: ProcessingResult[];
-  CardComponent: React.ComponentType<{ result: ProcessingResult }>;
+  CardComponent: React.ComponentType<{ result: ProcessingResult; onExport?: () => void }>;
   onExport?: () => void;
 }
 
@@ -15,17 +15,18 @@ interface RowProps {
   style: React.CSSProperties;
   data: {
     results: ProcessingResult[];
-    CardComponent: React.ComponentType<{ result: ProcessingResult }>;
+    CardComponent: React.ComponentType<{ result: ProcessingResult; onExport?: () => void }>;
+    onExport?: () => void;
   };
 }
 
 const Row = React.memo(({ index, style, data }: RowProps) => {
-  const { results, CardComponent } = data;
+  const { results, CardComponent, onExport } = data;
   const result = results[index];
 
   return (
     <div style={style} className="p-2">
-      <CardComponent result={result} />
+      <CardComponent result={result} onExport={onExport} />
     </div>
   );
 });
@@ -44,7 +45,7 @@ export function VirtualizedResultsList({ results, CardComponent, onExport }: Vir
           itemCount={results.length}
           itemSize={300}
           width={containerWidth}
-          itemData={{ results, CardComponent }}
+          itemData={{ results, CardComponent, onExport }}
         >
           {Row}
         </List>

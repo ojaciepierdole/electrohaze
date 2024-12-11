@@ -137,7 +137,7 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
         // Dane zużycia
         BilledUsage: fields.BilledUsage?.content || null,
         ReadingType: fields.ReadingType?.content || null,
-        "12mUsage": fields["12mUsage"]?.content || null,
+        usage12m: fields.usage12m?.content || null,
         // Szczegóły rozliczenia
         InvoiceType: fields.InvoiceType?.content || null,
         BillBreakdown: fields.BillBreakdown?.content || null,
@@ -147,11 +147,11 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
       delivery_point: {
         dpFirstName: dpNames.firstName || enrichedAddress.dpFirstName || null,
         dpLastName: dpNames.lastName || enrichedAddress.dpLastName || null,
-        dpStreet: enrichedAddress.dpStreet || null,
-        dpBuilding: enrichedAddress.dpBuilding || null,
-        dpUnit: enrichedAddress.dpUnit || null,
-        dpPostalCode: enrichedAddress.dpPostalCode || null,
-        dpCity: enrichedAddress.dpCity || null,
+        dpStreet: enrichedAddress.Street || null,
+        dpBuilding: enrichedAddress.Building || null,
+        dpUnit: enrichedAddress.Unit || null,
+        dpPostalCode: enrichedAddress.PostalCode || null,
+        dpCity: enrichedAddress.City || null,
       }
     };
   }, [modelResults]);
@@ -208,7 +208,7 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
     return (
       <div className="space-y-6">
         <AnalysisSummary 
-          documents={[{ fields: modelResults[0]?.fields || {} }]} 
+          documents={[{ modelResults }]} 
           totalTime={totalTime}
           onExport={onExport}
         />

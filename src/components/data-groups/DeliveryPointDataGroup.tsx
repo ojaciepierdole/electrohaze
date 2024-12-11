@@ -73,7 +73,7 @@ export function DeliveryPointDataGroup({ data }: DeliveryPointDataGroupProps) {
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-medium">Punkt dostawy</CardTitle>
           <Badge variant="outline">
-            {completionPercentage}% kompletności ({confidence.filledFields}/{confidence.totalFields})
+            {completionPercentage}% kompletności {confidence.filledFields}/{confidence.totalFields}
           </Badge>
         </div>
       </CardHeader>

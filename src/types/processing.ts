@@ -245,3 +245,68 @@ export type CombinedFields = Record<FieldGroupKey, Record<string, {
   type: string;
   definition: ProcessedField['definition'];
 }>>;
+
+export interface AnalysisResult {
+  fileName?: string;
+  fileUrl?: string;
+  confidence?: number;
+  ppeData?: {
+    ppeNumber?: string;
+    meterNumber?: string;
+    tariffGroup?: string;
+    contractNumber?: string;
+    contractType?: string;
+    street?: string;
+    building?: string;
+    unit?: string;
+    postalCode?: string;
+    city?: string;
+    municipality?: string;
+    district?: string;
+    province?: string;
+    confidence?: number;
+  };
+  correspondenceData?: {
+    firstName?: string;
+    lastName?: string;
+    businessName?: string;
+    title?: string;
+    street?: string;
+    building?: string;
+    unit?: string;
+    postalCode?: string;
+    city?: string;
+    confidence?: number;
+  };
+  supplierData?: {
+    supplierName?: string;
+    taxId?: string;
+    street?: string;
+    building?: string;
+    unit?: string;
+    postalCode?: string;
+    city?: string;
+    bankAccount?: string;
+    bankName?: string;
+    email?: string;
+    phone?: string;
+    website?: string;
+    osdName?: string;
+    osdRegion?: string;
+    confidence?: number;
+  };
+  billingData?: {
+    billingStartDate?: string;
+    billingEndDate?: string;
+    billedUsage?: number;
+    usage12m?: number;
+    confidence?: number;
+  };
+  customerData?: {
+    firstName?: string;
+    lastName?: string;
+    businessName?: string;
+    taxId?: string;
+    confidence?: number;
+  };
+}

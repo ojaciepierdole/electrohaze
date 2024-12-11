@@ -43,9 +43,9 @@ export function CorrespondenceDataGroup({ data }: CorrespondenceDataGroupProps) 
     paLastName: formatPersonName(data.paLastName || null),
     paBusinessName: formatPersonName(data.paBusinessName || null),
     paTitle: formatPersonName(data.paTitle || null),
-    paStreet: formatStreet(data.paStreet || null),
-    paBuilding: formatAddress(data.paBuilding || null),
-    paUnit: formatAddress(data.paUnit || null),
+    paStreet: data.paStreet?.split('/')[0] || null,
+    paBuilding: data.paStreet?.split('/')[1] || data.paBuilding || null,
+    paUnit: data.paStreet?.split('/')[2] || data.paUnit || null,
     paPostalCode: formatPostalCode(data.paPostalCode || null),
     paCity: formatCity(data.paCity || null),
   };
@@ -77,7 +77,7 @@ export function CorrespondenceDataGroup({ data }: CorrespondenceDataGroupProps) 
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-medium">Adres korespondencyjny</CardTitle>
           <Badge variant="outline">
-            {completionPercentage}% kompletności ({confidence.filledFields}/{confidence.totalFields})
+            {completionPercentage}% kompletności
           </Badge>
         </div>
       </CardHeader>

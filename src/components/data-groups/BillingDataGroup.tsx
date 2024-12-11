@@ -12,9 +12,9 @@ const FIELD_MAPPING: Record<keyof BillingData, string> = {
   BillingEndDate: 'Data końcowa',
   ProductName: 'Nazwa produktu',
   Tariff: 'Taryfa',
-  BilledUsage: 'Zużycie rozliczeniowe',
+  BilledUsage: 'Naliczone zużycie',
   ReadingType: 'Typ odczytu',
-  "12mUsage": 'Zużycie 12m',
+  usage12m: 'Zużycie roczne',
   InvoiceType: 'Typ faktury',
   BillBreakdown: 'Szczegóły rozliczenia',
   EnergySaleBreakdown: 'Szczegóły sprzedaży'
@@ -43,7 +43,7 @@ export function BillingDataGroup({ data }: BillingDataGroupProps) {
     BillingStartDate: formatDate(data.BillingStartDate || null),
     BillingEndDate: formatDate(data.BillingEndDate || null),
     BilledUsage: formatConsumption(data.BilledUsage || null),
-    "12mUsage": formatConsumption(data["12mUsage"] || null),
+    usage12m: formatConsumption(data.usage12m || null),
   };
 
   if (isEmpty) {
@@ -73,7 +73,7 @@ export function BillingDataGroup({ data }: BillingDataGroupProps) {
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-medium">Dane rozliczeniowe</CardTitle>
           <Badge variant="outline">
-            {completionPercentage}% kompletności ({confidence.filledFields}/{confidence.totalFields})
+            {completionPercentage}% kompletności
           </Badge>
         </div>
       </CardHeader>

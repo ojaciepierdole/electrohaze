@@ -63,6 +63,13 @@ export function formatStreet(value: string | null): string | null {
     .join(' ');
 }
 
+export function formatSupplierName(value: string | null): string | null {
+  if (!value) return null;
+  // Usuń wartość "0" i wyczyść tekst
+  if (value === "0") return null;
+  return value.trim().toUpperCase();
+}
+
 // Definicje typów dla pól Azure
 export const AZURE_FIELDS = {
   delivery_point: [
@@ -224,21 +231,14 @@ export function calculateDocumentConfidence(
 }
 
 export function aggregateDocumentsConfidence(
-  documents: Array<{ modelResults: Array<{ fields: Record<string, any> }> }>
+  documents: Array<{ fields: Record<string, any> }>
 ): {
   averageConfidence: number;
   totalFilledFields: number;
   totalFields: number;
   documentsCount: number;
 } {
-  const documentConfidences = documents.map(doc => {
-    // Agreguj pola ze wszystkich modeli
-    const allFields = doc.modelResults.reduce((acc, model) => ({
-      ...acc,
-      ...model.fields
-    }), {});
-    return calculateDocumentConfidence(allFields);
-  });
+  const documentConfidences = documents.map(doc => calculateDocumentConfidence(doc.fields));
 
   const totalFilledFields = documentConfidences.reduce(
     (sum, doc) => sum + doc.totalFilledFields,

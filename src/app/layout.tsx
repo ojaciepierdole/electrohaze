@@ -2,6 +2,8 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { Providers } from './providers';
+import { Toaster } from "@/components/ui/toaster"
+import { ClientLayout } from '@/components/ClientLayout';
 
 const inter = Inter({ subsets: ['latin', 'latin-ext'] });
 
@@ -20,9 +22,12 @@ export default function RootLayout({
       <body className={inter.className}>
         <Providers>
           <div className="min-h-screen bg-gray-50">
-            {children}
+            <ClientLayout>
+              {children}
+            </ClientLayout>
           </div>
         </Providers>
+        <Toaster />
       </body>
     </html>
   );
