@@ -165,6 +165,39 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
   const completionPercentage = Math.round((documentStats.totalFilledFields / documentStats.totalFields) * 100);
   const confidencePercentage = Math.round(documentStats.averageConfidence * 100);
 
+  const renderDocumentHeader = () => (
+    <div className="p-4 border-b">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <FileText className="w-5 h-5 text-muted-foreground" />
+          <h3 className="font-medium truncate max-w-[200px]" title={result.fileName}>
+            {result.fileName}
+          </h3>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <span className="text-sm text-gray-500">Pewność</span>
+            <Badge variant={confidencePercentage > 80 ? "success" : confidencePercentage > 60 ? "warning" : "destructive"}>
+              {confidencePercentage}%
+            </Badge>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-sm text-gray-500">Model</span>
+            <Badge variant={modelResults[0].confidence > 0.8 ? "success" : modelResults[0].confidence > 0.6 ? "warning" : "destructive"}>
+              {(modelResults[0].confidence * 100).toFixed(1)}%
+            </Badge>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-sm text-gray-500">Kompletność</span>
+            <Badge variant="outline">
+              {completionPercentage}%
+            </Badge>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   // Jeśli mamy wiele dokumentów, pokaż podsumowanie
   if ('results' in result && totalTime !== undefined) {
     return (
@@ -176,28 +209,7 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
         />
 
         <Card className="bg-white shadow-sm">
-          <div className="p-4 border-b">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-muted-foreground" />
-                <h3 className="font-medium truncate max-w-[200px]" title={result.fileName}>
-                  {result.fileName}
-                </h3>
-              </div>
-              <Badge variant={modelResults[0].confidence > 0.8 ? "success" : modelResults[0].confidence > 0.6 ? "warning" : "destructive"}>
-                {(modelResults[0].confidence * 100).toFixed(1)}% pewności modelu
-              </Badge>
-            </div>
-            <div className="flex items-center gap-4">
-              <Badge variant="outline">
-                {completionPercentage}% kompletności ({documentStats.totalFilledFields}/{documentStats.totalFields})
-              </Badge>
-              <Badge variant={confidencePercentage > 80 ? "success" : confidencePercentage > 60 ? "warning" : "destructive"}>
-                {confidencePercentage}% pewności pól
-              </Badge>
-            </div>
-          </div>
-
+          {renderDocumentHeader()}
           <div className="p-4 space-y-6">
             <SupplierDataGroup data={data.supplier} />
             <PPEDataGroup data={data.ppe} />
@@ -213,28 +225,7 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
 
   return (
     <Card className="bg-white shadow-sm">
-      <div className="p-4 border-b">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <FileText className="w-5 h-5 text-muted-foreground" />
-            <h3 className="font-medium truncate max-w-[200px]" title={result.fileName}>
-              {result.fileName}
-            </h3>
-          </div>
-          <Badge variant={modelResults[0].confidence > 0.8 ? "success" : modelResults[0].confidence > 0.6 ? "warning" : "destructive"}>
-            {(modelResults[0].confidence * 100).toFixed(1)}% pewności modelu
-          </Badge>
-        </div>
-        <div className="flex items-center gap-4">
-          <Badge variant="outline">
-            {completionPercentage}% kompletności ({documentStats.totalFilledFields}/{documentStats.totalFields})
-          </Badge>
-          <Badge variant={confidencePercentage > 80 ? "success" : confidencePercentage > 60 ? "warning" : "destructive"}>
-            {confidencePercentage}% pewności pól
-          </Badge>
-        </div>
-      </div>
-
+      {renderDocumentHeader()}
       <div className="p-4 space-y-6">
         <SupplierDataGroup data={data.supplier} />
         <PPEDataGroup data={data.ppe} />

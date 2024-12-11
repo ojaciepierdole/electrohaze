@@ -17,6 +17,7 @@ export function AnalysisSummary({ documents, totalTime, onExport }: AnalysisSumm
   const stats = aggregateDocumentsConfidence(documents);
   const completionPercentage = Math.round((stats.totalFilledFields / stats.totalFields) * 100);
   const confidencePercentage = Math.round(stats.averageConfidence * 100);
+  const averageTimePerFile = totalTime / stats.documentsCount;
 
   return (
     <Card className="bg-white shadow-sm">
@@ -32,19 +33,24 @@ export function AnalysisSummary({ documents, totalTime, onExport }: AnalysisSumm
         </div>
       </CardHeader>
       <CardContent className="p-4">
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <div className="space-y-1">
             <dt className="text-sm text-gray-500">Liczba plików</dt>
             <dd className="text-2xl font-medium">{stats.documentsCount}</dd>
           </div>
 
           <div className="space-y-1">
-            <dt className="text-sm text-gray-500">Całkowity czas</dt>
-            <dd className="text-2xl font-medium">{totalTime.toFixed(1)}s</dd>
+            <dt className="text-sm text-gray-500">Czas przetwarzania</dt>
+            <dd className="flex flex-col">
+              <span className="text-2xl font-medium">{totalTime.toFixed(1)}s</span>
+              <span className="text-sm text-gray-500">
+                ({averageTimePerFile.toFixed(1)}s/plik)
+              </span>
+            </dd>
           </div>
 
           <div className="space-y-1">
-            <dt className="text-sm text-gray-500">Średnia pewność</dt>
+            <dt className="text-sm text-gray-500">Pewność</dt>
             <dd className="flex items-center gap-2">
               <span className="text-2xl font-medium">{confidencePercentage}%</span>
               <Badge 
@@ -54,17 +60,17 @@ export function AnalysisSummary({ documents, totalTime, onExport }: AnalysisSumm
                   "destructive"
                 }
               >
-                {stats.totalFilledFields} pól
+                średnia
               </Badge>
             </dd>
           </div>
 
           <div className="space-y-1">
-            <dt className="text-sm text-gray-500">Kompletność danych</dt>
+            <dt className="text-sm text-gray-500">Kompletność</dt>
             <dd className="flex items-center gap-2">
               <span className="text-2xl font-medium">{completionPercentage}%</span>
               <Badge variant="outline">
-                {stats.totalFilledFields}/{stats.totalFields}
+                danych
               </Badge>
             </dd>
           </div>
