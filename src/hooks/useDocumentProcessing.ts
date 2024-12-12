@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { insertDocumentWithData, DocumentInsertData } from '@/lib/supabase/document-helpers';
 import { useToast } from '@/hooks/useToast';
 import type { ProcessingResult } from '@/types/processing';
@@ -8,6 +8,7 @@ interface ProcessingState {
   error: string | null;
   progress: number;
   lastSavedDocument: DocumentInsertData | null;
+  isPaused: boolean;
 }
 
 export function useDocumentProcessing() {
@@ -16,8 +17,10 @@ export function useDocumentProcessing() {
     error: null,
     progress: 0,
     lastSavedDocument: null,
+    isPaused: false,
   });
   
+  const abortControllerRef = useRef<AbortController | null>(null);
   const { addToast } = useToast();
 
   const processDocuments = async (files: File[], modelIds: string[]): Promise<ProcessingResult[]> => {
@@ -26,9 +29,11 @@ export function useDocumentProcessing() {
         ...prev, 
         isProcessing: true, 
         error: null,
-        progress: 0
+        progress: 0,
+        isPaused: false
       }));
 
+      abortControllerRef.current = new AbortController();
       const formData = new FormData();
       files.forEach(file => {
         formData.append('files', file);
@@ -39,7 +44,8 @@ export function useDocumentProcessing() {
 
       const response = await fetch('/api/analyze/batch', {
         method: 'POST',
-        body: formData
+        body: formData,
+        signal: abortControllerRef.current.signal
       });
 
       if (!response.ok) {
@@ -51,14 +57,66 @@ export function useDocumentProcessing() {
       
       return results;
     } catch (error) {
-      setState(prev => ({
-        ...prev,
-        error: error instanceof Error ? error.message : 'Nieznany błąd podczas przetwarzania',
-      }));
+      if (error instanceof Error && error.name === 'AbortError') {
+        setState(prev => ({
+          ...prev,
+          error: 'Przetwarzanie zostało anulowane',
+          isProcessing: false,
+          isPaused: false
+        }));
+        addToast(
+          'info',
+          'Anulowano',
+          'Przetwarzanie dokumentów zostało anulowane'
+        );
+      } else {
+        setState(prev => ({
+          ...prev,
+          error: error instanceof Error ? error.message : 'Nieznany błąd podczas przetwarzania',
+        }));
+        addToast(
+          'error',
+          'Błąd',
+          error instanceof Error ? error.message : 'Wystąpił nieznany błąd podczas przetwarzania'
+        );
+      }
       throw error;
     } finally {
       setState(prev => ({ ...prev, isProcessing: false }));
     }
+  };
+
+  const pauseProcessing = () => {
+    setState(prev => ({ ...prev, isPaused: true }));
+    // TODO: Implement actual pause functionality on the backend
+    addToast(
+      'info',
+      'Wstrzymano',
+      'Przetwarzanie dokumentów zostało wstrzymane'
+    );
+  };
+
+  const resumeProcessing = () => {
+    setState(prev => ({ ...prev, isPaused: false }));
+    // TODO: Implement actual resume functionality on the backend
+    addToast(
+      'info',
+      'Wznowiono',
+      'Przetwarzanie dokumentów zostało wznowione'
+    );
+  };
+
+  const cancelProcessing = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setState(prev => ({ 
+      ...prev, 
+      isProcessing: false, 
+      isPaused: false,
+      progress: 0 
+    }));
   };
 
   const saveDocument = async (documentData: DocumentInsertData) => {
@@ -106,5 +164,8 @@ export function useDocumentProcessing() {
     ...state,
     saveDocument,
     processDocuments,
+    pauseProcessing,
+    resumeProcessing,
+    cancelProcessing,
   };
 } 
