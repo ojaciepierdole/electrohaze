@@ -11,7 +11,6 @@ import { PPEDataGroup } from './data-groups/PPEDataGroup';
 import { CorrespondenceDataGroup } from './data-groups/CorrespondenceDataGroup';
 import { SupplierDataGroup } from './data-groups/SupplierDataGroup';
 import { BillingDataGroup } from './data-groups/BillingDataGroup';
-import { DeliveryPointDataGroup } from './data-groups/DeliveryPointDataGroup';
 import { AnalysisSummary } from './AnalysisSummary';
 import { enrichAddressData } from '@/utils/address-enrichment';
 import { processNames } from '@/utils/name-helpers';
@@ -43,15 +42,6 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
       PostalCode: fields.PostalCode?.content || undefined,
       City: fields.City?.content || undefined,
 
-      // Dane punktu dostawy
-      dpFirstName: fields.dpFirstName?.content || undefined,
-      dpLastName: fields.dpLastName?.content || undefined,
-      dpStreet: fields.dpStreet?.content || undefined,
-      dpBuilding: fields.dpBuilding?.content || undefined,
-      dpUnit: fields.dpUnit?.content || undefined,
-      dpPostalCode: fields.dpPostalCode?.content || undefined,
-      dpCity: fields.dpCity?.content || undefined,
-
       // Dane korespondencyjne
       paFirstName: fields.paFirstName?.content || undefined,
       paLastName: fields.paLastName?.content || undefined,
@@ -67,7 +57,6 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
 
     // Przetwórz imiona i nazwiska
     const mainNames = processNames(`${enrichedAddress.FirstName || ''} ${enrichedAddress.LastName || ''}`);
-    const dpNames = processNames(`${enrichedAddress.dpFirstName || ''} ${enrichedAddress.dpLastName || ''}`);
     const paNames = processNames(`${enrichedAddress.paFirstName || ''} ${enrichedAddress.paLastName || ''}`);
 
     return {
@@ -91,12 +80,21 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
         ppeNum: fields.ppeNum?.content || null,
         // Dane techniczne
         MeterNumber: fields.MeterNumber?.content || null,
-        TariffGroup: fields.TariffGroup?.content || null,
+        TariffGroup: fields.Tariff?.content || null,
         ContractNumber: fields.ContractNumber?.content || null,
         ContractType: fields.ContractType?.content || null,
         OSD_name: fields.OSD_name?.content || null,
         OSD_region: fields.OSD_region?.content || null,
-        ProductName: fields.ProductName?.content || null
+        ProductName: fields.ProductName?.content || null,
+        // Dane osobowe z Azure API
+        dpFirstName: fields.dpFirstName?.content || null,
+        dpLastName: fields.dpLastName?.content || null,
+        // Dane adresowe z Azure API
+        dpStreet: fields.dpStreet?.content || null,
+        dpBuilding: fields.dpBuilding?.content || null,
+        dpUnit: fields.dpUnit?.content || null,
+        dpPostalCode: fields.dpPostalCode?.content || null,
+        dpCity: fields.dpCity?.content || null
       } as PPEData,
       
       correspondence: {
@@ -144,16 +142,6 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
         BillBreakdown: fields.BillBreakdown?.content || null,
         EnergySaleBreakdown: fields.EnergySaleBreakdown?.content || null,
       } as BillingData,
-
-      delivery_point: {
-        dpFirstName: dpNames.firstName || enrichedAddress.dpFirstName || null,
-        dpLastName: dpNames.lastName || enrichedAddress.dpLastName || null,
-        dpStreet: enrichedAddress.Street || null,
-        dpBuilding: enrichedAddress.Building || null,
-        dpUnit: enrichedAddress.Unit || null,
-        dpPostalCode: enrichedAddress.PostalCode || null,
-        dpCity: enrichedAddress.City || null,
-      }
     };
   }, [modelResults]);
 
@@ -219,7 +207,6 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
           <div className="p-4 space-y-6">
             <SupplierDataGroup data={data.supplier} />
             <PPEDataGroup data={data.ppe} />
-            <DeliveryPointDataGroup data={data.delivery_point} />
             <CustomerDataGroup data={data.customer} />
             <CorrespondenceDataGroup data={data.correspondence} />
             <BillingDataGroup data={data.billing} />
@@ -235,7 +222,6 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
       <div className="p-4 space-y-6">
         <SupplierDataGroup data={data.supplier} />
         <PPEDataGroup data={data.ppe} />
-        <DeliveryPointDataGroup data={data.delivery_point} />
         <CustomerDataGroup data={data.customer} />
         <CorrespondenceDataGroup data={data.correspondence} />
         <BillingDataGroup data={data.billing} />

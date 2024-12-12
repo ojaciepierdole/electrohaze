@@ -22,6 +22,13 @@ export interface PPEData {
   OSD_name?: string;
   OSD_region?: string;
   ProductName?: string;
+  dpFirstName?: string;
+  dpLastName?: string;
+  dpStreet?: string;
+  dpBuilding?: string;
+  dpUnit?: string;
+  dpPostalCode?: string;
+  dpCity?: string;
 }
 
 export interface CorrespondenceData {
@@ -68,13 +75,4 @@ export interface BillingData {
 export interface FieldMapping {
   [key: string]: string;
 }
-
-export interface DeliveryPointField {
-  dpFirstName?: string | null;
-  dpLastName?: string | null;
-  dpStreet?: string | null;
-  dpBuilding?: string | null;
-  dpUnit?: string | null;
-  dpPostalCode?: string | null;
-  dpCity?: string | null;
-} 
+ 

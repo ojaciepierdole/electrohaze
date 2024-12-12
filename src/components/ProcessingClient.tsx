@@ -26,6 +26,7 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { findMissingFields, MissingFields } from '../utils/document-mapping';
 import type { DocumentAnalysisResult } from '@/types/documentTypes';
+import { calculateOptimalColumns } from '@/utils/text-formatting';
 
 export function ProcessingClient() {
   const [selectedModels, setSelectedModels] = React.useState<string[]>([]);
@@ -241,14 +242,33 @@ export function ProcessingClient() {
         {Object.entries(missingFields).map(([section, fields]) => {
           if (fields.length === 0) return null;
           
+          // Przygotuj dane dla calculateOptimalColumns
+          const fieldsForColumns = fields.map((field: string) => ({
+            key: field,
+            label: field
+          }));
+          
+          // Oblicz optymalny układ kolumn
+          const { columns, gridClass } = React.useMemo(
+            () => calculateOptimalColumns(fieldsForColumns),
+            [fieldsForColumns]
+          );
+
           return (
-            <div key={section} className="mt-2">
-              <h4 className="font-medium">{getSectionLabel(section)}:</h4>
-              <ul className="list-disc list-inside">
-                {fields.map((field: string) => (
-                  <li key={field} className="text-gray-600">{field}</li>
+            <div key={section} className="mt-4">
+              <h4 className="font-medium mb-2">{getSectionLabel(section)}:</h4>
+              <div className={`grid gap-x-12 gap-y-2 ${gridClass}`}>
+                {columns.map((column, columnIndex) => (
+                  <div key={columnIndex} className="space-y-2">
+                    {column.map(({ label }) => (
+                      <div key={label} className="flex items-center gap-2">
+                        <span className="text-sm text-gray-400">{label}</span>
+                        <span className="text-sm text-gray-300">—</span>
+                      </div>
+                    ))}
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
           );
         })}
