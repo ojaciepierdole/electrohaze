@@ -1,30 +1,21 @@
 import type { SupplierData, BillingData } from '@/types/fields';
 
-export function formatDate(dateString: string | null): string | null {
-  if (!dateString) return null;
+export function formatDate(date: string | null): string {
+  if (!date) return '';
   try {
-    return dateString.split('T')[0];
+    return new Date(date).toLocaleDateString('pl-PL', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
   } catch {
-    return dateString;
+    return date;
   }
 }
 
-export function formatConsumption(value: string | null): string | null {
-  if (!value) return null;
-  try {
-    // Usuń wszystkie spacje i zamień przecinki na kropki
-    const normalized = value.replace(/\s+/g, '').replace(',', '.');
-    // Spróbuj przekonwertować na liczbę
-    const number = parseFloat(normalized);
-    if (isNaN(number)) return value;
-    // Formatuj z użyciem polskiej notacji (przecinek jako separator dziesiętny)
-    return `${number.toLocaleString('pl-PL', { 
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 3 
-    })} kWh`;
-  } catch {
-    return value;
-  }
+export function formatConsumption(value: number | null): string {
+  if (value === null) return '';
+  return `${value.toLocaleString('pl-PL')} kWh`;
 }
 
 export function formatAddress(value: string | null): string | null {
@@ -153,41 +144,31 @@ export interface DocumentConfidence {
   totalFields: number;        // suma wszystkich pól
 }
 
-export function calculateGroupConfidence(
-  fields: Record<string, any>,
-  groupType: FieldGroupKey
-): GroupConfidence {
-  const azureFields = AZURE_FIELDS[groupType];
-  const totalFields = azureFields.length;
+export function calculateGroupConfidence(data: Record<string, unknown>, group: string): GroupConfidence {
+  const fields = Object.entries(data);
+  const filledFields = fields.filter(([_, value]) => value !== null && value !== undefined).length;
+  const totalFields = fields.length;
+  
+  // Oblicz pewności dla poszczególnych pól
+  const fieldConfidences = fields.reduce((acc, [key, value]) => {
+    if (value !== null && value !== undefined) {
+      acc[key] = typeof value === 'object' && 'confidence' in value 
+        ? (value as { confidence: number }).confidence 
+        : 1;
+    }
+    return acc;
+  }, {} as Record<string, number>);
 
-  // Filtruj tylko pola, które są zdefiniowane w AZURE_FIELDS dla danej grupy
-  const relevantFields = Object.entries(fields)
-    .filter(([key]) => (azureFields as readonly string[]).includes(key));
-
-  // Zbierz wypełnione pola i ich pewności
-  const filledFieldsWithConfidence = relevantFields
-    .filter(([_, v]) => v !== null && v !== undefined && v !== '')
-    .map(([key, value]) => ({
-      key,
-      confidence: value?.confidence || 0
-    }));
-
-  const filledFields = filledFieldsWithConfidence.length;
-
-  // Zbierz pewności dla wszystkich pól
-  const fieldConfidences = filledFieldsWithConfidence.reduce((acc, { key, confidence }) => ({
-    ...acc,
-    [key]: confidence
-  }), {} as Record<string, number>);
-
-  // Oblicz średnią pewność tylko dla wypełnionych pól
-  const confidenceSum = filledFieldsWithConfidence.reduce((sum, { confidence }) => sum + confidence, 0);
-  const averageConfidence = filledFields > 0 ? confidenceSum / filledFields : 0;
+  // Oblicz średnią pewność dla wypełnionych pól
+  const confidenceValues = Object.values(fieldConfidences);
+  const averageConfidence = confidenceValues.length > 0
+    ? confidenceValues.reduce((sum, conf) => sum + conf, 0) / confidenceValues.length
+    : 0;
 
   return {
-    averageConfidence,
     filledFields,
     totalFields,
+    averageConfidence,
     fieldConfidences
   };
 }
@@ -268,57 +249,53 @@ export function aggregateDocumentsConfidence(
   };
 }
 
-export function getMissingFields<T extends Record<string, any>>(
-  data: T, 
-  fieldMappings: Record<string, string>
-): Array<{ label: string; key: keyof T }> {
-  return Object.entries(fieldMappings)
+export function getMissingFields(
+  data: Record<string, unknown>,
+  fieldMapping: Record<string, string>
+): Array<{ key: string; label: string }> {
+  return Object.entries(fieldMapping)
     .filter(([key]) => !data[key])
-    .map(([key, label]) => ({
-      label,
-      key: key as keyof T
-    }));
+    .map(([key, label]) => ({ key, label }));
 }
 
-export interface ColumnLayout {
-  columns: Array<Array<{ key: string; label: string }>>;
+interface ColumnField {
+  key: string;
+  label: string;
+}
+
+interface ColumnLayout {
+  columns: Array<Array<ColumnField>>;
   gridClass: string;
 }
 
-export function calculateOptimalColumns(missingFields: Array<{ key: string; label: string }>): ColumnLayout {
-  if (missingFields.length === 0) {
+export function calculateOptimalColumns(fields: ColumnField[]): ColumnLayout {
+  if (fields.length === 0) {
     return { columns: [], gridClass: 'grid-cols-1' };
   }
 
+  // Oblicz optymalną liczbę kolumn
   let columnCount: number;
-  
-  // Nowa logika podziału na kolumny
-  if (missingFields.length >= 6 && missingFields.length <= 8) {
-    // Dla 6-8 pól używamy 4 kolumn
+  if (fields.length >= 6 && fields.length <= 8) {
     columnCount = 4;
-  } else if (missingFields.length >= 3 && missingFields.length <= 4) {
-    // Dla 3-4 pól używamy tylu kolumn ile jest pól (jeden wiersz)
-    columnCount = missingFields.length;
-  } else if (missingFields.length > 8) {
-    // Dla więcej niż 8 pól używamy 4 kolumn
+  } else if (fields.length >= 3 && fields.length <= 4) {
+    columnCount = fields.length;
+  } else if (fields.length > 8) {
     columnCount = 4;
   } else {
-    // Dla 1-2 pól używamy tylu kolumn ile jest pól
-    columnCount = missingFields.length;
+    columnCount = fields.length;
   }
 
-  // Oblicz bazową liczbę elementów w kolumnie
-  const baseItemsPerColumn = Math.floor(missingFields.length / columnCount);
-  // Oblicz ile kolumn będzie miało dodatkowy element
-  const extraItems = missingFields.length % columnCount;
+  // Oblicz liczbę elementów w każdej kolumnie
+  const baseItemsPerColumn = Math.floor(fields.length / columnCount);
+  const extraItems = fields.length % columnCount;
 
   // Podziel pola na kolumny
-  const columns: Array<Array<{ key: string; label: string }>> = [];
+  const columns: Array<Array<ColumnField>> = [];
   let currentIndex = 0;
 
   for (let i = 0; i < columnCount; i++) {
     const itemsInThisColumn = baseItemsPerColumn + (i < extraItems ? 1 : 0);
-    columns.push(missingFields.slice(currentIndex, currentIndex + itemsInThisColumn));
+    columns.push(fields.slice(currentIndex, currentIndex + itemsInThisColumn));
     currentIndex += itemsInThisColumn;
   }
 
@@ -329,7 +306,7 @@ export function calculateOptimalColumns(missingFields: Array<{ key: string; labe
                    'grid-cols-4';
 
   return { columns, gridClass };
-} 
+}
 
 const SELECTED_MODELS_KEY = 'selectedOcrModels';
 

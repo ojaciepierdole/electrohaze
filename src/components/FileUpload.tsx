@@ -1,324 +1,109 @@
 'use client';
 
 import * as React from 'react';
-import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Play, Pause, Camera, ChevronDown, ChevronUp, Loader2, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { SelectedFilesList } from '@/components/SelectedFilesList';
-import { DocumentScanner } from '@/components/DocumentScanner';
-import type { ProcessingResult, BatchProcessingStatus, ModelDefinition } from '@/types/processing';
-import { useDocumentIntelligenceModels } from '@/hooks/useDocumentIntelligenceModels';
-import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Loader2, Upload } from 'lucide-react';
+import { ProcessingResult } from '@/types/processing';
 
-interface FileUploadProps {
-  modelIds: string[];
-  disabled?: boolean;
-  onStart?: () => void;
-  onComplete: (results: ProcessingResult[]) => void;
-  batchId: string;
-  status: BatchProcessingStatus;
-  onStatusUpdate: (status: Partial<BatchProcessingStatus>) => void;
+export interface FileUploadProps {
+  onUploadStart: () => void;
+  onUploadComplete: (results: ProcessingResult[]) => void;
+  selectedModels: string[];
+  isProcessing: boolean;
+  progress: number;
 }
 
-export function FileUpload({ 
-  modelIds, 
-  disabled,
-  onStart,
-  onComplete,
-  batchId,
-  status,
-  onStatusUpdate
+export function FileUpload({
+  onUploadStart,
+  onUploadComplete,
+  selectedModels,
+  isProcessing,
+  progress
 }: FileUploadProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
-  const [files, setFiles] = useState<File[]>([]);
-  const [showScanner, setShowScanner] = useState(false);
-  const { data: models, isLoading, error } = useDocumentIntelligenceModels();
+  const onDrop = React.useCallback(async (acceptedFiles: File[]) => {
+    if (acceptedFiles.length === 0 || selectedModels.length === 0) return;
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    setFiles(prev => [...prev, ...acceptedFiles]);
-    onStatusUpdate({
-      totalFiles: status.totalFiles + acceptedFiles.length
+    onUploadStart();
+
+    const formData = new FormData();
+    acceptedFiles.forEach(file => {
+      formData.append('files', file);
     });
-  }, []);
+    selectedModels.forEach(modelId => {
+      formData.append('modelId', modelId);
+    });
+
+    try {
+      const response = await fetch('/api/analyze/batch', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Błąd podczas przetwarzania plików');
+      }
+
+      const data = await response.json();
+      onUploadComplete(data.results);
+    } catch (error) {
+      console.error('Błąd:', error);
+    }
+  }, [onUploadStart, onUploadComplete, selectedModels]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       'application/pdf': ['.pdf'],
-      'image/*': ['.png', '.jpg', '.jpeg', '.tiff']
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png']
     },
-    disabled: disabled || status.isProcessing,
-    multiple: true,
-    noClick: true
+    disabled: isProcessing || selectedModels.length === 0,
+    multiple: true
   });
 
-  const removeFile = (fileToRemove: File) => {
-    setFiles(prev => prev.filter(f => f !== fileToRemove));
-    onStatusUpdate({
-      totalFiles: status.totalFiles - 1
-    });
-  };
-
-  const handleScanComplete = (scannedFiles: File[]) => {
-    setFiles(prev => [...prev, ...scannedFiles]);
-    setShowScanner(false);
-  };
-
-  const handleComplete = (results: ProcessingResult[]) => {
-    onStatusUpdate({
-      isProcessing: false
-    });
-    onComplete(results);
-  };
-
-  const startProcessing = async () => {
-    if (status.isProcessing || files.length === 0) return;
-    
-    console.log('FileUpload: Rozpoczynam przetwarzanie');
-    setIsExpanded(false);
-    onStatusUpdate({
-      isProcessing: true,
-      error: null,
-      totalFiles: files.length,
-      results: []
-    });
-    onStart?.();
-
-    try {
-      const results: ProcessingResult[] = [];
-      
-      for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
-        const file = files[fileIndex];
-        const startTime = Date.now();
-
-        console.log(`FileUpload: Przetwarzam plik ${fileIndex + 1}/${files.length}: ${file.name}`);
-        onStatusUpdate({
-          currentFileIndex: fileIndex,
-          currentFileName: file.name,
-          fileProgress: 0
-        });
-
-        for (let modelIndex = 0; modelIndex < modelIds.length; modelIndex++) {
-          const modelId = modelIds[modelIndex];
-          console.log(`FileUpload: Używam modelu ${modelIndex + 1}/${modelIds.length}: ${modelId}`);
-          onStatusUpdate({
-            currentModelIndex: modelIndex,
-            currentModelId: modelId
-          });
-
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('modelId', modelId);
-
-          const response = await fetch('/api/analyze', {
-            method: 'POST',
-            body: formData
-          });
-
-          if (!response.ok) {
-            throw new Error(`Błąd podczas analizy pliku ${file.name}`);
-          }
-
-          const result = await response.json();
-          const processingTime = Date.now() - startTime;
-
-          results.push({
-            ...result,
-            processingTime
-          });
-
-          const fileProgress = ((modelIndex + 1) / modelIds.length) * 100;
-          const totalProgress = ((fileIndex * modelIds.length + modelIndex + 1) / (files.length * modelIds.length)) * 100;
-          
-          console.log(`FileUpload: Postęp - plik: ${fileProgress}%, całkowity: ${totalProgress}%`);
-          onStatusUpdate({
-            fileProgress: fileProgress,
-            totalProgress: totalProgress
-          });
-        }
-      }
-
-      console.log('FileUpload: Zakończono przetwarzanie wszystkich plików');
-      handleComplete(results);
-    } catch (err) {
-      console.error('FileUpload: Błąd przetwarzania:', err);
-      onStatusUpdate({
-        error: err instanceof Error ? err.message : 'Wystąpił błąd podczas przetwarzania',
-        isProcessing: false
-      });
-    }
-  };
-
-  const stopProcessing = () => {
-    onStatusUpdate({
-      isProcessing: false
-    });
-  };
-
-  if (showScanner) {
-    return (
-      <DocumentScanner
-        selectedModels={models?.filter((m: ModelDefinition) => modelIds.includes(m.id)) ?? []}
-        onScanComplete={handleScanComplete}
-        onClose={() => setShowScanner(false)}
-      />
-    );
-  }
-
   return (
-    <Card className="overflow-hidden bg-white shadow-sm">
-      <div className="p-4 border-b bg-muted/40">
-        <div className="flex flex-col gap-2">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="ghost"
-                  onClick={() => setIsExpanded(prev => !prev)}
-                  className="gap-2"
-                >
-                  {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  <span>Lista plików</span>
-                </Button>
-                <Button 
-                  variant="outline"
-                  size="lg"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const input = document.createElement('input');
-                    input.type = 'file';
-                    input.multiple = true;
-                    input.accept = '.pdf,image/*';
-                    input.onchange = (e) => {
-                      const files = Array.from((e.target as HTMLInputElement).files || []);
-                      onDrop(files);
-                      setIsExpanded(true);
-                    };
-                    input.click();
-                  }}
-                  disabled={disabled || status.isProcessing}
-                  className={cn(
-                    "gap-2 font-semibold",
-                    "border-2 border-muted-foreground/20",
-                    "hover:bg-muted/10 hover:border-muted-foreground/30",
-                    "transition-colors"
-                  )}
-                >
-                  <Upload className="w-4 h-4" />
-                  Wybierz pliki
-                </Button>
-                {!status.isProcessing && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => setShowScanner(true)}
-                    disabled={disabled}
-                    className="gap-2"
-                  >
-                    <Camera className="w-4 h-4" />
-                    Skanuj
-                  </Button>
-                )}
+    <Card>
+      <CardContent className="p-4">
+        <div
+          {...getRootProps()}
+          className={`
+            border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
+            transition-colors duration-200
+            ${isDragActive ? 'border-primary bg-primary/10' : 'border-gray-300'}
+            ${isProcessing ? 'cursor-not-allowed opacity-50' : 'hover:border-primary hover:bg-primary/5'}
+          `}
+        >
+          <input {...getInputProps()} />
+          
+          {isProcessing ? (
+            <div className="space-y-4">
+              <Loader2 className="w-10 h-10 mx-auto animate-spin text-primary" />
+              <div>
+                <p className="text-sm text-gray-500">Przetwarzanie plików...</p>
+                <Progress value={progress} className="mt-2" />
               </div>
-              {files.length > 0 && (
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">
-                      Wybrano {files.length} {files.length === 1 ? 'plik' : 'plików'}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setFiles([]);
-                        onStatusUpdate({ totalFiles: 0 });
-                      }}
-                      className="h-6 w-6 p-0 rounded-full hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      <X className="h-4 w-4" />
-                      <span className="sr-only">Wyczyść listę</span>
-                    </Button>
-                  </div>
-                  <Button
-                    onClick={() => {
-                      if (status.isProcessing) {
-                        stopProcessing();
-                      } else {
-                        startProcessing();
-                      }
-                    }}
-                    disabled={disabled || files.length === 0}
-                    variant="default"
-                    size="lg"
-                    className="gap-2 font-semibold"
-                  >
-                    {status.isProcessing ? (
-                      <>
-                        <Pause className="w-4 h-4 text-destructive" />
-                        <span className="text-destructive">Zatrzymaj</span>
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-4 h-4 text-emerald-500" />
-                        Rozpocznij
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
             </div>
-
-            {status.isProcessing && (
-              <div className="flex items-center gap-3 text-sm text-muted-foreground animate-in fade-in">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  <span>
-                    Przetwarzanie pliku {status.currentFileIndex + 1} z {status.totalFiles}
-                  </span>
-                </div>
-                <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-primary transition-all duration-300 ease-in-out"
-                    style={{ width: `${status.totalProgress}%` }}
-                  />
-                </div>
-                <span className="tabular-nums">
-                  {Math.round(status.totalProgress)}%
-                </span>
+          ) : (
+            <div className="space-y-2">
+              <Upload className="w-10 h-10 mx-auto text-gray-400" />
+              <div>
+                <p className="text-sm text-gray-500">
+                  {isDragActive
+                    ? 'Upuść pliki tutaj...'
+                    : selectedModels.length === 0
+                    ? 'Najpierw wybierz modele do analizy'
+                    : 'Przeciągnij i upuść pliki lub kliknij, aby wybrać'}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Obsługiwane formaty: PDF, JPG, PNG
+                </p>
               </div>
-            )}
-
-            <AnimatePresence>
-              {isExpanded && (
-                <motion.div
-                  initial={{ height: 0 }}
-                  animate={{ height: "auto" }}
-                  exit={{ height: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
-                >
-                  <div {...getRootProps()} className="rounded-lg border bg-muted/5">
-                    <input {...getInputProps()} />
-                    <div className="max-h-[300px] overflow-y-auto">
-                      <SelectedFilesList
-                        files={files}
-                        onRemoveFile={removeFile}
-                        disabled={status.isProcessing}
-                      />
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {status.error && (
-              <p className="text-sm text-destructive">{status.error}</p>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-      </div>
+      </CardContent>
     </Card>
   );
 } 

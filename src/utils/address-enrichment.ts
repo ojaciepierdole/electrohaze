@@ -1,12 +1,21 @@
-import type { AddressSet } from '@/types/processing';
+import type { AddressSet, AddressPrefix, AddressField } from '@/types/processing';
 import { normalizeAndSplitAddressNumbers } from './address-helpers';
 import { normalizeNameFields } from './name-helpers';
 
-function areNamesMatching(set1: Partial<AddressSet>, set2: Partial<AddressSet>, prefix1: string = '', prefix2: string = ''): boolean {
-  const firstName1 = set1[`${prefix1}FirstName`];
-  const lastName1 = set1[`${prefix1}LastName`];
-  const firstName2 = set2[`${prefix2}FirstName`];
-  const lastName2 = set2[`${prefix2}LastName`];
+function getFieldWithPrefix(prefix: AddressPrefix, field: AddressField): keyof AddressSet {
+  return `${prefix}${field}` as keyof AddressSet;
+}
+
+function areNamesMatching(
+  set1: Partial<AddressSet>, 
+  set2: Partial<AddressSet>, 
+  prefix1: AddressPrefix, 
+  prefix2: AddressPrefix
+): boolean {
+  const firstName1 = set1[getFieldWithPrefix(prefix1, 'FirstName')];
+  const lastName1 = set1[getFieldWithPrefix(prefix1, 'LastName')];
+  const firstName2 = set2[getFieldWithPrefix(prefix2, 'FirstName')];
+  const lastName2 = set2[getFieldWithPrefix(prefix2, 'LastName')];
 
   if (!firstName1 || !lastName1 || !firstName2 || !lastName2) return false;
 
@@ -18,16 +27,21 @@ function areNamesMatching(set1: Partial<AddressSet>, set2: Partial<AddressSet>, 
          normalizeText(lastName1) === normalizeText(lastName2);
 }
 
-function areAddressesMatching(set1: Partial<AddressSet>, set2: Partial<AddressSet>, prefix1: string = '', prefix2: string = ''): boolean {
-  const street1 = set1[`${prefix1}Street`];
-  const building1 = set1[`${prefix1}Building`];
-  const city1 = set1[`${prefix1}City`];
-  const postalCode1 = set1[`${prefix1}PostalCode`];
+function areAddressesMatching(
+  set1: Partial<AddressSet>, 
+  set2: Partial<AddressSet>, 
+  prefix1: AddressPrefix, 
+  prefix2: AddressPrefix
+): boolean {
+  const street1 = set1[getFieldWithPrefix(prefix1, 'Street')];
+  const building1 = set1[getFieldWithPrefix(prefix1, 'Building')];
+  const city1 = set1[getFieldWithPrefix(prefix1, 'City')];
+  const postalCode1 = set1[getFieldWithPrefix(prefix1, 'PostalCode')];
 
-  const street2 = set2[`${prefix2}Street`];
-  const building2 = set2[`${prefix2}Building`];
-  const city2 = set2[`${prefix2}City`];
-  const postalCode2 = set2[`${prefix2}PostalCode`];
+  const street2 = set2[getFieldWithPrefix(prefix2, 'Street')];
+  const building2 = set2[getFieldWithPrefix(prefix2, 'Building')];
+  const city2 = set2[getFieldWithPrefix(prefix2, 'City')];
+  const postalCode2 = set2[getFieldWithPrefix(prefix2, 'PostalCode')];
 
   if (!street1 || !building1 || !city1 || !postalCode1 ||
       !street2 || !building2 || !city2 || !postalCode2) return false;
@@ -46,15 +60,15 @@ function areAddressesMatching(set1: Partial<AddressSet>, set2: Partial<AddressSe
 }
 
 export function enrichAddressData(data: AddressSet): AddressSet {
-  // Najpierw normalizujemy imiona i nazwiska
   let enriched = normalizeNameFields(data);
-
-  // Następnie normalizujemy i rozdzielamy numery budynków i lokali
   enriched = normalizeAndSplitAddressNumbers(enriched);
 
   const prefixes = ['', 'pa', 'ppe'] as const;
+  const fields: AddressField[] = [
+    'Title', 'FirstName', 'LastName',
+    'Street', 'Building', 'Unit', 'City', 'PostalCode'
+  ];
   
-  // Wykonujemy standardowe uzupełnianie danych
   for (let i = 0; i < prefixes.length; i++) {
     for (let j = i + 1; j < prefixes.length; j++) {
       const prefix1 = prefixes[i];
@@ -64,14 +78,9 @@ export function enrichAddressData(data: AddressSet): AddressSet {
       const isAddressMatch = areAddressesMatching(enriched, enriched, prefix1, prefix2);
 
       if (isNameMatch || isAddressMatch) {
-        const fieldsToCheck = [
-          'Title', 'FirstName', 'LastName',
-          'Street', 'Building', 'Unit', 'City', 'PostalCode'
-        ] as const;
-
-        for (const field of fieldsToCheck) {
-          const field1 = `${prefix1}${field}` as keyof AddressSet;
-          const field2 = `${prefix2}${field}` as keyof AddressSet;
+        for (const field of fields) {
+          const field1 = getFieldWithPrefix(prefix1, field);
+          const field2 = getFieldWithPrefix(prefix2, field);
 
           if (!enriched[field1] && enriched[field2]) {
             enriched[field1] = enriched[field2];

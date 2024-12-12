@@ -1,121 +1,215 @@
 import { NextResponse } from 'next/server';
-import { DocumentAnalysisClient } from '@azure/ai-form-recognizer';
-import type { ProcessingResult, ProcessedField } from '@/types/processing';
-import { determineFieldGroup } from '@/utils/fields';
+import { AzureDocumentService } from '@/lib/azure-document-service';
+import { Logger } from '@/lib/logger';
+import { PerformanceMonitor } from '@/lib/performance-monitor';
+import { AlertService } from '@/lib/alert-service';
+import { mapDocumentAnalysisResult } from '@/utils/document-mapping';
+import { safeValidateProcessingResult } from '@/types/validation';
+import { AzureDocumentIntelligenceError } from '@/lib/azure-errors';
 
-interface AzureField {
-  value: string | null;
-  confidence: number;
-  type: string;
-  boundingRegions?: Array<{
-    pageNumber: number;
-  }>;
-  content?: string;
-}
-
-interface AzureAnalyzeResponse {
-  documents: Array<{
-    docType: string;
-    fields: Record<string, AzureField>;
-    confidence: number;
-  }>;
-  pages: Array<{
-    pageNumber: number;
-  }>;
-}
+const logger = Logger.getInstance();
+const performanceMonitor = PerformanceMonitor.getInstance();
+const alertService = AlertService.getInstance();
 
 export async function POST(request: Request) {
+  const operationId = performanceMonitor.startOperation('analyze-document');
+
   try {
+    // Sprawdzenie Content-Type
+    const contentType = request.headers.get('content-type');
+    if (!contentType?.includes('multipart/form-data')) {
+      logger.warn('Nieprawidłowy Content-Type', { contentType });
+      return NextResponse.json(
+        { error: 'Nieprawidłowy format danych. Wymagany jest multipart/form-data.' },
+        { status: 400 }
+      );
+    }
+
     const formData = await request.formData();
-    const file = formData.get('file') as File;
-    const modelId = formData.get('modelId') as string;
+    const file = formData.get('file');
+    const modelId = formData.get('modelId');
+    const skipCache = formData.get('skipCache') === 'true';
 
-    if (!file || !modelId) {
-      return NextResponse.json({ error: 'Brak pliku lub ID modelu' }, { status: 400 });
-    }
-
-    // Sprawdź czy to model niestandardowy
-    const isCustomModel = !modelId.startsWith('prebuilt-');
-    console.log(`\n=== Rozpoczynam analizę pliku ${file.name} ${isCustomModel ? 'modelem niestandardowym' : 'modelem wbudowanym'} ${modelId} ===`);
-
-    const client = new DocumentAnalysisClient(
-      process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT!,
-      { key: process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY! }
-    );
-
-    const arrayBuffer = await file.arrayBuffer();
-    const poller = await client.beginAnalyzeDocument(modelId, arrayBuffer);
-    const result = await poller.pollUntilDone() as AzureAnalyzeResponse;
-
-    if (!result.documents?.[0]?.fields) {
-      console.log('\nUWAGA: Brak pól w odpowiedzi z Azure!');
-      return NextResponse.json({
-        fileName: file.name,
-        results: [{
-          modelId,
-          fields: {},
-          confidence: 0,
-          pageCount: result.pages?.length || 1
-        }],
-        processingTime: Date.now()
-      });
-    }
-
-    // Konwertuj pola do wymaganego formatu
-    const fields: Record<string, ProcessedField> = {};
-    const documentFields = result.documents[0].fields;
-
-    console.log('\nWykryte pola:');
-    for (const [key, field] of Object.entries(documentFields)) {
-      // Dla modeli niestandardowych wyświetlamy wszystkie pola
-      // Dla modeli wbudowanych pomijamy pola systemowe
-      if (!isCustomModel && (key.startsWith('_') || key === 'Locale')) {
-        continue;
-      }
-
-      fields[key] = {
-        content: field.value || field.content || null,
-        confidence: field.confidence,
-        type: field.type,
-        page: field.boundingRegions?.[0]?.pageNumber || 1,
-        definition: {
-          name: key,
-          type: field.type,
-          isRequired: false,
-          description: key,
-          group: determineFieldGroup(key)
-        }
-      };
-
-      // Loguj informacje o polu
-      console.log(`- ${key}: ${field.value || field.content || '(puste)'}`);
-      console.log(`  Pewność: ${(field.confidence * 100).toFixed(1)}%`);
-      console.log(`  Typ: ${field.type}`);
-      if (field.boundingRegions) {
-        console.log(`  Strona: ${field.boundingRegions[0].pageNumber}`);
-      }
-    }
-
-    const processingResult: ProcessingResult = {
-      fileName: file.name,
-      results: [{
-        modelId,
-        fields,
-        confidence: result.documents[0].confidence,
-        pageCount: result.pages?.length || 1
-      }],
-      processingTime: Date.now()
+    const context = {
+      operationId,
+      fileName: file instanceof File ? file.name : undefined,
+      fileSize: file instanceof File ? file.size : undefined,
+      modelId,
+      skipCache
     };
 
-    console.log(`\nŚrednia pewność: ${(result.documents[0].confidence * 100).toFixed(1)}%`);
-    console.log('=== Koniec analizy ===\n');
+    // Walidacja obecności wymaganych pól
+    if (!file || !modelId) {
+      logger.warn('Brak wymaganych pól', context);
+      return NextResponse.json(
+        { error: 'Brak wymaganych pól: file i modelId' },
+        { status: 400 }
+      );
+    }
 
-    return NextResponse.json(processingResult);
+    // Sprawdzenie typu file
+    if (!(file instanceof File)) {
+      logger.warn('Nieprawidłowy typ pliku', context);
+      return NextResponse.json(
+        { error: 'Pole file musi być plikiem' },
+        { status: 400 }
+      );
+    }
+
+    // Sprawdzenie typu modelId
+    if (typeof modelId !== 'string') {
+      logger.warn('Nieprawidłowy typ modelId', context);
+      return NextResponse.json(
+        { error: 'Pole modelId musi być tekstem' },
+        { status: 400 }
+      );
+    }
+
+    logger.info('Rozpoczynam przetwarzanie dokumentu', context);
+
+    const service = AzureDocumentService.getInstance();
+    const result = await service.analyzeDocument(file, modelId, { skipCache });
+
+    // Mapowanie wyniku do formatu aplikacji
+    const mappedResult = mapDocumentAnalysisResult(result.documents[0].fields);
+
+    const processingTime = performanceMonitor.getActiveOperations()
+      .find(op => op.operationId === operationId)?.duration || 0;
+
+    const modelResult = {
+      modelId,
+      fields: result.documents[0].fields,
+      confidence: result.documents[0].confidence,
+      pageCount: result.pages?.length || 1
+    };
+
+    const processingResult = {
+      fileName: file.name,
+      modelResults: [modelResult],
+      processingTime,
+      mappedData: mappedResult,
+      cacheStats: service.getCacheStats(),
+      performanceStats: service.getPerformanceStats(),
+      alerts: alertService.getActiveAlerts({ acknowledged: false })
+    };
+
+    // Walidacja wyniku przetwarzania
+    const validationResult = safeValidateProcessingResult(processingResult);
+    if (!validationResult.isValid) {
+      logger.error('Nieprawidłowy format wyniku przetwarzania', {
+        ...context,
+        errors: validationResult.errors
+      });
+
+      return NextResponse.json(
+        { 
+          error: 'Błąd walidacji danych',
+          details: validationResult.errors
+        },
+        { status: 422 }
+      );
+    }
+
+    // Sprawdzenie warunków alertów
+    await alertService.checkAndTrigger({
+      ...context,
+      processingTime,
+      confidence: result.documents[0].confidence,
+      validationErrors: validationResult.errors
+    });
+
+    logger.info('Zakończono przetwarzanie dokumentu', {
+      ...context,
+      confidence: result.documents[0].confidence,
+      pageCount: result.pages?.length || 1,
+      processingTime
+    });
+
+    performanceMonitor.endOperation(operationId);
+    return NextResponse.json(validationResult.data);
 
   } catch (error) {
-    console.error('Error processing document:', error);
+    const errorContext = {
+      operationId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      statusCode: error instanceof AzureDocumentIntelligenceError ? error.statusCode : 500
+    };
+
+    logger.error('Błąd podczas przetwarzania dokumentu', errorContext);
+
+    // Sprawdzenie warunków alertów dla błędu
+    await alertService.checkAndTrigger(errorContext);
+
+    performanceMonitor.endOperation(operationId, {
+      error: errorContext.error,
+      statusCode: errorContext.statusCode
+    });
+
+    if (error instanceof AzureDocumentIntelligenceError) {
+      return NextResponse.json(
+        { error: error.userMessage },
+        { status: error.statusCode || 500 }
+      );
+    }
+
+    // Dla nieznanych błędów zwracamy ogólny komunikat
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Błąd przetwarzania dokumentu' },
+      { error: 'Wystąpił nieoczekiwany błąd podczas przetwarzania dokumentu' },
+      { status: 500 }
+    );
+  }
+}
+
+// Endpoint do czyszczenia cache'a
+export async function DELETE() {
+  const operationId = performanceMonitor.startOperation('clear-cache');
+
+  try {
+    logger.info('Czyszczenie cache', { operationId });
+
+    const service = AzureDocumentService.getInstance();
+    service.clearCache();
+
+    performanceMonitor.endOperation(operationId);
+    return NextResponse.json({ 
+      message: 'Cache wyczyszczony',
+      performanceStats: service.getPerformanceStats()
+    });
+  } catch (error) {
+    const errorContext = {
+      operationId,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+
+    logger.error('Błąd podczas czyszczenia cache', errorContext);
+    await alertService.checkAndTrigger(errorContext);
+
+    performanceMonitor.endOperation(operationId, errorContext);
+
+    return NextResponse.json(
+      { error: 'Wystąpił błąd podczas czyszczenia cache' },
+      { status: 500 }
+    );
+  }
+}
+
+// Endpoint do pobierania statystyk
+export async function GET() {
+  try {
+    const service = AzureDocumentService.getInstance();
+    return NextResponse.json({
+      cacheStats: service.getCacheStats(),
+      performanceStats: service.getPerformanceStats(),
+      activeOperations: service.getActiveOperations(),
+      alerts: alertService.getActiveAlerts({ acknowledged: false })
+    });
+  } catch (error) {
+    logger.error('Błąd podczas pobierania statystyk', {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return NextResponse.json(
+      { error: 'Wystąpił błąd podczas pobierania statystyk' },
       { status: 500 }
     );
   }

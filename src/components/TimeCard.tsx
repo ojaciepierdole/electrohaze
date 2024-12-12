@@ -1,67 +1,80 @@
 'use client';
 
 import * as React from 'react';
-import { LucideIcon } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LucideIcon } from "lucide-react";
 
-interface TimeCardProps {
+export interface TimeCardProps {
   title: string;
+  value: number;
   icon: LucideIcon;
-  currentValue: number;
-  lastValue: number;
-  avgValue: number;
-  medianValue: number;
-  recordValue: number;
+  description: string;
+  currentValue?: number;
+  lastValue?: number;
+  avgValue?: number;
+  medianValue?: number;
+  recordValue?: number;
 }
 
 export function TimeCard({
   title,
+  value,
   icon: Icon,
+  description,
   currentValue,
   lastValue,
   avgValue,
   medianValue,
   recordValue
 }: TimeCardProps) {
-  const formatTime = (ms: number) => {
-    if (ms === Infinity) return '—';
-    if (ms < 1000) return `${Math.round(ms)}ms`;
-    return `${(ms / 1000).toFixed(2)}s`;
-  };
-
   return (
-    <Card className="p-4 bg-gray-800 border-gray-700">
-      <div className="flex items-center justify-between mb-2">
-        <h4 className="text-sm font-medium text-gray-400">{title}</h4>
-        <Icon className="w-4 h-4 text-gray-500" />
-      </div>
-      
-      <div className="space-y-1">
-        <div className="flex justify-between items-center">
-          <span className="text-xs text-gray-500">Aktualny:</span>
-          <span className="text-sm font-medium text-white">{formatTime(currentValue)}</span>
-        </div>
-        
-        <div className="flex justify-between items-center">
-          <span className="text-xs text-gray-500">Poprzedni:</span>
-          <span className="text-sm font-medium text-white">{formatTime(lastValue)}</span>
-        </div>
-        
-        <div className="flex justify-between items-center">
-          <span className="text-xs text-gray-500">Średnia:</span>
-          <span className="text-sm font-medium text-white">{formatTime(avgValue)}</span>
-        </div>
-
-        <div className="flex justify-between items-center">
-          <span className="text-xs text-gray-500">Mediana:</span>
-          <span className="text-sm font-medium text-white">{formatTime(medianValue)}</span>
-        </div>
-
-        <div className="flex justify-between items-center">
-          <span className="text-xs text-gray-500">Rekord:</span>
-          <span className="text-sm font-medium text-green-400">{formatTime(recordValue)}</span>
-        </div>
-      </div>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">
+          {title}
+        </CardTitle>
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">{value.toLocaleString()} ms</div>
+        <p className="text-xs text-muted-foreground">
+          {description}
+        </p>
+        {(currentValue || lastValue || avgValue || medianValue || recordValue) && (
+          <div className="mt-2 space-y-1 text-xs">
+            {currentValue !== undefined && (
+              <div className="flex justify-between">
+                <span>Aktualny:</span>
+                <span>{currentValue.toLocaleString()} ms</span>
+              </div>
+            )}
+            {lastValue !== undefined && (
+              <div className="flex justify-between">
+                <span>Ostatni:</span>
+                <span>{lastValue.toLocaleString()} ms</span>
+              </div>
+            )}
+            {avgValue !== undefined && (
+              <div className="flex justify-between">
+                <span>Średnia:</span>
+                <span>{avgValue.toLocaleString()} ms</span>
+              </div>
+            )}
+            {medianValue !== undefined && (
+              <div className="flex justify-between">
+                <span>Mediana:</span>
+                <span>{medianValue.toLocaleString()} ms</span>
+              </div>
+            )}
+            {recordValue !== undefined && recordValue !== Infinity && (
+              <div className="flex justify-between">
+                <span>Rekord:</span>
+                <span>{recordValue.toLocaleString()} ms</span>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
     </Card>
   );
 } 

@@ -104,7 +104,7 @@ export function SupplierDataGroup({ data }: SupplierDataGroupProps) {
                 <div key={key} className="space-y-1">
                   <dt className="text-sm text-gray-500">{FIELD_MAPPING[key]}</dt>
                   <dd className="text-sm font-medium">{formattedData[key]}</dd>
-                  {confidence.fieldConfidences[key] && (
+                  {confidence.fieldConfidences[key] !== undefined && (
                     <dd className="text-xs text-gray-400">
                       Pewność: {Math.round(confidence.fieldConfidences[key] * 100)}%
                     </dd>

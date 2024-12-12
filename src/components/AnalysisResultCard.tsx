@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FileText } from 'lucide-react';
-import type { ProcessingResult, GroupedResult } from '@/types/processing';
+import type { ProcessingResult, GroupedResult, AddressSet } from '@/types/processing';
 import type { CustomerData, PPEData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
 import { CustomerDataGroup } from './data-groups/CustomerDataGroup';
 import { PPEDataGroup } from './data-groups/PPEDataGroup';
@@ -32,8 +32,8 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
     const fields = modelResults[0]?.fields || {};
     
     // Przygotuj dane do wzbogacenia
-    const addressData = {
-      // Dane podstawowe
+    const addressData: AddressSet = {
+      // Podstawowe pola adresowe
       FirstName: fields.FirstName?.content || undefined,
       LastName: fields.LastName?.content || undefined,
       Street: fields.Street?.content || undefined,
@@ -41,8 +41,12 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
       Unit: fields.Unit?.content || undefined,
       PostalCode: fields.PostalCode?.content || undefined,
       City: fields.City?.content || undefined,
+      Title: fields.Title?.content || undefined,
+      Municipality: fields.Municipality?.content || undefined,
+      District: fields.District?.content || undefined,
+      Province: fields.Province?.content || undefined,
 
-      // Dane korespondencyjne
+      // Pola adresu korespondencyjnego
       paFirstName: fields.paFirstName?.content || undefined,
       paLastName: fields.paLastName?.content || undefined,
       paStreet: fields.paStreet?.content || undefined,
@@ -50,6 +54,23 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
       paUnit: fields.paUnit?.content || undefined,
       paPostalCode: fields.paPostalCode?.content || undefined,
       paCity: fields.paCity?.content || undefined,
+      paTitle: fields.paTitle?.content || undefined,
+      paMunicipality: fields.paMunicipality?.content || undefined,
+      paDistrict: fields.paDistrict?.content || undefined,
+      paProvince: fields.paProvince?.content || undefined,
+
+      // Pola adresu PPE
+      ppeFirstName: fields.ppeFirstName?.content || undefined,
+      ppeLastName: fields.ppeLastName?.content || undefined,
+      ppeStreet: fields.ppeStreet?.content || undefined,
+      ppeBuilding: fields.ppeBuilding?.content || undefined,
+      ppeUnit: fields.ppeUnit?.content || undefined,
+      ppePostalCode: fields.ppePostalCode?.content || undefined,
+      ppeCity: fields.ppeCity?.content || undefined,
+      ppeTitle: fields.ppeTitle?.content || undefined,
+      ppeMunicipality: fields.ppeMunicipality?.content || undefined,
+      ppeDistrict: fields.ppeDistrict?.content || undefined,
+      ppeProvince: fields.ppeProvince?.content || undefined,
     };
 
     // Wzbogać dane adresowe
@@ -127,21 +148,12 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
       } as SupplierData,
       
       billing: {
-        // Dane czasowe
-        BillingStartDate: fields.BillingStartDate?.content || null,
-        BillingEndDate: fields.BillingEndDate?.content || null,
-        // Dane produktu
-        ProductName: fields.ProductName?.content || null,
-        Tariff: fields.Tariff?.content || null,
-        // Dane zużycia
-        BilledUsage: fields.BilledUsage?.content || null,
-        ReadingType: fields.ReadingType?.content || null,
-        usage12m: fields.usage12m?.content || null,
-        // Szczegóły rozliczenia
-        InvoiceType: fields.InvoiceType?.content || null,
-        BillBreakdown: fields.BillBreakdown?.content || null,
-        EnergySaleBreakdown: fields.EnergySaleBreakdown?.content || null,
-      } as BillingData,
+        billingStartDate: fields.BillingStartDate?.content || undefined,
+        billingEndDate: fields.BillingEndDate?.content || undefined,
+        billedUsage: fields.BilledUsage?.content ? parseFloat(fields.BilledUsage.content) : undefined,
+        usage12m: fields.usage12m?.content ? parseFloat(fields.usage12m.content) : undefined,
+        confidence: fields.confidence || undefined,
+      } satisfies Partial<BillingData>,
     };
   }, [modelResults]);
 

@@ -1,4 +1,13 @@
-import { FIELD_GROUPS } from '@/config/fields';
+import { DocumentField } from '@azure/ai-form-recognizer';
+import { Alert } from '@/lib/alert-service';
+import { PerformanceStats } from '@/lib/performance-monitor';
+import { 
+  ISODateString, 
+  AddressData, 
+  PersonData, 
+  BillingPeriod, 
+  BaseDataGroup 
+} from './common';
 
 export type FieldGroupKey = 
   | 'buyer_data'
@@ -37,6 +46,45 @@ export interface ProcessedField {
   };
 }
 
+export interface PPEData extends AddressData {
+  ppeNumber?: string;
+  meterNumber?: string;
+  tariffGroup?: string;
+  contractNumber?: string;
+  contractType?: string;
+  osdName?: string;
+  osdRegion?: string;
+}
+
+export interface SupplierData extends AddressData, PersonData {
+  supplierName?: string;
+  bankAccount?: string;
+  bankName?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  osdName?: string;
+  osdRegion?: string;
+}
+
+export interface BillingData extends BaseDataGroup {
+  billingStartDate?: ISODateString;
+  billingEndDate?: ISODateString;
+  billedUsage?: number;
+  usage12m?: number;
+}
+
+export interface DocumentAnalysisResult {
+  [key: string]: unknown;
+  fileName?: string;
+  fileUrl?: string;
+  ppeData?: PPEData;
+  correspondenceData?: AddressData & PersonData;
+  supplierData?: SupplierData;
+  billingData?: BillingData;
+  customerData?: PersonData;
+}
+
 export interface BatchProcessingStatus {
   isProcessing: boolean;
   currentFileIndex: number;
@@ -50,18 +98,25 @@ export interface BatchProcessingStatus {
   error: string | null;
 }
 
-export interface GroupedResult {
-  fileName: string;
-  modelResults: Array<{
-    modelId: string;
-    fields: Record<string, ProcessedField>;
-    confidence: number;
-    pageCount: number;
-  }>;
+export interface ModelResult {
+  modelId: string;
+  fields: Record<string, DocumentField>;
+  confidence: number;
+  pageCount: number;
 }
 
-export interface ProcessingResult extends GroupedResult {
+export interface ProcessingResult {
+  fileName: string;
+  modelResults: ModelResult[];
   processingTime: number;
+  mappedData: DocumentAnalysisResult;
+  cacheStats: {
+    size: number;
+    maxSize: number;
+    ttl: number;
+  };
+  performanceStats?: PerformanceStats[];
+  alerts?: Alert[];
 }
 
 export interface AnalysisField {
@@ -81,152 +136,6 @@ export interface ModelDefinition {
   version?: string;
 }
 
-export interface LegacyFields {
-  // Podstawowe pola
-  OSD_name: string;
-  supplierName: string;
-  
-  // Dane adresowe płatnika
-  paStreet: string;
-  paBuilding: string;
-  paUnit: string;
-  paCity: string;
-  paPostalCode: string;
-  
-  // Dane identyfikacyjne
-  taxID: string;
-  firstName: string;
-  lastName: string;
-  
-  // Punkt poboru
-  ppeNumber: string;
-  meterNumber: string;
-  tariffGroup: string;
-  
-  // Dane faktury
-  invoiceNumber: string;
-  invoiceDate: string;
-  dueDate: string;
-  totalAmount: string;
-  currency: string;
-
-  // Dane zużycia
-  consumption: string;
-  consumption12m: string;
-  readingType: string;
-  
-  // Okresy rozliczeniowe
-  periodStart: string;
-  periodEnd: string;
-  
-  // Dane OSD
-  osdRegion: string;
-  osdAddress: string;
-  
-  // Dane produktu
-  productName: string;
-  productCode: string;
-  
-  // Dane rozliczeniowe
-  netAmount: string;
-  vatAmount: string;
-  vatRate: string;
-}
-
-export interface ModernFields {
-  // Dane faktury
-  InvoiceNumber: string;    // Numer faktury
-  InvoiceDate: string;      // Data wystawienia
-  DueDate: string;          // Termin płatności
-  TotalAmount: string;      // Kwota do zapłaty
-  Currency: string;         // Waluta
-  InvoiceType: string;      // Typ dokumentu
-  BillingStartDate: string; // Okres od
-  BillingEndDate: string;   // Okres do
-  NetAmount: string;        // Kwota netto
-  VatAmount: string;        // Kwota VAT
-  VatRate: string;          // Stawka VAT
-
-  // Dane sprzedawcy energii
-  SupplierName: string;     // Nazwa sprzedawcy
-  SupplierTaxId: string;    // NIP sprzedawcy
-  SupplierRegion: string;   // Region OSD
-
-  // Adres właściwy (główny adres klienta)
-  CustomerName: string;     // Nazwa klienta
-  CustomerTaxId: string;    // NIP klienta
-  CustomerStreet: string;   // Ulica
-  CustomerBuilding: string; // Numer budynku
-  CustomerUnit: string;     // Numer lokalu
-  CustomerCity: string;     // Miejscowość
-  CustomerPostalCode: string; // Kod pocztowy
-
-  // Adres korespondencyjny (do wysyłki faktur)
-  PostalName: string;       // Nazwa odbiorcy
-  PostalStreet: string;     // Ulica
-  PostalBuilding: string;   // Numer budynku
-  PostalUnit: string;       // Numer lokalu
-  PostalCity: string;       // Miejscowość
-  PostalPostalCode: string; // Kod pocztowy
-
-  // Miejsce dostawy (punkt poboru energii)
-  PPENumber: string;        // Numer punktu poboru energii (PPE)
-  DeliveryStreet: string;   // Ulica
-  DeliveryBuilding: string; // Numer budynku
-  DeliveryUnit: string;     // Numer lokalu
-  DeliveryCity: string;     // Miejscowość
-  DeliveryPostalCode: string; // Kod pocztowy
-  TariffGroup: string;      // Grupa taryfowa
-
-  // Dane o zużyciu energii
-  ConsumptionValue: string; // Naliczone zużycie [kWh]
-  ConsumptionUnit: string;  // Jednostka zużycia
-  Consumption12m: string;   // Zużycie za ostatnie 12 miesięcy
-  ReadingType: string;      // Typ odczytu
-  
-  // Dane produktu
-  ProductName: string;      // Nazwa produktu
-  ProductCode: string;      // Kod produktu
-} 
-
-export interface AddressSet {
-  // Podstawowy zestaw danych
-  Title?: string;
-  FirstName?: string;
-  LastName?: string;
-  Street?: string;
-  Building?: string;
-  Unit?: string;
-  City?: string;
-  PostalCode?: string;
-
-  // Adres korespondencyjny (prefiks 'pa')
-  paTitle?: string;
-  paFirstName?: string;
-  paLastName?: string;
-  paStreet?: string;
-  paBuilding?: string;
-  paUnit?: string;
-  paCity?: string;
-  paPostalCode?: string;
-
-  // Punkt poboru energii (prefiks 'ppe')
-  ppeTitle?: string;
-  ppeFirstName?: string;
-  ppeLastName?: string;
-  ppeStreet?: string;
-  ppeBuilding?: string;
-  ppeUnit?: string;
-  ppeCity?: string;
-  ppePostalCode?: string;
-  Municipality?: string;
-  District?: string;
-  Province?: string;
-
-  // Inne pola mogą być dodane w przyszłości
-  [key: string]: string | undefined;
-} 
-
 export interface AnalysisLogEntry {
   timestamp: Date;
   supplierName: string;
@@ -238,73 +147,36 @@ export interface AnalysisLogEntry {
   extractedFields: Record<string, string | null>;
 }
 
-export type CombinedFields = Record<FieldGroupKey, Record<string, {
-  content: string | null;
-  confidence: number;
-  confidences: Record<string, number>;
-  type: string;
-  definition: ProcessedField['definition'];
-}>>;
-
-export interface AnalysisResult {
-  fileName?: string;
-  fileUrl?: string;
-  confidence?: number;
-  ppeData: {
-    ppeNumber?: string;
-    meterNumber?: string;
-    tariffGroup?: string;
-    contractNumber?: string;
-    contractType?: string;
-    street?: string;
-    building?: string;
-    unit?: string;
-    city?: string;
-    confidence?: number;
-    osdName?: string;
-    osdRegion?: string;
-  };
-  correspondenceData?: {
-    firstName?: string;
-    lastName?: string;
-    businessName?: string;
-    title?: string;
-    street?: string;
-    building?: string;
-    unit?: string;
-    postalCode?: string;
-    city?: string;
-    confidence?: number;
-  };
-  supplierData?: {
-    supplierName?: string;
-    taxId?: string;
-    street?: string;
-    building?: string;
-    unit?: string;
-    postalCode?: string;
-    city?: string;
-    bankAccount?: string;
-    bankName?: string;
-    email?: string;
-    phone?: string;
-    website?: string;
-    osdName?: string;
-    osdRegion?: string;
-    confidence?: number;
-  };
-  billingData?: {
-    billingStartDate?: string;
-    billingEndDate?: string;
-    billedUsage?: number;
-    usage12m?: number;
-    confidence?: number;
-  };
-  customerData?: {
-    firstName?: string;
-    lastName?: string;
-    businessName?: string;
-    taxId?: string;
-    confidence?: number;
-  };
+export interface GroupedResult {
+  fileName: string;
+  modelResults: Array<{
+    modelId: string;
+    fields: Record<string, ProcessedField>;
+    confidence: number;
+    pageCount: number;
+  }>;
 }
+
+// Typy pomocnicze dla adresów
+export type AddressPrefix = '' | 'pa' | 'ppe';
+export type AddressField = 
+  | 'FirstName' 
+  | 'LastName' 
+  | 'Street' 
+  | 'Building' 
+  | 'Unit' 
+  | 'PostalCode' 
+  | 'City' 
+  | 'Title'
+  | 'Municipality'
+  | 'District'
+  | 'Province';
+
+// Typ dla zestawu adresów
+export type AddressSet = {
+  [K in AddressField]: string | undefined;
+} & {
+  [K in AddressField as `pa${K}`]: string | undefined;
+} & {
+  [K in AddressField as `ppe${K}`]: string | undefined;
+};

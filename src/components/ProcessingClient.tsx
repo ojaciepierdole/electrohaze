@@ -12,10 +12,10 @@ import type {
   ProcessingResult, 
   BatchProcessingStatus,
   AnalysisLogEntry,
-  AnalysisResult
+  DocumentAnalysisResult
 } from '@/types/processing';
 import { useDocumentIntelligenceModels } from '@/hooks/useDocumentIntelligenceModels';
-import { calculateMedian, calculateConfidence } from '@/utils';
+import { calculateMedian } from '@/utils';
 import { TimeCard } from './TimeCard';
 import { AnalysisResultCard } from '@/components/AnalysisResultCard';
 import { exportToCSV } from '@/utils/export';
@@ -25,8 +25,43 @@ import { useDocumentProcessing } from '@/hooks/useDocumentProcessing';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { findMissingFields, MissingFields } from '../utils/document-mapping';
-import type { DocumentAnalysisResult } from '@/types/documentTypes';
 import { calculateOptimalColumns } from '@/utils/text-formatting';
+import { DateHelpers } from '@/types/common';
+
+interface TimeCardProps {
+  title: string;
+  value: number;
+  icon: React.ElementType;
+  description: string;
+}
+
+interface ModelSelectorProps {
+  models: ModelDefinition[];
+  selectedModels: string[];
+  onSelectionChange: (models: string[]) => void;
+  isLoading: boolean;
+  error?: string;
+}
+
+interface FileUploadProps {
+  onUploadStart: () => void;
+  onUploadComplete: (results: ProcessingResult[]) => void;
+  selectedModels: string[];
+  isProcessing: boolean;
+  progress: number;
+}
+
+interface ProcessingSummaryProps {
+  fileCount: number;
+  totalTime: number;
+  averageConfidence: number;
+  onExport: () => void;
+}
+
+interface BatchProcessingResultsProps {
+  results: ProcessingResult[];
+  onExport: () => void;
+}
 
 export function ProcessingClient() {
   const [selectedModels, setSelectedModels] = React.useState<string[]>([]);
@@ -52,6 +87,22 @@ export function ProcessingClient() {
 
   const { data: models = [], isLoading, error } = useDocumentIntelligenceModels();
   const { isProcessing, progress, saveDocument } = useDocumentProcessing();
+
+  // Obliczamy statystyki dokumentów
+  const documentStats = React.useMemo(() => {
+    if (!results.length) return { averageConfidence: 0 };
+
+    const confidences = results.map(result => {
+      const modelResults = result.modelResults || [];
+      return modelResults.reduce((acc, model) => acc + (model.confidence || 0), 0) / modelResults.length;
+    });
+
+    const averageConfidence = confidences.reduce((acc, conf) => acc + conf, 0) / confidences.length;
+
+    return {
+      averageConfidence
+    };
+  }, [results]);
 
   // Obliczamy całkowity postęp na podstawie plików i modeli
   const calculateProgress = React.useCallback((fileIndex: number, modelIndex: number, totalFiles: number, totalModels: number) => {
@@ -148,8 +199,12 @@ export function ProcessingClient() {
         'Strona WWW sprzedawcy': fields.supplierWebsite?.content || '',
 
         // Dane rozliczeniowe
-        'Data rozpoczęcia': fields.BillingStartDate?.content || '',
-        'Data zakończenia': fields.BillingEndDate?.content || '',
+        'Data rozpoczęcia': fields.BillingStartDate?.content 
+          ? DateHelpers.formatForDisplay(DateHelpers.toISOString(fields.BillingStartDate.content))
+          : '',
+        'Data zakończenia': fields.BillingEndDate?.content
+          ? DateHelpers.formatForDisplay(DateHelpers.toISOString(fields.BillingEndDate.content))
+          : '',
         'Zużycie rozliczeniowe': fields.BilledUsage?.content || '',
         'Zużycie 12m': fields.usage12m?.content || '',
       };
@@ -158,11 +213,11 @@ export function ProcessingClient() {
     exportToCSV(exportData, `analiza-faktur-${new Date().toISOString().split('T')[0]}.csv`);
   }, [results]);
 
-  const handleAnalyzeComplete = async (results: AnalysisResult) => {
+  const handleAnalyzeComplete = async (results: DocumentAnalysisResult) => {
     const documentData: DocumentInsertData = {
       document: {
         status: 'completed' as const,
-        confidence: results.confidence || 0,
+        confidence: results.ppeData?.confidence || 0,
         original_filename: results.fileName || '',
         file_url: results.fileUrl || '',
         file_name: results.fileName || '',
@@ -248,24 +303,15 @@ export function ProcessingClient() {
             label: field
           }));
           
-          // Oblicz optymalny układ kolumn
-          const { columns, gridClass } = React.useMemo(
-            () => calculateOptimalColumns(fieldsForColumns),
-            [fieldsForColumns]
-          );
-
+          const { columns, gridClass } = calculateOptimalColumns(fieldsForColumns);
+          
           return (
-            <div key={section} className="mt-4">
-              <h4 className="font-medium mb-2">{getSectionLabel(section)}:</h4>
-              <div className={`grid gap-x-12 gap-y-2 ${gridClass}`}>
-                {columns.map((column, columnIndex) => (
-                  <div key={columnIndex} className="space-y-2">
-                    {column.map(({ label }) => (
-                      <div key={label} className="flex items-center gap-2">
-                        <span className="text-sm text-gray-400">{label}</span>
-                        <span className="text-sm text-gray-300">—</span>
-                      </div>
-                    ))}
+            <div key={section} className="mt-2">
+              <h4 className="text-md font-medium">{section}:</h4>
+              <div className={`grid gap-2 ${gridClass}`}>
+                {fields.map((field: string) => (
+                  <div key={field} className="text-sm text-gray-600">
+                    • {field}
                   </div>
                 ))}
               </div>
@@ -276,167 +322,106 @@ export function ProcessingClient() {
     );
   };
 
-  function getSectionLabel(section: string): string {
-    const labels = {
-      customerData: 'Dane klienta',
-      ppeData: 'Dane PPE',
-      correspondenceData: 'Dane korespondencyjne',
-      billingData: 'Dane rozliczeniowe',
-      supplierData: 'Dane dostawcy'
-    };
-    return labels[section as keyof typeof labels] || section;
-  }
-
   return (
-    <div className="space-y-6">
-      <Card className="bg-white border">
-        <CardHeader className="border-b">
-          <CardTitle>Przygotowanie analizy</CardTitle>
-        </CardHeader>
-        <CardContent className="p-6 space-y-6">
-          <div>
-            <ModelSelector
-              models={models}
-              selectedModels={selectedModels}
-              onModelSelect={setSelectedModels}
-              disabled={isLoading || processingStatus.isProcessing}
-              isLoading={isLoading}
-              error={error}
-            />
-          </div>
+    <div className="w-full max-w-7xl mx-auto p-4 space-y-8">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <TimeCard
+          title="Całkowity czas"
+          value={currentTotalTime}
+          icon={Clock}
+          description="Od rozpoczęcia do zakończenia"
+        />
+        <TimeCard
+          title="Czas Azure"
+          value={currentAzureTime}
+          icon={Server}
+          description="Czas odpowiedzi Azure"
+        />
+        <TimeCard
+          title="Czas przetwarzania"
+          value={currentTotalTime - currentAzureTime}
+          icon={Cpu}
+          description="Czas lokalnego przetwarzania"
+        />
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Przetworzone pliki
+            </CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{results.length}</div>
+            <p className="text-xs text-muted-foreground">
+              Liczba przeanalizowanych dokumentów
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
-          <div>
-            <FileUpload
-              modelIds={selectedModels}
-              disabled={isLoading}
-              onStart={handleProcessingStart}
-              onComplete={handleProcessingComplete}
-              batchId={batchId}
-              status={processingStatus}
-              onStatusUpdate={(status) => {
-                if ('currentFileIndex' in status || 'currentModelIndex' in status) {
-                  const fileIndex = status.currentFileIndex ?? processingStatus.currentFileIndex;
-                  const modelIndex = status.currentModelIndex ?? processingStatus.currentModelIndex;
-                  const totalFiles = processingStatus.totalFiles;
-                  const totalModels = selectedModels.length;
-
-                  const totalProgress = calculateProgress(fileIndex, modelIndex, totalFiles, totalModels);
-                  const fileProgress = ((modelIndex ?? 0) + 1) / totalModels * 100;
-
-                  setProcessingStatus(prev => ({
-                    ...prev,
-                    ...status,
-                    totalProgress,
-                    fileProgress
-                  }));
-                } else {
-                  setProcessingStatus(prev => ({ ...prev, ...status }));
-                }
-              }}
-            />
-          </div>
-        </CardContent>
-      </Card>
-      
-      {!processingStatus.isProcessing && results.length > 0 && (
-        <div className="space-y-4">
-          <Card className="bg-white border">
-            <CardHeader className="border-b">
-              <CardTitle>Podsumowanie analizy</CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <ProcessingSummary
-                fileCount={results.length}
-                totalTime={results.reduce((sum, r) => sum + (r.processingTime || 0), 0)}
-                averageConfidence={results.reduce((sum, r) => {
-                  if (!r.modelResults || r.modelResults.length === 0) return sum;
-                  // Oblicz średnią pewność dla każdego modelu
-                  const modelConfidences = r.modelResults.map(mr => {
-                    // Jeśli model ma pola, oblicz średnią pewność pól
-                    if (mr.fields && Object.keys(mr.fields).length > 0) {
-                      const fieldConfidences = Object.values(mr.fields)
-                        .filter(f => typeof f.confidence === 'number')
-                        .map(f => f.confidence);
-                      return fieldConfidences.length > 0 
-                        ? fieldConfidences.reduce((a, b) => a + b, 0) / fieldConfidences.length 
-                        : 0;
-                    }
-                    // Jeśli nie ma pól, użyj ogólnej pewności modelu
-                    return mr.confidence || 0;
-                  });
-                  // Oblicz średnią z wszystkich modeli
-                  return sum + (modelConfidences.reduce((a, b) => a + b, 0) / modelConfidences.length);
-                }, 0) / Math.max(results.length, 1)}
-                onExport={handleExport}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="col-span-2">
+          <CardHeader>
+            <CardTitle>Przetwarzanie dokumentów</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-8">
+              <ModelSelector
+                models={models}
+                selectedModels={selectedModels}
+                onSelectionChange={setSelectedModels}
+                isLoading={isLoading}
+                error={error}
               />
-            </CardContent>
-          </Card>
+              
+              <FileUpload
+                onUploadStart={handleProcessingStart}
+                onUploadComplete={handleProcessingComplete}
+                selectedModels={selectedModels}
+                isProcessing={isProcessing}
+                progress={progress}
+              />
 
-          <div className="grid grid-cols-1 gap-4">
-            {results.map((result, index) => (
-              <AnalysisResultCard key={`${result.fileName}-${index}`} result={result} />
-            ))}
-          </div>
-        </div>
-      )}
-      
-      {(isUploading || currentAnalysis) && (
-        <div className="bg-gray-900 p-6 rounded-lg shadow-lg">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold text-white">Przetwarzanie</h3>
-            <div className="flex items-center gap-2 text-gray-400">
-              <FileText className="w-4 h-4" />
-              <span>Przetworzone pliki: {Math.ceil(analysisLogs.length / selectedModels.length)}</span>
+              {processingStatus.isProcessing && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm text-gray-500">
+                    <span>
+                      Plik {processingStatus.currentFileIndex + 1} z {processingStatus.totalFiles}
+                    </span>
+                    <span>{processingStatus.currentFileName}</span>
+                  </div>
+                  <Progress value={processingStatus.totalProgress} />
+                </div>
+              )}
+
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
             </div>
-          </div>
-          
-          {/* Czasy z wartościami średnimi i medianą */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <TimeCard
-              title="Czas obróbki"
-              icon={Clock}
-              currentValue={currentTotalTime}
-              lastValue={currentAnalysis?.timings.totalTime || 0}
-              avgValue={analysisLogs.reduce((acc, log) => acc + log.timings.totalTime, 0) / Math.max(analysisLogs.length, 1)}
-              medianValue={calculateMedian(analysisLogs.map(log => log.timings.totalTime))}
-              recordValue={analysisLogs.length > 0 ? Math.min(...analysisLogs.map(log => log.timings.totalTime)) : Infinity}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Podsumowanie</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ProcessingSummary
+              fileCount={results.length}
+              totalTime={currentTotalTime}
+              averageConfidence={documentStats.averageConfidence}
+              onExport={handleExport}
             />
-            <TimeCard
-              title="Reakcja Azure"
-              icon={Server}
-              currentValue={currentAzureTime}
-              lastValue={currentAnalysis?.timings.azureResponseTime || 0}
-              avgValue={analysisLogs.reduce((acc, log) => acc + log.timings.azureResponseTime, 0) / Math.max(analysisLogs.length, 1)}
-              medianValue={calculateMedian(analysisLogs.map(log => log.timings.azureResponseTime))}
-              recordValue={analysisLogs.length > 0 ? Math.min(...analysisLogs.map(log => log.timings.azureResponseTime)) : Infinity}
-            />
-            <TimeCard
-              title="Przetwarzanie"
-              icon={Cpu}
-              currentValue={0}
-              lastValue={currentAnalysis?.timings.processingTime || 0}
-              avgValue={analysisLogs.reduce((acc, log) => acc + log.timings.processingTime, 0) / Math.max(analysisLogs.length, 1)}
-              medianValue={calculateMedian(analysisLogs.map(log => log.timings.processingTime))}
-              recordValue={analysisLogs.length > 0 ? Math.min(...analysisLogs.map(log => log.timings.processingTime)) : Infinity}
-            />
-          </div>
-        </div>
-      )}
-      
-      {isProcessing && (
-        <div className="mt-4">
-          <Progress value={progress} className="w-full" />
-          <p className="text-sm text-muted-foreground mt-2">
-            Zapisywanie wyników analizy...
-          </p>
-        </div>
-      )}
-      
-      {error && (
-        <Alert variant="destructive" className="mt-4">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <BatchProcessingResults
+        results={results}
+        onExport={handleExport}
+      />
     </div>
   );
 } 

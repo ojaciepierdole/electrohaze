@@ -4,20 +4,21 @@ import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle } from 'lucide-react';
-import type { BillingData } from '@/types/fields';
-import { formatDate, formatConsumption, calculateGroupConfidence, getMissingFields, calculateOptimalColumns } from '@/utils/text-formatting';
+import type { BillingData } from '@/types/processing';
+import { 
+  formatDate, 
+  formatConsumption, 
+  calculateGroupConfidence, 
+  getMissingFields, 
+  calculateOptimalColumns 
+} from '@/utils/text-formatting';
 
 const FIELD_MAPPING: Record<keyof BillingData, string> = {
-  BillingStartDate: 'Data początkowa',
-  BillingEndDate: 'Data końcowa',
-  ProductName: 'Nazwa produktu',
-  Tariff: 'Taryfa',
-  BilledUsage: 'Naliczone zużycie',
-  ReadingType: 'Typ odczytu',
+  billingStartDate: 'Data początkowa',
+  billingEndDate: 'Data końcowa',
+  billedUsage: 'Naliczone zużycie',
   usage12m: 'Zużycie roczne',
-  InvoiceType: 'Typ faktury',
-  BillBreakdown: 'Szczegóły rozliczenia',
-  EnergySaleBreakdown: 'Szczegóły sprzedaży'
+  confidence: 'Pewność'
 };
 
 interface BillingDataGroupProps {
@@ -40,10 +41,11 @@ export function BillingDataGroup({ data }: BillingDataGroupProps) {
   // Formatuj wartości
   const formattedData = {
     ...data,
-    BillingStartDate: formatDate(data.BillingStartDate || null),
-    BillingEndDate: formatDate(data.BillingEndDate || null),
-    BilledUsage: formatConsumption(data.BilledUsage || null),
-    usage12m: formatConsumption(data.usage12m || null),
+    billingStartDate: formatDate(data.billingStartDate || null),
+    billingEndDate: formatDate(data.billingEndDate || null),
+    billedUsage: formatConsumption(typeof data.billedUsage === 'number' ? data.billedUsage : null),
+    usage12m: formatConsumption(typeof data.usage12m === 'number' ? data.usage12m : null),
+    confidence: data.confidence !== undefined ? `${Math.round(data.confidence * 100)}%` : null,
   };
 
   if (isEmpty) {
@@ -97,10 +99,10 @@ export function BillingDataGroup({ data }: BillingDataGroupProps) {
               <div className="border-t border-gray-200 my-4" />
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-500">Brakujące dane:</h4>
-                <div className={`grid grid-flow-col auto-cols-fr gap-x-12 gap-y-2 ${gridClass}`}>
-                  {columns.map((column, columnIndex) => (
+                <div className={`grid gap-4 ${gridClass}`}>
+                  {columns.map((column, columnIndex: number) => (
                     <div key={columnIndex} className="space-y-2">
-                      {column.map(({ key, label }) => (
+                      {column.map(({ key, label }: { key: string; label: string }) => (
                         <div key={key} className="flex items-center gap-2">
                           <span className="text-sm text-gray-400">{label}</span>
                           <span className="text-sm text-gray-300">—</span>

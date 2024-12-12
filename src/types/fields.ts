@@ -1,3 +1,5 @@
+import { BillingData } from './processing';
+
 export interface CustomerData {
   FirstName?: string;
   LastName?: string;
@@ -59,20 +61,9 @@ export interface SupplierData {
   OSD_name?: string;
 }
 
-export interface BillingData {
-  BillingStartDate?: string;
-  BillingEndDate?: string;
-  ProductName?: string;
-  Tariff?: string;
-  BilledUsage?: string;
-  ReadingType?: string;
-  usage12m?: string;
-  InvoiceType?: string;
-  BillBreakdown?: string;
-  EnergySaleBreakdown?: string;
-}
-
 export interface FieldMapping {
   [key: string]: string;
 }
+
+export type { BillingData };
  
