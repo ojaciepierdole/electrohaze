@@ -1,77 +1,42 @@
 'use client';
 
 import * as React from 'react';
-import { ModelSelector } from '@/components/ModelSelector';
-import { FileUpload } from '@/components/FileUpload';
-import { BatchProcessingResults } from '@/components/BatchProcessingResults';
-import { ProcessingSummary } from '@/components/ProcessingSummary';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Clock, Server, Cpu } from 'lucide-react';
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ChevronDown, Upload, X } from 'lucide-react';
 import type { 
   ModelDefinition, 
   ProcessingResult, 
-  BatchProcessingStatus,
-  AnalysisLogEntry,
-  DocumentAnalysisResult
+  BatchProcessingStatus
 } from '@/types/processing';
 import { useDocumentIntelligenceModels } from '@/hooks/useDocumentIntelligenceModels';
-import { calculateMedian } from '@/utils';
-import { TimeCard } from './TimeCard';
-import { AnalysisResultCard } from '@/components/AnalysisResultCard';
-import { exportToCSV } from '@/utils/export';
-import { insertDocumentWithData } from '@/lib/supabase/document-helpers';
-import type { DocumentInsertData } from '@/lib/supabase/document-helpers';
 import { useDocumentProcessing } from '@/hooks/useDocumentProcessing';
-import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { findMissingFields, MissingFields } from '../utils/document-mapping';
-import { calculateOptimalColumns } from '@/utils/text-formatting';
-import { DateHelpers } from '@/types/common';
-
-interface TimeCardProps {
-  title: string;
-  value: number;
-  icon: React.ElementType;
-  description: string;
-}
-
-interface ModelSelectorProps {
-  models: ModelDefinition[];
-  selectedModels: string[];
-  onSelectionChange: (models: string[]) => void;
-  isLoading: boolean;
-  error?: string;
-}
-
-interface FileUploadProps {
-  onUploadStart: () => void;
-  onUploadComplete: (results: ProcessingResult[]) => void;
-  selectedModels: string[];
-  isProcessing: boolean;
-  progress: number;
-}
-
-interface ProcessingSummaryProps {
-  fileCount: number;
-  totalTime: number;
-  averageConfidence: number;
-  onExport: () => void;
-}
-
-interface BatchProcessingResultsProps {
-  results: ProcessingResult[];
-  onExport: () => void;
-}
+import { Badge } from '@/components/ui/badge';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 export function ProcessingClient() {
   const [selectedModels, setSelectedModels] = React.useState<string[]>([]);
-  const [results, setResults] = React.useState<ProcessingResult[]>([]);
-  const [batchId, setBatchId] = React.useState<string>('');
-  const [isUploading, setIsUploading] = React.useState(false);
-  const [currentAnalysis, setCurrentAnalysis] = React.useState<AnalysisLogEntry | null>(null);
-  const [analysisLogs, setAnalysisLogs] = React.useState<AnalysisLogEntry[]>([]);
-  const [currentTotalTime, setCurrentTotalTime] = React.useState(0);
-  const [currentAzureTime, setCurrentAzureTime] = React.useState(0);
+  const [files, setFiles] = React.useState<File[]>([]);
+  const [isFileListOpen, setIsFileListOpen] = React.useState(false);
+  const [isModelSelectorOpen, setIsModelSelectorOpen] = React.useState(false);
   const [processingStatus, setProcessingStatus] = React.useState<BatchProcessingStatus>({
     isProcessing: false,
     currentFileIndex: 0,
@@ -84,344 +49,251 @@ export function ProcessingClient() {
     results: [],
     error: null
   });
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const { data: models = [], isLoading, error } = useDocumentIntelligenceModels();
-  const { isProcessing, progress, saveDocument } = useDocumentProcessing();
+  const { data: models = [], isLoading: isLoadingModels, error: modelsError } = useDocumentIntelligenceModels();
+  const { isProcessing, progress, processDocuments } = useDocumentProcessing();
 
-  // Obliczamy statystyki dokumentów
-  const documentStats = React.useMemo(() => {
-    if (!results.length) return { averageConfidence: 0 };
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = event.target.files;
+    if (!selectedFiles) return;
 
-    const confidences = results.map(result => {
-      const modelResults = result.modelResults || [];
-      return modelResults.reduce((acc, model) => acc + (model.confidence || 0), 0) / modelResults.length;
+    const newFiles = Array.from(selectedFiles).filter(
+      file => file.type === 'application/pdf'
+    );
+    const updatedFiles = [...files, ...newFiles].slice(0, 20);
+    setFiles(updatedFiles);
+  };
+
+  const handleRemoveFile = (fileToRemove: File) => {
+    setFiles(files.filter(file => file !== fileToRemove));
+  };
+
+  const handleModelSelect = (modelId: string) => {
+    setSelectedModels(current => {
+      if (current.includes(modelId)) {
+        return current.filter(id => id !== modelId);
+      }
+      if (current.length >= 3) {
+        return current;
+      }
+      return [...current, modelId];
     });
+    setIsModelSelectorOpen(false);
+  };
 
-    const averageConfidence = confidences.reduce((acc, conf) => acc + conf, 0) / confidences.length;
-
-    return {
-      averageConfidence
-    };
-  }, [results]);
-
-  // Obliczamy całkowity postęp na podstawie plików i modeli
-  const calculateProgress = React.useCallback((fileIndex: number, modelIndex: number, totalFiles: number, totalModels: number) => {
-    // Całkowita liczba operacji to liczba plików * liczba modeli
-    const totalOperations = totalFiles * totalModels;
-    // Aktualny numer operacji to (fileIndex * totalModels) + modelIndex
-    const currentOperation = (fileIndex * totalModels) + modelIndex;
-    // Obliczamy procent postępu
-    return (currentOperation / totalOperations) * 100;
-  }, []);
-
-  const handleProcessingStart = React.useCallback(() => {
-    console.log('Rozpoczynam przetwarzanie');
-    setResults([]);
-    setBatchId(Date.now().toString());
-  }, []);
-
-  const handleProcessingComplete = React.useCallback((newResults: ProcessingResult[]) => {
-    console.log('Zakończono przetwarzanie', newResults);
-    setResults((prev: ProcessingResult[]) => {
-      const existingFileNames = new Set(newResults.map(r => r.fileName));
-      const filteredPrev = prev.filter(r => !existingFileNames.has(r.fileName));
-      return [...filteredPrev, ...newResults];
-    });
-  }, []);
-
-  const handleExport = React.useCallback(() => {
-    if (!results.length) return;
-
-    const exportData = results.map(result => {
-      const modelResults = result.modelResults || [];
-      const firstModel = modelResults[0] || {};
-      const fields = firstModel.fields || {};
-
-      return {
-        // Metadane
-        'Plik': result.fileName || '',
-        'Czas przetwarzania (ms)': result.processingTime || 0,
-        'Pewność modelu': firstModel.confidence || 0,
-        'Liczba stron': firstModel.pageCount || 1,
-
-        // Dane PPE
-        'Numer PPE': fields.ppeNum?.content || '',
-        'Numer licznika': fields.MeterNumber?.content || '',
-        'Grupa taryfowa': fields.TariffGroup?.content || '',
-        'Numer umowy': fields.ContractNumber?.content || '',
-        'Typ umowy': fields.ContractType?.content || '',
-        'Adres PPE': [
-          fields.Street?.content,
-          fields.Building?.content,
-          fields.Unit?.content
-        ].filter(Boolean).join(' ') || '',
-        'Kod pocztowy PPE': fields.PostalCode?.content || '',
-        'Miasto PPE': fields.City?.content || '',
-        'Gmina PPE': fields.Municipality?.content || '',
-        'Powiat PPE': fields.District?.content || '',
-        'Województwo PPE': fields.Province?.content || '',
-        'Nazwa OSD': fields.OSD_name?.content || '',
-        'Region OSD': fields.OSD_region?.content || '',
-
-        // Dane klienta
-        'Imię klienta': fields.FirstName?.content || '',
-        'Nazwisko klienta': fields.LastName?.content || '',
-        'Nazwa firmy': fields.BusinessName?.content || '',
-        'NIP': fields.taxID?.content || '',
-
-        // Dane korespondencyjne
-        'Imię (korespondencja)': fields.paFirstName?.content || '',
-        'Nazwisko (korespondencja)': fields.paLastName?.content || '',
-        'Nazwa firmy (korespondencja)': fields.paBusinessName?.content || '',
-        'Tytuł (korespondencja)': fields.paTitle?.content || '',
-        'Adres korespondencyjny': [
-          fields.paStreet?.content,
-          fields.paBuilding?.content,
-          fields.paUnit?.content
-        ].filter(Boolean).join(' ') || '',
-        'Kod pocztowy (korespondencja)': fields.paPostalCode?.content || '',
-        'Miasto (korespondencja)': fields.paCity?.content || '',
-
-        // Dane sprzedawcy
-        'Nazwa sprzedawcy': fields.supplierName?.content || '',
-        'NIP sprzedawcy': fields.supplierTaxID?.content || '',
-        'Adres sprzedawcy': [
-          fields.supplierStreet?.content,
-          fields.supplierBuilding?.content,
-          fields.supplierUnit?.content
-        ].filter(Boolean).join(' ') || '',
-        'Kod pocztowy sprzedawcy': fields.supplierPostalCode?.content || '',
-        'Miasto sprzedawcy': fields.supplierCity?.content || '',
-        'Konto bankowe': fields.supplierBankAccount?.content || '',
-        'Nazwa banku': fields.supplierBankName?.content || '',
-        'Email sprzedawcy': fields.supplierEmail?.content || '',
-        'Telefon sprzedawcy': fields.supplierPhone?.content || '',
-        'Strona WWW sprzedawcy': fields.supplierWebsite?.content || '',
-
-        // Dane rozliczeniowe
-        'Data rozpoczęcia': fields.BillingStartDate?.content 
-          ? DateHelpers.formatForDisplay(DateHelpers.toISOString(fields.BillingStartDate.content))
-          : '',
-        'Data zakończenia': fields.BillingEndDate?.content
-          ? DateHelpers.formatForDisplay(DateHelpers.toISOString(fields.BillingEndDate.content))
-          : '',
-        'Zużycie rozliczeniowe': fields.BilledUsage?.content || '',
-        'Zużycie 12m': fields.usage12m?.content || '',
-      };
-    });
-
-    exportToCSV(exportData, `analiza-faktur-${new Date().toISOString().split('T')[0]}.csv`);
-  }, [results]);
-
-  const handleAnalyzeComplete = async (results: DocumentAnalysisResult) => {
-    const documentData: DocumentInsertData = {
-      document: {
-        status: 'completed' as const,
-        confidence: results.ppeData?.confidence || 0,
-        original_filename: results.fileName || '',
-        file_url: results.fileUrl || '',
-        file_name: results.fileName || '',
-        file_type: 'pdf',
-      },
-      ppeData: {
-        ppe_number: results.ppeData?.ppeNumber || null,
-        meter_number: results.ppeData?.meterNumber || null,
-        tariff_group: results.ppeData?.tariffGroup || null,
-        contract_number: results.ppeData?.contractNumber || null,
-        contract_type: results.ppeData?.contractType || null,
-        street: results.ppeData?.street || null,
-        building: results.ppeData?.building || null,
-        unit: results.ppeData?.unit || null,
-        city: results.ppeData?.city || null,
-        confidence: results.ppeData?.confidence || null,
-        osd_name: results.ppeData?.osdName || null,
-        osd_region: results.ppeData?.osdRegion || null,
-      },
-      supplierData: {
-        supplier_name: results.supplierData?.supplierName || null,
-        supplier_tax_id: results.supplierData?.taxId || null,
-        supplier_street: results.supplierData?.street || null,
-        supplier_building: results.supplierData?.building || null,
-        supplier_unit: results.supplierData?.unit || null,
-        supplier_postal_code: results.supplierData?.postalCode || null,
-        supplier_city: results.supplierData?.city || null,
-        supplier_bank_account: results.supplierData?.bankAccount || null,
-        supplier_bank_name: results.supplierData?.bankName || null,
-        supplier_email: results.supplierData?.email || null,
-        supplier_phone: results.supplierData?.phone || null,
-        supplier_website: results.supplierData?.website || null,
-        confidence: results.supplierData?.confidence || 0,
-      },
-      correspondenceData: {
-        first_name: results.correspondenceData?.firstName || null,
-        last_name: results.correspondenceData?.lastName || null,
-        business_name: results.correspondenceData?.businessName || null,
-        title: results.correspondenceData?.title || null,
-        street: results.correspondenceData?.street || null,
-        building: results.correspondenceData?.building || null,
-        unit: results.correspondenceData?.unit || null,
-        postal_code: results.correspondenceData?.postalCode || null,
-        city: results.correspondenceData?.city || null,
-        confidence: results.correspondenceData?.confidence || 0,
-      },
-      billingData: {
-        billing_start_date: results.billingData?.billingStartDate || null,
-        billing_end_date: results.billingData?.billingEndDate || null,
-        billed_usage: results.billingData?.billedUsage || null,
-        usage_12m: results.billingData?.usage12m || null,
-        confidence: results.billingData?.confidence || 0,
-      },
-      customerData: {
-        first_name: results.customerData?.firstName || null,
-        last_name: results.customerData?.lastName || null,
-        business_name: results.customerData?.businessName || null,
-        tax_id: results.customerData?.taxId || null,
-        confidence: results.customerData?.confidence || 0,
-      },
-    };
+  const handleStartProcessing = async () => {
+    if (files.length === 0 || selectedModels.length === 0 || isProcessing) return;
 
     try {
-      await saveDocument(documentData);
+      setProcessingStatus(prev => ({
+        ...prev,
+        isProcessing: true,
+        totalFiles: files.length,
+        currentFileIndex: 0,
+        currentFileName: files[0].name,
+        totalProgress: 0
+      }));
+
+      const formData = new FormData();
+      files.forEach(file => {
+        formData.append('files', file);
+      });
+      selectedModels.forEach(modelId => {
+        formData.append('modelId', modelId);
+      });
+
+      const response = await fetch('/api/analyze/batch', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Błąd podczas przetwarzania plików');
+      }
+
+      const data = await response.json();
+      setProcessingStatus(prev => ({
+        ...prev,
+        isProcessing: false,
+        results: data.results
+      }));
     } catch (error) {
-      // Błąd jest już obsługiwany przez hook
+      setProcessingStatus(prev => ({
+        ...prev,
+        isProcessing: false,
+        error: error instanceof Error ? error.message : 'Nieznany błąd'
+      }));
     }
   };
 
-  const MissingFieldsSection: React.FC<{ data: DocumentAnalysisResult }> = ({ data }) => {
-    const missingFields: MissingFields = findMissingFields(data);
-    
-    return (
-      <div className="mt-4">
-        <h3 className="text-lg font-semibold">Brakujące dane:</h3>
-        
-        {Object.entries(missingFields).map(([section, fields]) => {
-          if (fields.length === 0) return null;
-          
-          // Przygotuj dane dla calculateOptimalColumns
-          const fieldsForColumns = fields.map((field: string) => ({
-            key: field,
-            label: field
-          }));
-          
-          const { columns, gridClass } = calculateOptimalColumns(fieldsForColumns);
-          
-          return (
-            <div key={section} className="mt-2">
-              <h4 className="text-md font-medium">{section}:</h4>
-              <div className={`grid gap-2 ${gridClass}`}>
-                {fields.map((field: string) => (
-                  <div key={field} className="text-sm text-gray-600">
-                    • {field}
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
   return (
-    <div className="w-full max-w-7xl mx-auto p-4 space-y-8">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <TimeCard
-          title="Całkowity czas"
-          value={currentTotalTime}
-          icon={Clock}
-          description="Od rozpoczęcia do zakończenia"
-        />
-        <TimeCard
-          title="Czas Azure"
-          value={currentAzureTime}
-          icon={Server}
-          description="Czas odpowiedzi Azure"
-        />
-        <TimeCard
-          title="Czas przetwarzania"
-          value={currentTotalTime - currentAzureTime}
-          icon={Cpu}
-          description="Czas lokalnego przetwarzania"
-        />
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Przetworzone pliki
-            </CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{results.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Liczba przeanalizowanych dokumentów
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+    <div className="w-full">
+      <Card>
+        <CardContent className="p-6">
+          <div className="space-y-4">
+            {/* Nagłówek sekcji */}
+            <h2 className="text-xl font-semibold">Przygotowanie analizy</h2>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="col-span-2">
-          <CardHeader>
-            <CardTitle>Przetwarzanie dokumentów</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-8">
-              <ModelSelector
-                models={models}
-                selectedModels={selectedModels}
-                onSelectionChange={setSelectedModels}
-                isLoading={isLoading}
-                error={error}
-              />
-              
-              <FileUpload
-                onUploadStart={handleProcessingStart}
-                onUploadComplete={handleProcessingComplete}
-                selectedModels={selectedModels}
-                isProcessing={isProcessing}
-                progress={progress}
-              />
-
-              {processingStatus.isProcessing && (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm text-gray-500">
+            {/* Wybór modeli */}
+            <div className="flex items-center gap-2">
+              <Popover open={isModelSelectorOpen} onOpenChange={setIsModelSelectorOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between"
+                    disabled={isLoadingModels || isProcessing}
+                  >
                     <span>
-                      Plik {processingStatus.currentFileIndex + 1} z {processingStatus.totalFiles}
+                      {selectedModels.length > 0
+                        ? `Wybrano ${selectedModels.length} z 3 modeli`
+                        : 'Wybierz modele do analizy'}
                     </span>
-                    <span>{processingStatus.currentFileName}</span>
-                  </div>
-                  <Progress value={processingStatus.totalProgress} />
-                </div>
-              )}
-
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Szukaj modelu..." />
+                    <CommandEmpty>Nie znaleziono modeli.</CommandEmpty>
+                    <CommandGroup className="max-h-[200px] overflow-y-auto">
+                      {models.map((model) => (
+                        <CommandItem
+                          key={model.id}
+                          value={model.id}
+                          onSelect={() => handleModelSelect(model.id)}
+                        >
+                          <div className="flex flex-col gap-1">
+                            <span className="font-medium">{model.id}</span>
+                            <span className="text-xs text-muted-foreground">{model.description}</span>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Podsumowanie</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ProcessingSummary
-              fileCount={results.length}
-              totalTime={currentTotalTime}
-              averageConfidence={documentStats.averageConfidence}
-              onExport={handleExport}
-            />
-          </CardContent>
-        </Card>
-      </div>
+            {/* Wybrane modele */}
+            {selectedModels.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {selectedModels.map((modelId) => {
+                  const model = models.find(m => m.id === modelId);
+                  return (
+                    <Badge
+                      key={modelId}
+                      variant="secondary"
+                      className="pl-2 pr-1 py-1 flex items-center gap-1"
+                    >
+                      {model?.name || modelId}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-4 w-4 p-0 hover:bg-transparent"
+                        onClick={() => setSelectedModels(selectedModels.filter(id => id !== modelId))}
+                        disabled={isProcessing}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </Badge>
+                  );
+                })}
+              </div>
+            )}
 
-      <BatchProcessingResults
-        results={results}
-        onExport={handleExport}
-      />
+            {/* Kontrolki plików */}
+            <div className="flex items-center gap-2">
+              <Collapsible
+                open={isFileListOpen}
+                onOpenChange={setIsFileListOpen}
+                className="w-full"
+              >
+                <div className="flex items-center gap-2">
+                  <CollapsibleTrigger asChild>
+                    <Button variant="outline" className="flex-1" disabled={isProcessing}>
+                      <span>Lista plików</span>
+                      <ChevronDown className={cn(
+                        "h-4 w-4 transition-transform duration-200 ml-2",
+                        isFileListOpen ? "rotate-180" : ""
+                      )} />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <Button
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isProcessing}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Wybierz pliki
+                  </Button>
+                </div>
+
+                <CollapsibleContent className="mt-2">
+                  <div className="rounded-md border p-4">
+                    {files.length === 0 ? (
+                      <div className="text-center text-sm text-gray-500">
+                        Brak wybranych plików
+                      </div>
+                    ) : (
+                      <ul className="space-y-2">
+                        {files.map((file, index) => (
+                          <li key={index} className="flex items-center justify-between">
+                            <span className="text-sm">{file.name}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveFile(file)}
+                              disabled={isProcessing}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+
+            {/* Pasek postępu */}
+            {processingStatus.isProcessing && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm text-gray-500">
+                  <span>
+                    Plik {processingStatus.currentFileIndex + 1} z {processingStatus.totalFiles}
+                  </span>
+                  <span>{processingStatus.currentFileName}</span>
+                </div>
+                <Progress value={processingStatus.totalProgress} />
+              </div>
+            )}
+
+            {/* Licznik plików i przycisk rozpoczęcia */}
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-500">
+                {files.length > 0 ? `Wybrano ${files.length} ${files.length === 1 ? 'plik' : 'pliki'}` : ''}
+              </div>
+              <Button
+                onClick={handleStartProcessing}
+                disabled={files.length === 0 || selectedModels.length === 0 || isProcessing}
+              >
+                {isProcessing ? 'Przetwarzanie...' : 'Rozpocznij'}
+              </Button>
+            </div>
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            multiple
+            accept=".pdf"
+            onChange={handleFileSelect}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 } 

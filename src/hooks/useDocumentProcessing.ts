@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { insertDocumentWithData, DocumentInsertData } from '@/lib/supabase/document-helpers';
 import { useToast } from '@/hooks/useToast';
+import type { ProcessingResult } from '@/types/processing';
 
 interface ProcessingState {
   isProcessing: boolean;
@@ -18,6 +19,47 @@ export function useDocumentProcessing() {
   });
   
   const { addToast } = useToast();
+
+  const processDocuments = async (files: File[], modelIds: string[]): Promise<ProcessingResult[]> => {
+    try {
+      setState(prev => ({ 
+        ...prev, 
+        isProcessing: true, 
+        error: null,
+        progress: 0
+      }));
+
+      const formData = new FormData();
+      files.forEach(file => {
+        formData.append('files', file);
+      });
+      modelIds.forEach(modelId => {
+        formData.append('modelId', modelId);
+      });
+
+      const response = await fetch('/api/analyze/batch', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Błąd podczas przetwarzania dokumentów');
+      }
+
+      const results = await response.json();
+      setState(prev => ({ ...prev, progress: 100 }));
+      
+      return results;
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Nieznany błąd podczas przetwarzania',
+      }));
+      throw error;
+    } finally {
+      setState(prev => ({ ...prev, isProcessing: false }));
+    }
+  };
 
   const saveDocument = async (documentData: DocumentInsertData) => {
     try {
@@ -63,5 +105,6 @@ export function useDocumentProcessing() {
   return {
     ...state,
     saveDocument,
+    processDocuments,
   };
 } 
