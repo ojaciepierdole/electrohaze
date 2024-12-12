@@ -5,13 +5,30 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle } from 'lucide-react';
 import type { CustomerData } from '@/types/fields';
-import { formatPersonName, calculateGroupConfidence, getMissingFields, calculateOptimalColumns } from '@/utils/text-formatting';
+import { 
+  formatPersonName, 
+  formatStreet,
+  formatAddress,
+  formatPostalCode,
+  formatCity,
+  calculateGroupConfidence, 
+  getMissingFields, 
+  calculateOptimalColumns 
+} from '@/utils/text-formatting';
 
 const FIELD_MAPPING: Record<keyof CustomerData, string> = {
   FirstName: 'Imię',
   LastName: 'Nazwisko',
   BusinessName: 'Nazwa firmy',
-  taxID: 'NIP'
+  taxID: 'NIP',
+  Street: 'Ulica',
+  Building: 'Numer budynku',
+  Unit: 'Numer lokalu',
+  PostalCode: 'Kod pocztowy',
+  City: 'Miejscowość',
+  Municipality: 'Gmina',
+  District: 'Powiat',
+  Province: 'Województwo'
 };
 
 interface CustomerDataGroupProps {
@@ -37,6 +54,15 @@ export function CustomerDataGroup({ data }: CustomerDataGroupProps) {
     FirstName: formatPersonName(data.FirstName || null),
     LastName: formatPersonName(data.LastName || null),
     BusinessName: formatPersonName(data.BusinessName || null),
+    taxID: data.taxID || null,
+    Street: formatStreet(data.Street || null),
+    Building: formatAddress(data.Building || null),
+    Unit: formatAddress(data.Unit || null),
+    PostalCode: formatPostalCode(data.PostalCode || null),
+    City: formatCity(data.City || null),
+    Municipality: formatCity(data.Municipality || null),
+    District: formatCity(data.District || null),
+    Province: formatCity(data.Province || null)
   };
 
   if (isEmpty) {

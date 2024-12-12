@@ -20,11 +20,16 @@ export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
     fields: [
       'FirstName',
       'LastName',
+      'BusinessName',
+      'taxID',
       'Street',
       'Building',
       'Unit',
       'PostalCode',
-      'City'
+      'City',
+      'Municipality',
+      'District',
+      'Province'
     ] as const,
     requiredFields: ['FirstName', 'LastName']
   },
@@ -33,25 +38,16 @@ export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
     name: 'Punkt Poboru Energii',
     icon: Plug,
     fields: [
-      'supplierName',
       'ppeNum',
-      'OSD_name',
-      'OSD_region',
-      'ProductName',
-      'Street',
-      'Building',
-      'Unit',
-      'PostalCode',
-      'City',
-      'Municipality',
-      'District',
-      'Province',
       'MeterNumber',
       'TariffGroup',
       'ContractNumber',
-      'ContractType'
+      'ContractType',
+      'OSD_name',
+      'OSD_region',
+      'ProductName'
     ] as const,
-    requiredFields: ['ppeNum', 'supplierName']
+    requiredFields: ['ppeNum']
   },
 
   consumption_info: {
@@ -104,8 +100,7 @@ export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
       'supplierEmail',
       'supplierPhone',
       'supplierWebsite',
-      'OSD_name',
-      'OSD_region'
+      'OSD_name'
     ] as const,
     requiredFields: ['supplierName']
   },

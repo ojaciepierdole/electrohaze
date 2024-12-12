@@ -250,7 +250,7 @@ export interface AnalysisResult {
   fileName?: string;
   fileUrl?: string;
   confidence?: number;
-  ppeData?: {
+  ppeData: {
     ppeNumber?: string;
     meterNumber?: string;
     tariffGroup?: string;
@@ -259,12 +259,10 @@ export interface AnalysisResult {
     street?: string;
     building?: string;
     unit?: string;
-    postalCode?: string;
     city?: string;
-    municipality?: string;
-    district?: string;
-    province?: string;
     confidence?: number;
+    osdName?: string;
+    osdRegion?: string;
   };
   correspondenceData?: {
     firstName?: string;

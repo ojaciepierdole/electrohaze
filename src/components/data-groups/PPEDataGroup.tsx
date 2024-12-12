@@ -13,14 +13,9 @@ const FIELD_MAPPING: Record<keyof PPEData, string> = {
   TariffGroup: 'Grupa taryfowa',
   ContractNumber: 'Numer umowy',
   ContractType: 'Typ umowy',
-  Street: 'Ulica',
-  Building: 'Numer budynku',
-  Unit: 'Numer lokalu',
-  PostalCode: 'Kod pocztowy',
-  City: 'Miejscowość',
-  Municipality: 'Gmina',
-  District: 'Powiat',
-  Province: 'Województwo'
+  OSD_name: 'Nazwa OSD',
+  OSD_region: 'Region OSD',
+  ProductName: 'Nazwa produktu'
 };
 
 interface PPEDataGroupProps {
@@ -43,14 +38,14 @@ export function PPEDataGroup({ data }: PPEDataGroupProps) {
   // Formatuj wartości
   const formattedData = {
     ...data,
-    Street: formatStreet(data.Street || null),
-    Building: formatAddress(data.Building || null),
-    Unit: formatAddress(data.Unit || null),
-    PostalCode: formatPostalCode(data.PostalCode || null),
-    City: formatCity(data.City || null),
-    Municipality: formatCity(data.Municipality || null),
-    District: formatCity(data.District || null),
-    Province: formatCity(data.Province || null),
+    ppeNum: data.ppeNum || null,
+    MeterNumber: data.MeterNumber || null,
+    TariffGroup: data.TariffGroup || null,
+    ContractNumber: data.ContractNumber || null,
+    ContractType: data.ContractType || null,
+    OSD_name: data.OSD_name || null,
+    OSD_region: data.OSD_region || null,
+    ProductName: data.ProductName || null
   };
 
   if (isEmpty) {

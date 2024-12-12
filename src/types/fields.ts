@@ -3,14 +3,6 @@ export interface CustomerData {
   LastName?: string;
   BusinessName?: string;
   taxID?: string;
-}
-
-export interface PPEData {
-  ppeNum?: string;
-  MeterNumber?: string;
-  TariffGroup?: string;
-  ContractNumber?: string;
-  ContractType?: string;
   Street?: string;
   Building?: string;
   Unit?: string;
@@ -19,6 +11,17 @@ export interface PPEData {
   Municipality?: string;
   District?: string;
   Province?: string;
+}
+
+export interface PPEData {
+  ppeNum?: string;
+  MeterNumber?: string;
+  TariffGroup?: string;
+  ContractNumber?: string;
+  ContractType?: string;
+  OSD_name?: string;
+  OSD_region?: string;
+  ProductName?: string;
 }
 
 export interface CorrespondenceData {
@@ -47,7 +50,6 @@ export interface SupplierData {
   supplierPhone?: string;
   supplierWebsite?: string;
   OSD_name?: string;
-  OSD_region?: string;
 }
 
 export interface BillingData {

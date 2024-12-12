@@ -20,12 +20,11 @@ const FIELD_MAPPING: Record<keyof SupplierData, string> = {
   supplierEmail: 'Email',
   supplierPhone: 'Telefon',
   supplierWebsite: 'Strona WWW',
-  OSD_name: 'Nazwa OSD',
-  OSD_region: 'Region OSD'
+  OSD_name: 'Nazwa OSD'
 };
 
 // Pola, które są mapowane z Azure Document Intelligence
-const AZURE_MAPPED_FIELDS = ['supplierName', 'OSD_name', 'OSD_region'] as const;
+const AZURE_MAPPED_FIELDS = ['supplierName', 'OSD_name'] as const;
 
 interface SupplierDataGroupProps {
   data: Partial<SupplierData>;
@@ -56,8 +55,7 @@ export function SupplierDataGroup({ data }: SupplierDataGroupProps) {
     supplierUnit: data.supplierStreet?.split('/')[2] || data.supplierUnit || null,
     supplierPostalCode: formatPostalCode(data.supplierPostalCode || null),
     supplierCity: formatCity(data.supplierCity || null),
-    OSD_name: formatSupplierName(data.OSD_name || null),
-    OSD_region: formatSupplierName(data.OSD_region || null),
+    OSD_name: formatSupplierName(data.OSD_name || null)
   };
 
   if (isEmpty) {

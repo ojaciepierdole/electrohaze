@@ -76,6 +76,14 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
         LastName: mainNames.lastName || enrichedAddress.LastName || null,
         BusinessName: fields.BusinessName?.content || null,
         taxID: fields.taxID?.content || null,
+        Street: enrichedAddress.Street || null,
+        Building: enrichedAddress.Building || null,
+        Unit: enrichedAddress.Unit || null,
+        PostalCode: enrichedAddress.PostalCode || null,
+        City: enrichedAddress.City || null,
+        Municipality: enrichedAddress.Municipality || null,
+        District: enrichedAddress.District || null,
+        Province: enrichedAddress.Province || null
       } as CustomerData,
       
       ppe: {
@@ -86,16 +94,9 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
         TariffGroup: fields.TariffGroup?.content || null,
         ContractNumber: fields.ContractNumber?.content || null,
         ContractType: fields.ContractType?.content || null,
-        // Dane adresowe
-        Street: enrichedAddress.Street || null,
-        Building: enrichedAddress.Building || null,
-        Unit: enrichedAddress.Unit || null,
-        PostalCode: enrichedAddress.PostalCode || null,
-        City: enrichedAddress.City || null,
-        // Dane administracyjne
-        Municipality: enrichedAddress.Municipality || null,
-        District: enrichedAddress.District || null,
-        Province: enrichedAddress.Province || null,
+        OSD_name: fields.OSD_name?.content || null,
+        OSD_region: fields.OSD_region?.content || null,
+        ProductName: fields.ProductName?.content || null
       } as PPEData,
       
       correspondence: {

@@ -24,6 +24,8 @@ import type { DocumentInsertData } from '@/lib/supabase/document-helpers';
 import { useDocumentProcessing } from '@/hooks/useDocumentProcessing';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { findMissingFields, MissingFields } from '../utils/document-mapping';
+import type { DocumentAnalysisResult } from '@/types/documentTypes';
 
 export function ProcessingClient() {
   const [selectedModels, setSelectedModels] = React.useState<string[]>([]);
@@ -79,30 +81,16 @@ export function ProcessingClient() {
     if (!results.length) return;
 
     const exportData = results.map(result => {
-      // Bezpieczne pobieranie pól
       const modelResults = result.modelResults || [];
       const firstModel = modelResults[0] || {};
       const fields = firstModel.fields || {};
 
-      const data = {
+      return {
         // Metadane
-        Plik: result.fileName || '',
+        'Plik': result.fileName || '',
         'Czas przetwarzania (ms)': result.processingTime || 0,
         'Pewność modelu': firstModel.confidence || 0,
         'Liczba stron': firstModel.pageCount || 1,
-
-        // Dane sprzedawcy
-        'Nazwa sprzedawcy': fields.supplierName?.content || '',
-        'NIP sprzedawcy': fields.supplierTaxID?.content || '',
-        'Adres sprzedawcy': [
-          fields.supplierStreet?.content,
-          fields.supplierBuilding?.content,
-          fields.supplierUnit?.content
-        ].filter(Boolean).join(' ') || '',
-        'Kod pocztowy sprzedawcy': fields.supplierPostalCode?.content || '',
-        'Miasto sprzedawcy': fields.supplierCity?.content || '',
-        'Nazwa OSD': fields.OSD_name?.content || '',
-        'Region OSD': fields.OSD_region?.content || '',
 
         // Dane PPE
         'Numer PPE': fields.ppeNum?.content || '',
@@ -117,9 +105,11 @@ export function ProcessingClient() {
         ].filter(Boolean).join(' ') || '',
         'Kod pocztowy PPE': fields.PostalCode?.content || '',
         'Miasto PPE': fields.City?.content || '',
-        'Gmina': fields.Municipality?.content || '',
-        'Powiat': fields.District?.content || '',
-        'Województwo': fields.Province?.content || '',
+        'Gmina PPE': fields.Municipality?.content || '',
+        'Powiat PPE': fields.District?.content || '',
+        'Województwo PPE': fields.Province?.content || '',
+        'Nazwa OSD': fields.OSD_name?.content || '',
+        'Region OSD': fields.OSD_region?.content || '',
 
         // Dane klienta
         'Imię klienta': fields.FirstName?.content || '',
@@ -140,18 +130,28 @@ export function ProcessingClient() {
         'Kod pocztowy (korespondencja)': fields.paPostalCode?.content || '',
         'Miasto (korespondencja)': fields.paCity?.content || '',
 
+        // Dane sprzedawcy
+        'Nazwa sprzedawcy': fields.supplierName?.content || '',
+        'NIP sprzedawcy': fields.supplierTaxID?.content || '',
+        'Adres sprzedawcy': [
+          fields.supplierStreet?.content,
+          fields.supplierBuilding?.content,
+          fields.supplierUnit?.content
+        ].filter(Boolean).join(' ') || '',
+        'Kod pocztowy sprzedawcy': fields.supplierPostalCode?.content || '',
+        'Miasto sprzedawcy': fields.supplierCity?.content || '',
+        'Konto bankowe': fields.supplierBankAccount?.content || '',
+        'Nazwa banku': fields.supplierBankName?.content || '',
+        'Email sprzedawcy': fields.supplierEmail?.content || '',
+        'Telefon sprzedawcy': fields.supplierPhone?.content || '',
+        'Strona WWW sprzedawcy': fields.supplierWebsite?.content || '',
+
         // Dane rozliczeniowe
         'Data rozpoczęcia': fields.BillingStartDate?.content || '',
         'Data zakończenia': fields.BillingEndDate?.content || '',
-        'Nazwa produktu': fields.ProductName?.content || '',
-        'Taryfa': fields.Tariff?.content || '',
-        'Zużycie': fields.BilledUsage?.content || '',
-        'Typ odczytu': fields.ReadingType?.content || '',
+        'Zużycie rozliczeniowe': fields.BilledUsage?.content || '',
         'Zużycie 12m': fields.usage12m?.content || '',
-        'Typ faktury': fields.InvoiceType?.content || '',
       };
-
-      return data;
     });
 
     exportToCSV(exportData, `analiza-faktur-${new Date().toISOString().split('T')[0]}.csv`);
@@ -164,6 +164,8 @@ export function ProcessingClient() {
         confidence: results.confidence || 0,
         original_filename: results.fileName || '',
         file_url: results.fileUrl || '',
+        file_name: results.fileName || '',
+        file_type: 'pdf',
       },
       ppeData: {
         ppe_number: results.ppeData?.ppeNumber || null,
@@ -174,12 +176,25 @@ export function ProcessingClient() {
         street: results.ppeData?.street || null,
         building: results.ppeData?.building || null,
         unit: results.ppeData?.unit || null,
-        postal_code: results.ppeData?.postalCode || null,
         city: results.ppeData?.city || null,
-        municipality: results.ppeData?.municipality || null,
-        district: results.ppeData?.district || null,
-        province: results.ppeData?.province || null,
-        confidence: results.ppeData?.confidence || 0,
+        confidence: results.ppeData?.confidence || null,
+        osd_name: results.ppeData?.osdName || null,
+        osd_region: results.ppeData?.osdRegion || null,
+      },
+      supplierData: {
+        supplier_name: results.supplierData?.supplierName || null,
+        supplier_tax_id: results.supplierData?.taxId || null,
+        supplier_street: results.supplierData?.street || null,
+        supplier_building: results.supplierData?.building || null,
+        supplier_unit: results.supplierData?.unit || null,
+        supplier_postal_code: results.supplierData?.postalCode || null,
+        supplier_city: results.supplierData?.city || null,
+        supplier_bank_account: results.supplierData?.bankAccount || null,
+        supplier_bank_name: results.supplierData?.bankName || null,
+        supplier_email: results.supplierData?.email || null,
+        supplier_phone: results.supplierData?.phone || null,
+        supplier_website: results.supplierData?.website || null,
+        confidence: results.supplierData?.confidence || 0,
       },
       correspondenceData: {
         first_name: results.correspondenceData?.firstName || null,
@@ -192,23 +207,6 @@ export function ProcessingClient() {
         postal_code: results.correspondenceData?.postalCode || null,
         city: results.correspondenceData?.city || null,
         confidence: results.correspondenceData?.confidence || 0,
-      },
-      supplierData: {
-        supplier_name: results.supplierData?.supplierName || null,
-        tax_id: results.supplierData?.taxId || null,
-        street: results.supplierData?.street || null,
-        building: results.supplierData?.building || null,
-        unit: results.supplierData?.unit || null,
-        postal_code: results.supplierData?.postalCode || null,
-        city: results.supplierData?.city || null,
-        bank_account: results.supplierData?.bankAccount || null,
-        bank_name: results.supplierData?.bankName || null,
-        email: results.supplierData?.email || null,
-        phone: results.supplierData?.phone || null,
-        website: results.supplierData?.website || null,
-        osd_name: results.supplierData?.osdName || null,
-        osd_region: results.supplierData?.osdRegion || null,
-        confidence: results.supplierData?.confidence || 0,
       },
       billingData: {
         billing_start_date: results.billingData?.billingStartDate || null,
@@ -232,6 +230,42 @@ export function ProcessingClient() {
       // Błąd jest już obsługiwany przez hook
     }
   };
+
+  const MissingFieldsSection: React.FC<{ data: DocumentAnalysisResult }> = ({ data }) => {
+    const missingFields: MissingFields = findMissingFields(data);
+    
+    return (
+      <div className="mt-4">
+        <h3 className="text-lg font-semibold">Brakujące dane:</h3>
+        
+        {Object.entries(missingFields).map(([section, fields]) => {
+          if (fields.length === 0) return null;
+          
+          return (
+            <div key={section} className="mt-2">
+              <h4 className="font-medium">{getSectionLabel(section)}:</h4>
+              <ul className="list-disc list-inside">
+                {fields.map((field: string) => (
+                  <li key={field} className="text-gray-600">{field}</li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  function getSectionLabel(section: string): string {
+    const labels = {
+      customerData: 'Dane klienta',
+      ppeData: 'Dane PPE',
+      correspondenceData: 'Dane korespondencyjne',
+      billingData: 'Dane rozliczeniowe',
+      supplierData: 'Dane dostawcy'
+    };
+    return labels[section as keyof typeof labels] || section;
+  }
 
   return (
     <div className="space-y-6">
