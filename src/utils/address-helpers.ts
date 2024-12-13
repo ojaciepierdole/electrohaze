@@ -92,19 +92,19 @@ function parseAddressNumbers(
 
   const parts = normalized.split('/');
 
+  // Jeśli mamy format "33/153" - traktujemy jako budynek/lokal
+  if (parts.length === 2) {
+    return {
+      building: parts[0],
+      unit: parts[1]
+    };
+  }
+
   // Przypadek "20/22/15" - podwójny numer budynku i lokal
   if (parts.length === 3) {
     return {
       building: `${parts[0]}/${parts[1]}`,
       unit: parts[2]
-    };
-  }
-
-  // Standardowy przypadek "10/15" - budynek i lokal
-  if (parts.length === 2) {
-    return {
-      building: parts[0],
-      unit: parts[1]
     };
   }
 
@@ -121,8 +121,8 @@ export function normalizeAndSplitAddressNumbers(data: AddressSet): AddressSet {
     const buildingField = `${prefix}Building` as keyof AddressSet;
     const unitField = `${prefix}Unit` as keyof AddressSet;
 
-    // Jeśli mamy numer budynku, ale nie mamy numeru lokalu
-    if (enriched[buildingField] && !enriched[unitField]) {
+    // Jeśli mamy numer budynku
+    if (enriched[buildingField]) {
       const result = parseAddressNumbers(enriched[buildingField], enriched, prefix);
       enriched[buildingField] = result.building;
       if (result.unit) {

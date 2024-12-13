@@ -277,42 +277,22 @@ interface ColumnLayout {
   gridClass: string;
 }
 
-export function calculateOptimalColumns(fields: ColumnField[]): ColumnLayout {
-  if (fields.length === 0) {
-    return { columns: [], gridClass: 'grid-cols-1' };
-  }
+export function calculateOptimalColumns(fields: Array<{ key: string; label: string }>) {
+  const totalFields = fields.length;
+  const numColumns = 4;
+  
+  // Oblicz ile pól powinno być w każdej kolumnie
+  const fieldsPerColumn = Math.ceil(totalFields / numColumns);
 
-  // Oblicz optymalną liczbę kolumn na podstawie liczby pól
-  let columnCount: number;
-  if (fields.length <= 3) {
-    columnCount = fields.length;
-  } else if (fields.length <= 6) {
-    columnCount = 3;
-  } else if (fields.length <= 9) {
-    columnCount = 3;
-  } else {
-    columnCount = 4;
-  }
+  // Podziel pola na kolumny
+  const columns = Array.from({ length: numColumns }, (_, columnIndex) => {
+    const start = columnIndex * fieldsPerColumn;
+    const end = Math.min(start + fieldsPerColumn, totalFields);
+    return fields.slice(start, end);
+  }).filter(column => column.length > 0); // Usuń puste kolumny
 
-  // Oblicz minimalną liczbę elementów w kolumnie
-  const minItemsPerColumn = Math.floor(fields.length / columnCount);
-  const extraItems = fields.length % columnCount;
-
-  // Podziel pola na kolumny, starając się zachować równą wysokość
-  const columns: Array<Array<ColumnField>> = Array(columnCount).fill(null).map(() => []);
-  let currentColumn = 0;
-
-  for (let i = 0; i < fields.length; i++) {
-    columns[currentColumn].push(fields[i]);
-    currentColumn = (currentColumn + 1) % columnCount;
-  }
-
-  // Określ klasę CSS dla gridu z uwzględnieniem responsywności
-  const gridClass = 
-    columnCount === 1 ? 'grid-cols-1' :
-    columnCount === 2 ? 'grid-cols-1 sm:grid-cols-2' :
-    columnCount === 3 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' :
-    'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
+  // Zawsze używaj 4 kolumn z responsywnością
+  const gridClass = 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
 
   return { columns, gridClass };
 }

@@ -20,22 +20,10 @@ interface BillingDataGroupProps {
 }
 
 export function BillingDataGroup({ data }: BillingDataGroupProps) {
-  // Oblicz statystyki grupy
-  const confidence = calculateGroupConfidence(data, 'billing');
-  const isEmpty = confidence.filledFields === 0;
-  const completionPercentage = Math.round((confidence.filledFields / confidence.totalFields) * 100);
-  const confidencePercentage = Math.round(confidence.averageConfidence * 100);
-
-  // Oblicz brakujące pola
+  const isEmpty = !data || Object.keys(data).length === 0;
   const missingFields = getMissingFields(data, FIELD_MAPPING);
+  const { columns: missingColumns, gridClass: missingGridClass } = calculateOptimalColumns(missingFields);
 
-  // Oblicz optymalny układ kolumn dla brakujących pól
-  const { columns, gridClass } = React.useMemo(
-    () => calculateOptimalColumns(missingFields),
-    [missingFields]
-  );
-
-  // Formatuj wartości
   const formattedData = React.useMemo(() => {
     const formatted: Record<string, string | null> = {};
     
@@ -45,10 +33,16 @@ export function BillingDataGroup({ data }: BillingDataGroupProps) {
       } else if (key === 'billedUsage' || key === 'usage12m') {
         const numValue = (value as any)?.content ? parseFloat((value as any).content) : null;
         formatted[key] = formatConsumption(numValue);
+      } else {
+        formatted[key] = (value as any)?.content || null;
       }
     }
     
     return formatted;
+  }, [data]);
+
+  const { completionPercentage, confidencePercentage } = React.useMemo(() => {
+    return calculateGroupConfidence(data, FIELD_MAPPING);
   }, [data]);
 
   if (isEmpty) {
@@ -90,16 +84,18 @@ export function BillingDataGroup({ data }: BillingDataGroupProps) {
       <CardContent className="p-4">
         <div className="space-y-6">
           {/* Wypełnione pola */}
-          <div className="grid grid-cols-2 gap-4">
-            {Object.keys(FIELD_MAPPING).map((key) => (
-              data[key as keyof BillingData]?.content ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Object.entries(FIELD_MAPPING).map(([key, label]) => {
+              const fieldKey = key as keyof BillingData;
+              const fieldData = data[fieldKey];
+              return fieldData?.content ? (
                 <div key={key} className="space-y-1">
-                  <dt className="text-sm text-gray-500">{FIELD_MAPPING[key as keyof BillingData]}</dt>
+                  <dt className="text-sm text-gray-500">{label}</dt>
                   <dd className="text-sm font-medium">{formattedData[key]}</dd>
-                  <ConfidenceDot confidence={data[key as keyof BillingData]?.confidence || 1} />
+                  <ConfidenceDot confidence={fieldData.confidence || 1} />
                 </div>
-              ) : null
-            ))}
+              ) : null;
+            })}
           </div>
 
           {/* Brakujące pola */}
@@ -108,19 +104,16 @@ export function BillingDataGroup({ data }: BillingDataGroupProps) {
               <div className="border-t border-gray-200 my-4" />
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-500">Brakujące dane:</h4>
-                <div className={`grid ${gridClass} gap-4`}>
-                  {columns.map((column, columnIndex) => (
+                <div className={`grid ${missingGridClass} gap-4`}>
+                  {missingColumns.map((column, columnIndex) => (
                     <div key={columnIndex} className="space-y-2">
                       {column.map(({ key, label }) => {
                         const fieldKey = key as keyof BillingData;
                         const fieldData = data[fieldKey];
                         return (
-                          <div key={key} className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-gray-400">{label}</span>
-                              <span className="text-sm text-gray-300">—</span>
-                            </div>
-                            {fieldData && <ConfidenceDot confidence={fieldData.confidence || 0} />}
+                          <div key={key} className="flex items-center gap-2">
+                            <span className="text-sm text-gray-400">{label}</span>
+                            <span className="text-sm text-gray-300">—</span>
                           </div>
                         );
                       })}

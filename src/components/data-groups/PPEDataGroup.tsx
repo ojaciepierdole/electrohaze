@@ -8,23 +8,36 @@ import type { PPEData } from '@/types/fields';
 import { formatAddress, formatPostalCode, formatCity, formatStreet, formatPersonName, calculateGroupConfidence, getMissingFields, calculateOptimalColumns } from '@/utils/text-formatting';
 import { ConfidenceDot } from '@/components/ui/confidence-dot';
 
-const FIELD_MAPPING: Record<keyof PPEData, string> = {
-  ppeNum: 'Numer PPE',
-  MeterNumber: 'Numer licznika',
-  TariffGroup: 'Grupa taryfowa',
-  ContractNumber: 'Numer umowy',
-  ContractType: 'Typ umowy',
-  OSD_name: 'Nazwa OSD',
-  OSD_region: 'Region OSD',
-  ProductName: 'Nazwa produktu',
-  dpFirstName: 'Imię',
-  dpLastName: 'Nazwisko',
-  dpStreet: 'Ulica',
-  dpBuilding: 'Numer budynku',
-  dpUnit: 'Numer lokalu',
-  dpPostalCode: 'Kod pocztowy',
-  dpCity: 'Miejscowość'
-};
+const FIELD_GROUPS = {
+  identyfikacja: {
+    ppeNum: 'Numer PPE',
+    MeterNumber: 'Numer licznika',
+  },
+  umowa: {
+    TariffGroup: 'Grupa taryfowa',
+    ContractNumber: 'Numer umowy',
+    ContractType: 'Typ umowy',
+    ProductName: 'Nazwa produktu',
+  },
+  osd: {
+    OSD_name: 'Nazwa OSD',
+    OSD_region: 'Region OSD',
+  },
+  adres: {
+    dpFirstName: 'Imię',
+    dpLastName: 'Nazwisko',
+    dpStreet: 'Ulica',
+    dpBuilding: 'Numer budynku',
+    dpUnit: 'Numer lokalu',
+    dpPostalCode: 'Kod pocztowy',
+    dpCity: 'Miejscowość',
+  }
+} as const;
+
+const FIELD_MAPPING: Record<keyof PPEData, string> = Object.values(FIELD_GROUPS).reduce(
+  (acc, group) => ({ ...acc, ...group }),
+  {}
+);
 
 interface PPEDataGroupProps {
   data: Partial<PPEData>;
@@ -41,9 +54,19 @@ export function PPEDataGroup({ data }: PPEDataGroupProps) {
   const missingFields = getMissingFields(data, FIELD_MAPPING);
 
   // Oblicz optymalny układ kolumn dla brakujących pól
-  const { columns, gridClass } = React.useMemo(
+  const { columns: missingColumns, gridClass: missingGridClass } = React.useMemo(
     () => calculateOptimalColumns(missingFields),
     [missingFields]
+  );
+
+  // Oblicz optymalny układ kolumn dla wypełnionych pól
+  const filledFields = Object.entries(FIELD_MAPPING)
+    .filter(([key]) => data[key as keyof PPEData]?.content)
+    .map(([key, label]) => ({ key, label }));
+
+  const { columns: filledColumns, gridClass: filledGridClass } = React.useMemo(
+    () => calculateOptimalColumns(filledFields),
+    [filledFields]
   );
 
   // Formatuj wartości
@@ -110,16 +133,18 @@ export function PPEDataGroup({ data }: PPEDataGroupProps) {
       <CardContent className="p-4">
         <div className="space-y-6">
           {/* Wypełnione pola */}
-          <div className="grid grid-cols-2 gap-4">
-            {Object.keys(FIELD_MAPPING).map((key) => (
-              data[key as keyof PPEData]?.content ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Object.entries(FIELD_MAPPING).map(([key, label]) => {
+              const fieldKey = key as keyof PPEData;
+              const fieldData = data[fieldKey];
+              return fieldData?.content ? (
                 <div key={key} className="space-y-1">
-                  <dt className="text-sm text-gray-500">{FIELD_MAPPING[key as keyof PPEData]}</dt>
+                  <dt className="text-sm text-gray-500">{label}</dt>
                   <dd className="text-sm font-medium">{formattedData[key]}</dd>
-                  <ConfidenceDot confidence={data[key as keyof PPEData]?.confidence || 1} />
+                  <ConfidenceDot confidence={fieldData.confidence || 1} />
                 </div>
-              ) : null
-            ))}
+              ) : null;
+            })}
           </div>
 
           {/* Brakujące pola */}
@@ -128,19 +153,16 @@ export function PPEDataGroup({ data }: PPEDataGroupProps) {
               <div className="border-t border-gray-200 my-4" />
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-500">Brakujące dane:</h4>
-                <div className={`grid ${gridClass} gap-4`}>
-                  {columns.map((column, columnIndex) => (
+                <div className={`grid ${missingGridClass} gap-4`}>
+                  {missingColumns.map((column, columnIndex) => (
                     <div key={columnIndex} className="space-y-2">
                       {column.map(({ key, label }) => {
                         const fieldKey = key as keyof PPEData;
                         const fieldData = data[fieldKey];
                         return (
-                          <div key={key} className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-gray-400">{label}</span>
-                              <span className="text-sm text-gray-300">—</span>
-                            </div>
-                            {fieldData && <ConfidenceDot confidence={fieldData.confidence || 0} />}
+                          <div key={key} className="flex items-center gap-2">
+                            <span className="text-sm text-gray-400">{label}</span>
+                            <span className="text-sm text-gray-300">—</span>
                           </div>
                         );
                       })}

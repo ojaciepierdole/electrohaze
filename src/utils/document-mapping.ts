@@ -167,82 +167,108 @@ function parseNumber(value: string | undefined): number | undefined {
 }
 
 export function mapDocumentAnalysisResult(fields: Record<string, DocumentField>): DocumentAnalysisResult {
+  // Inicjalizujemy wszystkie możliwe pola jako puste
+  const emptyField: FieldWithConfidence = { content: null, confidence: 0 };
+  
   const mappedResult: DocumentAnalysisResult = {
+    customerData: {
+      FirstName: emptyField,
+      LastName: emptyField,
+      BusinessName: emptyField,
+      taxID: emptyField,
+      Street: emptyField,
+      Building: emptyField,
+      Unit: emptyField,
+      PostalCode: emptyField,
+      City: emptyField,
+      Municipality: emptyField,
+      District: emptyField,
+      Province: emptyField
+    },
     ppeData: {
-      ppeNumber: getFieldValue(fields.ppeNum),
-      meterNumber: getFieldValue(fields.MeterNumber),
-      tariffGroup: getFieldValue(fields.Tariff),
-      contractNumber: getFieldValue(fields.ContractNumber),
-      contractType: getFieldValue(fields.ContractType),
-      street: getFieldValue(fields.dpStreet),
-      building: getFieldValue(fields.dpBuilding),
-      unit: getFieldValue(fields.dpUnit),
-      city: getFieldValue(fields.dpCity)?.replace(',', ''),
-      osdName: getFieldValue(fields.OSD_name),
-      osdRegion: getFieldValue(fields.OSD_region)
+      ppeNum: emptyField,
+      MeterNumber: emptyField,
+      TariffGroup: emptyField,
+      ContractNumber: emptyField,
+      ContractType: emptyField,
+      OSD_name: emptyField,
+      OSD_region: emptyField,
+      ProductName: emptyField,
+      dpFirstName: emptyField,
+      dpLastName: emptyField,
+      dpStreet: emptyField,
+      dpBuilding: emptyField,
+      dpUnit: emptyField,
+      dpPostalCode: emptyField,
+      dpCity: emptyField
     },
     correspondenceData: {
-      firstName: getFieldValue(fields.paFirstName),
-      lastName: getFieldValue(fields.paLastName),
-      businessName: getFieldValue(fields.paBusinessName),
-      title: getFieldValue(fields.paTitle),
-      street: getFieldValue(fields.paStreet),
-      building: getFieldValue(fields.paBuilding),
-      unit: getFieldValue(fields.paUnit),
-      postalCode: getFieldValue(fields.paPostalCode),
-      city: getFieldValue(fields.paCity)
+      paFirstName: emptyField,
+      paLastName: emptyField,
+      paBusinessName: emptyField,
+      paTitle: emptyField,
+      paStreet: emptyField,
+      paBuilding: emptyField,
+      paUnit: emptyField,
+      paPostalCode: emptyField,
+      paCity: emptyField
     },
     supplierData: {
-      supplierName: getFieldValue(fields.supplierName),
-      taxId: getFieldValue(fields.taxID),
-      street: getFieldValue(fields.supplierStreet),
-      building: getFieldValue(fields.supplierBuilding),
-      unit: getFieldValue(fields.supplierUnit),
-      postalCode: getFieldValue(fields.supplierPostalCode),
-      city: getFieldValue(fields.supplierCity),
-      bankAccount: getFieldValue(fields.supplierBankAccount),
-      bankName: getFieldValue(fields.supplierBankName),
-      email: getFieldValue(fields.supplierEmail),
-      phone: getFieldValue(fields.supplierPhone),
-      website: getFieldValue(fields.supplierWebsite),
-      osdName: getFieldValue(fields.OSD_name),
-      osdRegion: getFieldValue(fields.OSD_region)
+      supplierName: emptyField,
+      supplierTaxID: emptyField,
+      supplierStreet: emptyField,
+      supplierBuilding: emptyField,
+      supplierUnit: emptyField,
+      supplierPostalCode: emptyField,
+      supplierCity: emptyField,
+      supplierBankAccount: emptyField,
+      supplierBankName: emptyField,
+      supplierEmail: emptyField,
+      supplierPhone: emptyField,
+      supplierWebsite: emptyField,
+      OSD_name: emptyField
     },
     billingData: {
-      billingStartDate: DateHelpers.toISOString(getFieldValue(fields.BillingStartDate)),
-      billingEndDate: DateHelpers.toISOString(getFieldValue(fields.BillingEndDate)),
-      billedUsage: parseNumber(getFieldValue(fields.BilledUsage)),
-      usage12m: parseNumber(getFieldValue(fields['12mUsage']))
-    },
-    customerData: {
-      firstName: getFieldValue(fields.FirstName),
-      lastName: getFieldValue(fields.LastName),
-      businessName: getFieldValue(fields.BusinessName),
-      taxId: getFieldValue(fields.taxID)
+      billingStartDate: emptyField,
+      billingEndDate: emptyField,
+      billedUsage: emptyField,
+      usage12m: emptyField
     }
   };
 
-  // Usuń puste obiekty
-  Object.keys(mappedResult).forEach(key => {
-    const typedKey = key as keyof DocumentAnalysisResult;
-    const group = mappedResult[typedKey];
-    if (group && typeof group === 'object') {
-      const hasValues = Object.values(group).some(value => value !== undefined);
-      if (!hasValues) {
-        delete mappedResult[typedKey];
+  // Uzupełniamy wartości z pól rozpoznanych przez Azure
+  Object.entries(fields).forEach(([key, field]) => {
+    const value = getFieldValue(field);
+    if (value !== undefined) {
+      // Mapujemy wartość na odpowiednie pole w strukturze
+      if (key in mappedResult.customerData) {
+        mappedResult.customerData[key as keyof CustomerData] = {
+          content: value,
+          confidence: field.confidence || 0
+        };
+      } else if (key in mappedResult.ppeData) {
+        mappedResult.ppeData[key as keyof PPEData] = {
+          content: value,
+          confidence: field.confidence || 0
+        };
+      } else if (key in mappedResult.correspondenceData) {
+        mappedResult.correspondenceData[key as keyof CorrespondenceData] = {
+          content: value,
+          confidence: field.confidence || 0
+        };
+      } else if (key in mappedResult.supplierData) {
+        mappedResult.supplierData[key as keyof SupplierData] = {
+          content: value,
+          confidence: field.confidence || 0
+        };
+      } else if (key in mappedResult.billingData) {
+        mappedResult.billingData[key as keyof BillingData] = {
+          content: value,
+          confidence: field.confidence || 0
+        };
       }
     }
   });
-
-  // Walidacja wyniku
-  const validationResult = safeValidateMappedResult(mappedResult);
-  
-  if (!validationResult.success) {
-    logger.warn('Nieprawidłowy format danych po mapowaniu', {
-      error: validationResult.error,
-      data: mappedResult
-    });
-  }
 
   return mappedResult;
 }

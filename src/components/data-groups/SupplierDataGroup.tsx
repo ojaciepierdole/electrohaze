@@ -8,41 +8,55 @@ import type { SupplierData } from '@/types/fields';
 import { formatAddress, formatPostalCode, formatCity, formatStreet, formatSupplierName, calculateGroupConfidence, getMissingFields, calculateOptimalColumns } from '@/utils/text-formatting';
 import { ConfidenceDot } from '@/components/ui/confidence-dot';
 
-const FIELD_MAPPING: Record<keyof SupplierData, string> = {
-  supplierName: 'Nazwa',
-  supplierTaxID: 'NIP',
-  supplierStreet: 'Ulica',
-  supplierBuilding: 'Numer budynku',
-  supplierUnit: 'Numer lokalu',
-  supplierPostalCode: 'Kod pocztowy',
-  supplierCity: 'Miejscowość',
-  supplierBankAccount: 'Numer konta',
-  supplierBankName: 'Nazwa banku',
-  supplierEmail: 'Email',
-  supplierPhone: 'Telefon',
-  supplierWebsite: 'Strona WWW',
-  OSD_name: 'Nazwa OSD'
-};
+// Pola pogrupowane tematycznie w logicznej kolejności
+const FIELD_GROUPS = {
+  podstawowe: {
+    supplierName: 'Nazwa',
+    supplierTaxID: 'NIP',
+  },
+  adres: {
+    supplierStreet: 'Ulica',
+    supplierBuilding: 'Numer budynku',
+    supplierUnit: 'Numer lokalu',
+    supplierPostalCode: 'Kod pocztowy',
+    supplierCity: 'Miejscowość',
+  },
+  kontakt: {
+    supplierEmail: 'Email',
+    supplierPhone: 'Telefon',
+    supplierWebsite: 'Strona WWW',
+  },
+  bankowe: {
+    supplierBankAccount: 'Numer konta',
+    supplierBankName: 'Nazwa banku',
+  },
+  osd: {
+    OSD_name: 'Nazwa OSD',
+  }
+} as const;
 
-// Pola, które są mapowane z Azure Document Intelligence
-const AZURE_MAPPED_FIELDS = ['supplierName', 'OSD_name'] as const;
+// Połącz wszystkie pola w jeden obiekt zachowując kolejność grup
+const FIELD_MAPPING: Record<keyof SupplierData, string> = Object.values(FIELD_GROUPS).reduce(
+  (acc, group) => ({ ...acc, ...group }),
+  {}
+);
 
 interface SupplierDataGroupProps {
   data: Partial<SupplierData>;
 }
 
 export function SupplierDataGroup({ data }: SupplierDataGroupProps) {
-  // Oblicz statystyki grupy tylko dla pól z Azure
+  // Oblicz statystyki grupy
   const confidence = calculateGroupConfidence(data, 'supplier');
   const isEmpty = confidence.filledFields === 0;
   const completionPercentage = Math.round((confidence.filledFields / confidence.totalFields) * 100);
   const confidencePercentage = Math.round(confidence.averageConfidence * 100);
 
-  // Oblicz brakujące pola dla wszystkich pól
+  // Oblicz brakujące pola
   const missingFields = getMissingFields(data, FIELD_MAPPING);
 
   // Oblicz optymalny układ kolumn dla brakujących pól
-  const { columns, gridClass } = React.useMemo(
+  const { columns: missingColumns, gridClass: missingGridClass } = React.useMemo(
     () => calculateOptimalColumns(missingFields),
     [missingFields]
   );
@@ -55,11 +69,9 @@ export function SupplierDataGroup({ data }: SupplierDataGroupProps) {
       if (key === 'supplierName') {
         formatted[key] = formatSupplierName((value as any)?.content || null);
       } else if (key === 'supplierStreet') {
-        formatted[key] = (value as any)?.content?.split('/')[0] || null;
-      } else if (key === 'supplierBuilding') {
-        formatted[key] = (value as any)?.content?.split('/')[1] || (data.supplierBuilding as any)?.content || null;
-      } else if (key === 'supplierUnit') {
-        formatted[key] = (value as any)?.content?.split('/')[2] || (data.supplierUnit as any)?.content || null;
+        formatted[key] = formatStreet((value as any)?.content || null);
+      } else if (key === 'supplierBuilding' || key === 'supplierUnit') {
+        formatted[key] = formatAddress((value as any)?.content || null);
       } else if (key === 'supplierPostalCode') {
         formatted[key] = formatPostalCode((value as any)?.content || null);
       } else if (key === 'supplierCity') {
@@ -113,31 +125,18 @@ export function SupplierDataGroup({ data }: SupplierDataGroupProps) {
       <CardContent className="p-4">
         <div className="space-y-6">
           {/* Wypełnione pola */}
-          <div className="grid grid-cols-2 gap-4">
-            {/* Najpierw wyświetl pola z Azure */}
-            {AZURE_MAPPED_FIELDS.map((key) => (
-              data[key]?.content ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Object.entries(FIELD_MAPPING).map(([key, label]) => {
+              const fieldKey = key as keyof SupplierData;
+              const fieldData = data[fieldKey];
+              return fieldData?.content ? (
                 <div key={key} className="space-y-1">
-                  <dt className="text-sm text-gray-500">{FIELD_MAPPING[key]}</dt>
+                  <dt className="text-sm text-gray-500">{label}</dt>
                   <dd className="text-sm font-medium">{formattedData[key]}</dd>
-                  <ConfidenceDot confidence={data[key]?.confidence || 1} />
+                  <ConfidenceDot confidence={fieldData.confidence || 1} />
                 </div>
-              ) : null
-            ))}
-            
-            {/* Następnie wyświetl pozostałe pola */}
-            {(Object.keys(FIELD_MAPPING) as Array<keyof SupplierData>)
-              .filter(key => !AZURE_MAPPED_FIELDS.includes(key as any))
-              .map((key) => (
-                data[key]?.content ? (
-                  <div key={key} className="space-y-1">
-                    <dt className="text-sm text-gray-500">{FIELD_MAPPING[key]}</dt>
-                    <dd className="text-sm font-medium text-gray-600">{formattedData[key]}</dd>
-                    <ConfidenceDot confidence={data[key]?.confidence || 1} />
-                  </div>
-                ) : null
-              ))
-            }
+              ) : null;
+            })}
           </div>
 
           {/* Brakujące pola */}
@@ -146,19 +145,16 @@ export function SupplierDataGroup({ data }: SupplierDataGroupProps) {
               <div className="border-t border-gray-200 my-4" />
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-500">Brakujące dane:</h4>
-                <div className={`grid ${gridClass} gap-4`}>
-                  {columns.map((column, columnIndex) => (
+                <div className={`grid ${missingGridClass} gap-4`}>
+                  {missingColumns.map((column, columnIndex) => (
                     <div key={columnIndex} className="space-y-2">
                       {column.map(({ key, label }) => {
                         const fieldKey = key as keyof SupplierData;
                         const fieldData = data[fieldKey];
                         return (
-                          <div key={key} className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-gray-400">{label}</span>
-                              <span className="text-sm text-gray-300">—</span>
-                            </div>
-                            {fieldData && <ConfidenceDot confidence={fieldData.confidence || 0} />}
+                          <div key={key} className="flex items-center gap-2">
+                            <span className="text-sm text-gray-400">{label}</span>
+                            <span className="text-sm text-gray-300">—</span>
                           </div>
                         );
                       })}

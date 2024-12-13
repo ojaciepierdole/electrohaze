@@ -8,20 +8,31 @@ import type { CustomerData } from '@/types/fields';
 import { formatAddress, formatPostalCode, formatCity, formatStreet, formatPersonName, calculateGroupConfidence, getMissingFields, calculateOptimalColumns } from '@/utils/text-formatting';
 import { ConfidenceDot } from '@/components/ui/confidence-dot';
 
-const FIELD_MAPPING: Record<keyof CustomerData, string> = {
-  FirstName: 'Imię',
-  LastName: 'Nazwisko',
-  BusinessName: 'Nazwa firmy',
-  taxID: 'NIP',
-  Street: 'Ulica',
-  Building: 'Numer budynku',
-  Unit: 'Numer lokalu',
-  PostalCode: 'Kod pocztowy',
-  City: 'Miejscowość',
-  Municipality: 'Gmina',
-  District: 'Powiat',
-  Province: 'Województwo'
-};
+const FIELD_GROUPS = {
+  podstawowe: {
+    FirstName: 'Imię',
+    LastName: 'Nazwisko',
+    BusinessName: 'Nazwa firmy',
+    taxID: 'NIP',
+  },
+  adres: {
+    Street: 'Ulica',
+    Building: 'Numer budynku',
+    Unit: 'Numer lokalu',
+    PostalCode: 'Kod pocztowy',
+    City: 'Miejscowość',
+  },
+  administracyjne: {
+    Municipality: 'Gmina',
+    District: 'Powiat',
+    Province: 'Województwo',
+  }
+} as const;
+
+const FIELD_MAPPING: Record<keyof CustomerData, string> = Object.values(FIELD_GROUPS).reduce(
+  (acc, group) => ({ ...acc, ...group }),
+  {}
+);
 
 interface CustomerDataGroupProps {
   data: Partial<CustomerData>;
@@ -38,9 +49,19 @@ export function CustomerDataGroup({ data }: CustomerDataGroupProps) {
   const missingFields = getMissingFields(data, FIELD_MAPPING);
 
   // Oblicz optymalny układ kolumn dla brakujących pól
-  const { columns, gridClass } = React.useMemo(
+  const { columns: missingColumns, gridClass: missingGridClass } = React.useMemo(
     () => calculateOptimalColumns(missingFields),
     [missingFields]
+  );
+
+  // Oblicz optymalny układ kolumn dla wypełnionych pól
+  const filledFields = Object.entries(FIELD_MAPPING)
+    .filter(([key]) => data[key as keyof CustomerData]?.content)
+    .map(([key, label]) => ({ key, label }));
+
+  const { columns: filledColumns, gridClass: filledGridClass } = React.useMemo(
+    () => calculateOptimalColumns(filledFields),
+    [filledFields]
   );
 
   // Formatuj wartości
@@ -105,16 +126,18 @@ export function CustomerDataGroup({ data }: CustomerDataGroupProps) {
       <CardContent className="p-4">
         <div className="space-y-6">
           {/* Wypełnione pola */}
-          <div className="grid grid-cols-2 gap-4">
-            {Object.keys(FIELD_MAPPING).map((key) => (
-              data[key as keyof CustomerData]?.content ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Object.entries(FIELD_MAPPING).map(([key, label]) => {
+              const fieldKey = key as keyof CustomerData;
+              const fieldData = data[fieldKey];
+              return fieldData?.content ? (
                 <div key={key} className="space-y-1">
-                  <dt className="text-sm text-gray-500">{FIELD_MAPPING[key as keyof CustomerData]}</dt>
+                  <dt className="text-sm text-gray-500">{label}</dt>
                   <dd className="text-sm font-medium">{formattedData[key]}</dd>
-                  <ConfidenceDot confidence={data[key as keyof CustomerData]?.confidence || 1} />
+                  <ConfidenceDot confidence={fieldData.confidence || 1} />
                 </div>
-              ) : null
-            ))}
+              ) : null;
+            })}
           </div>
 
           {/* Brakujące pola */}
@@ -123,19 +146,16 @@ export function CustomerDataGroup({ data }: CustomerDataGroupProps) {
               <div className="border-t border-gray-200 my-4" />
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-500">Brakujące dane:</h4>
-                <div className={`grid ${gridClass} gap-4`}>
-                  {columns.map((column, columnIndex) => (
+                <div className={`grid ${missingGridClass} gap-4`}>
+                  {missingColumns.map((column, columnIndex) => (
                     <div key={columnIndex} className="space-y-2">
                       {column.map(({ key, label }) => {
                         const fieldKey = key as keyof CustomerData;
                         const fieldData = data[fieldKey];
                         return (
-                          <div key={key} className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-gray-400">{label}</span>
-                              <span className="text-sm text-gray-300">—</span>
-                            </div>
-                            {fieldData && <ConfidenceDot confidence={fieldData.confidence || 0} />}
+                          <div key={key} className="flex items-center gap-2">
+                            <span className="text-sm text-gray-400">{label}</span>
+                            <span className="text-sm text-gray-300">—</span>
                           </div>
                         );
                       })}
