@@ -116,7 +116,7 @@ export function CustomerDataGroup({ data }: CustomerDataGroupProps) {
               <div className="border-t border-gray-200 my-4" />
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-500">Brakujące dane:</h4>
-                <div className={`grid grid-flow-col auto-cols-fr gap-x-12 gap-y-2 ${gridClass}`}>
+                <div className={`grid ${gridClass} gap-4`}>
                   {columns.map((column, columnIndex) => (
                     <div key={columnIndex} className="space-y-2">
                       {column.map(({ key, label }) => (

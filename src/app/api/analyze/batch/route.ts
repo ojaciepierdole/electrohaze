@@ -5,6 +5,8 @@ import type { DocumentFields } from '@/types/azure';
 import { determineFieldGroup } from '@/utils/fields';
 import { cacheManager } from '@/lib/cache-manager';
 import { decompressData } from '@/utils/compression';
+import { sendProgress } from '../progress/route';
+import { headers } from 'next/headers';
 
 // Azure Document Intelligence pozwala na maksymalnie 15 równoległych żądań
 const MAX_CONCURRENT_REQUESTS = 15;
@@ -125,10 +127,12 @@ async function analyzeDocument(
 async function processDocumentsWithModels(
   client: DocumentAnalysisClient,
   files: File[],
-  modelIds: string[]
+  modelIds: string[],
+  sessionId: string
 ): Promise<ProcessingResult[]> {
   console.log(`\n=== Rozpoczynam wsadową analizę ${files.length} plików przez ${modelIds.length} modeli ===`);
   console.log(`Maksymalna liczba równoległych żądań: ${MAX_CONCURRENT_REQUESTS}`);
+  console.log(`Session ID: ${sessionId}`);
   
   const results: ProcessingResult[] = [];
   const startTime = Date.now();
@@ -141,6 +145,8 @@ async function processDocumentsWithModels(
       index: fileIndex * modelIds.length + modelIndex
     }))
   );
+
+  const totalTasks = tasks.length;
   
   // Przetwarzaj zadania w grupach po MAX_CONCURRENT_REQUESTS
   for (let i = 0; i < tasks.length; i += MAX_CONCURRENT_REQUESTS) {
@@ -148,9 +154,39 @@ async function processDocumentsWithModels(
     const batch = tasks.slice(i, i + MAX_CONCURRENT_REQUESTS);
     console.log(`\nPrzetwarzam grupę ${Math.floor(i/MAX_CONCURRENT_REQUESTS) + 1} (${batch.length} zadań)`);
     
-    const batchPromises = batch.map(({ file, modelId, index }) => 
-      analyzeDocument(client, file, modelId, index)
-    );
+    const batchPromises = batch.map(({ file, modelId, index }) => {
+      // Wyślij informację o rozpoczęciu przetwarzania pliku
+      const startProgress = {
+        currentFileIndex: Math.floor(index / modelIds.length),
+        currentFileName: file.name,
+        currentModelIndex: index % modelIds.length,
+        currentModelId: modelId,
+        fileProgress: 0,
+        totalProgress: (index / totalTasks) * 100,
+        totalFiles: files.length,
+        results
+      };
+      console.log('Sending start progress:', startProgress);
+      sendProgress(sessionId, startProgress);
+
+      return analyzeDocument(client, file, modelId, index).then(result => {
+        // Wyślij informację o zakończeniu przetwarzania pliku
+        results.push(result);
+        const endProgress = {
+          currentFileIndex: Math.floor(index / modelIds.length),
+          currentFileName: file.name,
+          currentModelIndex: index % modelIds.length,
+          currentModelId: modelId,
+          fileProgress: 100,
+          totalProgress: ((index + 1) / totalTasks) * 100,
+          totalFiles: files.length,
+          results
+        };
+        console.log('Sending end progress:', endProgress);
+        sendProgress(sessionId, endProgress);
+        return result;
+      });
+    });
     
     const batchResults = await Promise.all(batchPromises);
     results.push(...batchResults);
@@ -171,10 +207,18 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const files = formData.getAll('files') as File[];
     const modelIds = formData.getAll('modelId') as string[];
+    const sessionId = formData.get('sessionId') as string;
 
     if (!files.length || !modelIds.length) {
       return NextResponse.json(
         { error: 'Brak plików lub ID modeli' },
+        { status: 400 }
+      );
+    }
+
+    if (!sessionId) {
+      return NextResponse.json(
+        { error: 'Brak ID sesji' },
         { status: 400 }
       );
     }
@@ -184,8 +228,8 @@ export async function POST(request: Request) {
       { key: process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY! }
     );
 
-    const results = await processDocumentsWithModels(client, files, modelIds);
-    return NextResponse.json({ results });
+    const results = await processDocumentsWithModels(client, files, modelIds, sessionId);
+    return NextResponse.json(results);
 
   } catch (error) {
     console.error('Error processing batch:', error);

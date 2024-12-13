@@ -1,6 +1,7 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { insertDocumentWithData, DocumentInsertData } from '@/lib/supabase/document-helpers';
 import { useToast } from '@/hooks/useToast';
+import { useProcessingStore } from '@/stores/processing-store';
 import type { ProcessingResult } from '@/types/processing';
 
 interface ProcessingState {
@@ -21,7 +22,53 @@ export function useDocumentProcessing() {
   });
   
   const abortControllerRef = useRef<AbortController | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const sessionIdRef = useRef<string>(crypto.randomUUID());
   const { addToast } = useToast();
+  const setProcessingStatus = useProcessingStore(state => state.setProcessingStatus);
+
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
+  }, []);
+
+  const setupProgressTracking = () => {
+    if (eventSourceRef.current) {
+      console.log('Closing existing EventSource');
+      eventSourceRef.current.close();
+    }
+
+    const url = `/api/analyze/progress?sessionId=${sessionIdRef.current}`;
+    console.log('Setting up EventSource:', url);
+    eventSourceRef.current = new EventSource(url);
+    
+    eventSourceRef.current.onopen = () => {
+      console.log('EventSource connection opened');
+    };
+    
+    eventSourceRef.current.onmessage = (event) => {
+      console.log('Received SSE message:', event.data);
+      try {
+        const data = JSON.parse(event.data);
+        setProcessingStatus(data);
+      } catch (error) {
+        console.error('Błąd parsowania danych SSE:', error);
+      }
+    };
+
+    eventSourceRef.current.onerror = (error) => {
+      console.error('EventSource error:', error);
+      if (eventSourceRef.current) {
+        console.log('Closing EventSource due to error');
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
+  };
 
   const processDocuments = async (files: File[], modelIds: string[]): Promise<ProcessingResult[]> => {
     try {
@@ -33,6 +80,21 @@ export function useDocumentProcessing() {
         isPaused: false
       }));
 
+      setProcessingStatus({
+        isProcessing: true,
+        currentFileIndex: 0,
+        currentFileName: files[0]?.name ?? null,
+        currentModelIndex: 0,
+        currentModelId: modelIds[0] ?? null,
+        fileProgress: 0,
+        totalProgress: 0,
+        totalFiles: files.length,
+        results: [],
+        error: null
+      });
+
+      setupProgressTracking();
+
       abortControllerRef.current = new AbortController();
       const formData = new FormData();
       files.forEach(file => {
@@ -41,6 +103,7 @@ export function useDocumentProcessing() {
       modelIds.forEach(modelId => {
         formData.append('modelId', modelId);
       });
+      formData.append('sessionId', sessionIdRef.current);
 
       const response = await fetch('/api/analyze/batch', {
         method: 'POST',
@@ -54,7 +117,12 @@ export function useDocumentProcessing() {
 
       const results = await response.json();
       setState(prev => ({ ...prev, progress: 100 }));
-      
+
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+
       return results;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -64,22 +132,37 @@ export function useDocumentProcessing() {
           isProcessing: false,
           isPaused: false
         }));
+        setProcessingStatus({
+          isProcessing: false,
+          error: 'Przetwarzanie zostało anulowane'
+        });
         addToast(
           'info',
           'Anulowano',
           'Przetwarzanie dokumentów zostało anulowane'
         );
       } else {
+        const errorMessage = error instanceof Error ? error.message : 'Nieznany błąd podczas przetwarzania';
         setState(prev => ({
           ...prev,
-          error: error instanceof Error ? error.message : 'Nieznany błąd podczas przetwarzania',
+          error: errorMessage,
         }));
+        setProcessingStatus({
+          isProcessing: false,
+          error: errorMessage
+        });
         addToast(
           'error',
           'Błąd',
-          error instanceof Error ? error.message : 'Wystąpił nieznany błąd podczas przetwarzania'
+          errorMessage
         );
       }
+
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+
       throw error;
     } finally {
       setState(prev => ({ ...prev, isProcessing: false }));

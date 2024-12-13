@@ -34,22 +34,13 @@ const Row = React.memo(({ index, style, data }: RowProps) => {
 Row.displayName = 'Row';
 
 export function VirtualizedResultsList({ results, CardComponent, onExport }: VirtualizedResultsListProps) {
-  const [containerRef, setContainerRef] = React.useState<HTMLDivElement | null>(null);
-  const containerWidth = containerRef?.offsetWidth ?? 0;
-
   return (
-    <div ref={setContainerRef} className="h-[600px] w-full">
-      {containerWidth > 0 && (
-        <List
-          height={600}
-          itemCount={results.length}
-          itemSize={300}
-          width={containerWidth}
-          itemData={{ results, CardComponent, onExport }}
-        >
-          {Row}
-        </List>
-      )}
+    <div className="space-y-6">
+      {results.map((result, index) => (
+        <div key={`${result.fileName}-${index}`}>
+          <CardComponent result={result} onExport={onExport} />
+        </div>
+      ))}
     </div>
   );
 } 

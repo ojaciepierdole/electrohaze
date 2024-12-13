@@ -131,21 +131,17 @@ export function ProcessingClient() {
           />
         ) : (
           <div className="p-4 space-y-4">
-            <div className="flex items-center justify-between">
+            <button
+              onClick={() => setIsParametersExpanded(!isParametersExpanded)}
+              className="w-full flex items-center justify-between text-left"
+            >
               <h2 className="text-lg font-semibold">Parametry analizy</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsParametersExpanded(!isParametersExpanded)}
-                className="p-2"
-              >
-                {isParametersExpanded ? (
-                  <ChevronUp className="h-4 w-4" />
-                ) : (
-                  <ChevronDown className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
+              {isParametersExpanded ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </button>
 
             {isParametersExpanded && (
               <>
