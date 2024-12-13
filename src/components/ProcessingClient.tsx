@@ -23,10 +23,34 @@ export function ProcessingClient() {
   const { data: models = [], isLoading: isLoadingModels } = useDocumentIntelligenceModels();
   const processingStatus = useProcessingStore();
   const { addToast } = useToast();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleFilesSelected = (files: FileList | null) => {
     if (!files) return;
-    setSelectedFiles(Array.from(files));
+
+    // Konwertuj FileList na Array i sprawdź duplikaty
+    const newFiles = Array.from(files);
+    const existingFileNames = new Set(selectedFiles.map(f => f.name));
+    
+    // Filtruj duplikaty i dodaj tylko nowe pliki
+    const uniqueNewFiles = newFiles.filter(file => !existingFileNames.has(file.name));
+    
+    if (uniqueNewFiles.length === 0) {
+      addToast(
+        'warning',
+        'Uwaga',
+        'Wybrane pliki zostały już dodane'
+      );
+      return;
+    }
+
+    // Dodaj nowe pliki do istniejącej listy
+    setSelectedFiles(prev => [...prev, ...uniqueNewFiles]);
+
+    // Wyczyść wartość inputa, aby można było wybrać ten sam plik ponownie
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleFileRemove = (file: File) => {
@@ -35,12 +59,15 @@ export function ProcessingClient() {
 
   const handleClearFiles = () => {
     setSelectedFiles([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleProcessing = async () => {
     if (!selectedFiles.length || !selectedModels.length) {
       addToast(
-        'destructive',
+        'warning',
         'Błąd',
         'Wybierz pliki i modele do analizy'
       );
@@ -54,7 +81,7 @@ export function ProcessingClient() {
     } catch (error) {
       console.error('Błąd przetwarzania:', error);
       addToast(
-        'destructive',
+        'error',
         'Błąd',
         'Wystąpił błąd podczas przetwarzania dokumentów'
       );
@@ -65,7 +92,20 @@ export function ProcessingClient() {
     processingStatus.reset();
     setSelectedFiles([]);
     setIsParametersExpanded(true);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
+
+  // Efekt czyszczący pliki po zakończeniu przetwarzania
+  React.useEffect(() => {
+    if (!isProcessing && processingStatus.results.length > 0) {
+      setSelectedFiles([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }, [isProcessing, processingStatus.results.length]);
 
   // Oblicz średnią pewność dla wszystkich dokumentów
   const averageConfidence = processingStatus.results.length > 0
@@ -74,13 +114,6 @@ export function ProcessingClient() {
 
   // Oblicz całkowity czas przetwarzania
   const totalProcessingTime = processingStatus.results.reduce((sum, result) => sum + result.processingTime, 0);
-
-  // Efekt czyszczący pliki po zakończeniu przetwarzania
-  React.useEffect(() => {
-    if (!isProcessing && processingStatus.results.length > 0) {
-      setSelectedFiles([]);
-    }
-  }, [isProcessing, processingStatus.results.length]);
 
   return (
     <div className="container max-w-5xl mx-auto py-8 space-y-6">
@@ -141,6 +174,7 @@ export function ProcessingClient() {
                       <div className="space-y-4">
                         <div className="flex items-center justify-between gap-4">
                           <input
+                            ref={fileInputRef}
                             type="file"
                             multiple
                             accept=".pdf,.jpg,.jpeg,.png"
