@@ -83,10 +83,49 @@
   .card:hover {
     @apply shadow-lg;
   }
+
+  .scrollable-list {
+    @apply overflow-y-auto overscroll-y-contain touch-pan-y;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollable-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .bounce-scroll {
+    scroll-behavior: smooth;
+    overscroll-behavior-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .processing-progress {
+    @apply transition-all duration-300 ease-in-out;
+    height: var(--progress-height, 4rem);
+  }
+
+  .processing-progress.collapsed {
+    --progress-height: 3rem;
+  }
+
+  .processing-progress.expanded {
+    --progress-height: auto;
+  }
 }
 
 @layer utilities {
   .hover-shadow {
     @apply transition-shadow duration-200 hover:shadow-lg;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
 }

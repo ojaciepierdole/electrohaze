@@ -19,12 +19,20 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
+const getModelCountText = (count: number) => {
+  if (count === 0) return "Wyszukaj model";
+  if (count === 1) return "1 model wybrany";
+  if (count < 5) return `${count} modele wybrane`;
+  return `${count} modeli wybranych`;
+};
+
 export interface ModelSelectorProps {
   models: ModelDefinition[];
   selectedModels: string[];
   onSelectionChange: (models: string[]) => void;
   isLoading: boolean;
   error?: string;
+  isDisabled?: boolean;
 }
 
 export function ModelSelector({
@@ -32,7 +40,8 @@ export function ModelSelector({
   selectedModels,
   onSelectionChange,
   isLoading,
-  error
+  error,
+  isDisabled = false
 }: ModelSelectorProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -42,7 +51,6 @@ export function ModelSelector({
     } else if (selectedModels.length < 3) {
       onSelectionChange([...selectedModels, modelId]);
     }
-    // Zamykamy popover po wyborze modelu
     setOpen(false);
   };
 
@@ -93,14 +101,9 @@ export function ModelSelector({
             role="combobox"
             aria-expanded={open}
             className="w-full justify-between border-gray-900/10 hover:border-gray-900/20 hover:bg-gray-50"
+            disabled={isDisabled}
           >
-            <span>
-              {selectedModels.length === 0
-                ? "Wyszukaj model"
-                : `${selectedModels.length} ${
-                    selectedModels.length === 1 ? "model" : "modele"
-                  } wybrane`}
-            </span>
+            <span>{getModelCountText(selectedModels.length)}</span>
             <span className="text-xs text-muted-foreground ml-2">
               {selectedModels.length}/3
             </span>
@@ -110,33 +113,37 @@ export function ModelSelector({
           <Command>
             <CommandInput placeholder="Wyszukaj model..." />
             <CommandEmpty>Nie znaleziono modeli</CommandEmpty>
-            <CommandGroup className="max-h-[300px] overflow-y-auto">
-              {models.map((model) => {
-                const isSelected = selectedModels.includes(model.id);
-                return (
-                  <CommandItem
-                    key={model.id}
-                    value={model.id}
-                    onSelect={() => handleModelSelect(model.id)}
-                    className="flex items-start justify-between py-2 px-4"
-                  >
-                    <div className="flex-1 mr-2">
-                      <div className="font-medium text-sm">{model.id}</div>
-                      {model.description && (
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          {model.description}
+            <CommandGroup>
+              <div className="overflow-hidden">
+                <div className="overflow-y-auto overscroll-y-contain touch-pan-y h-[300px] scrollbar-none">
+                  {models.map((model) => {
+                    const isSelected = selectedModels.includes(model.id);
+                    return (
+                      <CommandItem
+                        key={model.id}
+                        value={model.id}
+                        onSelect={() => handleModelSelect(model.id)}
+                        className="flex items-start justify-between py-2 px-4"
+                      >
+                        <div className="flex-1 mr-2">
+                          <div className="font-medium text-sm">{model.id}</div>
+                          {model.description && (
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {model.description}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                    <div className={cn(
-                      "flex h-5 w-5 items-center justify-center rounded-full border",
-                      isSelected ? "bg-primary border-primary" : "border-gray-300"
-                    )}>
-                      {isSelected && <Check className="h-3 w-3 text-white" />}
-                    </div>
-                  </CommandItem>
-                );
-              })}
+                        <div className={cn(
+                          "flex h-5 w-5 items-center justify-center rounded-full border",
+                          isSelected ? "bg-primary border-primary" : "border-gray-300"
+                        )}>
+                          {isSelected && <Check className="h-3 w-3 text-white" />}
+                        </div>
+                      </CommandItem>
+                    );
+                  })}
+                </div>
+              </div>
             </CommandGroup>
           </Command>
         </PopoverContent>
@@ -169,6 +176,7 @@ export function ModelSelector({
                       variant="ghost"
                       size="sm"
                       onClick={() => handleModelRemove(modelId)}
+                      disabled={isDisabled}
                       className={cn(
                         "h-8 w-8 p-0 rounded-full",
                         "opacity-0 group-hover:opacity-100 transition-opacity",

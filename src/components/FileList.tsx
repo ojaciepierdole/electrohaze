@@ -4,7 +4,6 @@ import * as React from 'react';
 import { File, X } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
 interface FileListProps {
@@ -14,10 +13,118 @@ interface FileListProps {
 }
 
 export function FileList({ files, onRemove, maxHeight }: FileListProps) {
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = React.useState(false);
+
+  // Obsługa przewijania z inercją
+  React.useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    let startY = 0;
+    let startScrollTop = 0;
+    let momentumID: number | null = null;
+    let velocity = 0;
+    let lastY = 0;
+    let lastTime = 0;
+
+    function startDrag(clientY: number) {
+      if (momentumID !== null) {
+        cancelAnimationFrame(momentumID);
+        momentumID = null;
+      }
+      startY = clientY;
+      startScrollTop = container.scrollTop;
+      lastY = clientY;
+      lastTime = Date.now();
+      velocity = 0;
+      setIsDragging(true);
+    }
+
+    function drag(clientY: number) {
+      if (!isDragging) return;
+      
+      const deltaY = clientY - lastY;
+      const now = Date.now();
+      const elapsed = now - lastTime;
+      
+      velocity = deltaY / elapsed;
+      container.scrollTop = startScrollTop - (clientY - startY);
+      
+      lastY = clientY;
+      lastTime = now;
+    }
+
+    function endDrag() {
+      if (!isDragging) return;
+      setIsDragging(false);
+
+      function momentum() {
+        if (Math.abs(velocity) > 0.1) {
+          container.scrollTop -= velocity * 16; // 16ms = około jedna klatka
+          velocity *= 0.95; // Współczynnik tarcia
+          momentumID = requestAnimationFrame(momentum);
+        }
+      }
+
+      momentumID = requestAnimationFrame(momentum);
+    }
+
+    function handleTouchStart(e: TouchEvent) {
+      startDrag(e.touches[0].clientY);
+    }
+
+    function handleTouchMove(e: TouchEvent) {
+      e.preventDefault();
+      drag(e.touches[0].clientY);
+    }
+
+    function handleTouchEnd() {
+      endDrag();
+    }
+
+    function handleMouseDown(e: MouseEvent) {
+      startDrag(e.clientY);
+    }
+
+    function handleMouseMove(e: MouseEvent) {
+      if (isDragging) {
+        e.preventDefault();
+        drag(e.clientY);
+      }
+    }
+
+    function handleMouseUp() {
+      endDrag();
+    }
+
+    // Touch events
+    container.addEventListener('touchstart', handleTouchStart, { passive: false });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd);
+
+    // Mouse events
+    container.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+      container.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      if (momentumID !== null) {
+        cancelAnimationFrame(momentumID);
+      }
+    };
+  }, [isDragging]);
+
   if (!files.length) {
     return (
       <Card 
-        className="bg-gray-50 border-2 border-dashed"
+        className="bg-gray-50 border-2 border-dashed border-gray-900/10"
         style={{ maxHeight }}
       >
         <div className="flex flex-col items-center justify-center h-full p-8 text-center">
@@ -34,17 +141,20 @@ export function FileList({ files, onRemove, maxHeight }: FileListProps) {
   }
 
   return (
-    <Card className="bg-white">
+    <Card className="bg-white border-gray-900/10">
       <div className="flex flex-col h-full">
-        {files.length > 3 && (
-          <div className="px-4 py-2 border-b">
-            <p className="text-xs text-gray-500">
-              Załadowano {files.length} {files.length === 1 ? 'plik' : files.length < 5 ? 'pliki' : 'plików'}
-            </p>
-          </div>
-        )}
-        <ScrollArea 
-          className="w-full overflow-y-auto"
+        <div className="px-4 py-2 border-b border-gray-900/10">
+          <p className="text-xs text-gray-500">
+            Załadowano {files.length} {files.length === 1 ? 'plik' : files.length < 5 ? 'pliki' : 'plików'}
+          </p>
+        </div>
+        <div
+          ref={scrollContainerRef}
+          className={cn(
+            "w-full overflow-hidden",
+            "touch-pan-y overscroll-y-contain",
+            isDragging ? "cursor-grabbing" : "cursor-grab"
+          )}
           style={{ maxHeight }}
         >
           <div className="p-3 space-y-2">
@@ -95,7 +205,7 @@ export function FileList({ files, onRemove, maxHeight }: FileListProps) {
               );
             })}
           </div>
-        </ScrollArea>
+        </div>
       </div>
     </Card>
   );
