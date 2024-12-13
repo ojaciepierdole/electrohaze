@@ -1,6 +1,5 @@
 import { DocumentField } from '@azure/ai-form-recognizer';
 import { Alert } from '@/lib/alert-service';
-import { PerformanceStats } from '@/lib/performance-monitor';
 import { 
   ISODateString, 
   AddressData, 
@@ -181,3 +180,20 @@ export type AddressSet = {
 } & {
   [K in AddressField as `ppe${K}`]: string | undefined;
 };
+
+export interface PerformanceStats {
+  name: string;
+  duration: number;
+  timestamp: string;
+  count?: number;
+  totalDuration?: number;
+  averageDuration?: number;
+  minDuration?: number;
+  maxDuration?: number;
+  lastDuration?: number;
+}
+
+export interface PollOptions {
+  intervalInMs?: number;
+  abortSignal?: AbortSignal;
+}

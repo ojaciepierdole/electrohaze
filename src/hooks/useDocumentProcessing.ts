@@ -54,7 +54,26 @@ export function useDocumentProcessing() {
       console.log('Received SSE message:', event.data);
       try {
         const data = JSON.parse(event.data);
-        setProcessingStatus(data);
+        
+        if (data.totalFiles === 1) {
+          const progress = data.fileProgress || 0;
+          setProcessingStatus({
+            ...data,
+            fileProgress: progress,
+            totalProgress: progress
+          });
+          
+          setState(prev => ({
+            ...prev,
+            progress: progress
+          }));
+        } else {
+          setProcessingStatus(data);
+          setState(prev => ({
+            ...prev,
+            progress: data.totalProgress
+          }));
+        }
       } catch (error) {
         console.error('Błąd parsowania danych SSE:', error);
       }
@@ -80,7 +99,7 @@ export function useDocumentProcessing() {
         isPaused: false
       }));
 
-      setProcessingStatus({
+      const initialStatus = {
         isProcessing: true,
         currentFileIndex: 0,
         currentFileName: files[0]?.name ?? null,
@@ -91,7 +110,10 @@ export function useDocumentProcessing() {
         totalFiles: files.length,
         results: [],
         error: null
-      });
+      };
+
+      console.log('Initializing processing status:', initialStatus);
+      setProcessingStatus(initialStatus);
 
       setupProgressTracking();
 
@@ -116,9 +138,26 @@ export function useDocumentProcessing() {
       }
 
       const results = await response.json();
+      
+      const finalStatus = {
+        isProcessing: false,
+        currentFileIndex: files.length - 1,
+        currentFileName: files[files.length - 1]?.name ?? null,
+        currentModelIndex: modelIds.length - 1,
+        currentModelId: modelIds[modelIds.length - 1] ?? null,
+        fileProgress: 100,
+        totalProgress: 100,
+        totalFiles: files.length,
+        results,
+        error: null
+      };
+
+      console.log('Setting final status:', finalStatus);
+      setProcessingStatus(finalStatus);
       setState(prev => ({ ...prev, progress: 100 }));
 
       if (eventSourceRef.current) {
+        console.log('Closing EventSource after completion');
         eventSourceRef.current.close();
         eventSourceRef.current = null;
       }

@@ -273,37 +273,37 @@ export function calculateOptimalColumns(fields: ColumnField[]): ColumnLayout {
     return { columns: [], gridClass: 'grid-cols-1' };
   }
 
-  // Oblicz optymalną liczbę kolumn
+  // Oblicz optymalną liczbę kolumn na podstawie liczby pól
   let columnCount: number;
-  if (fields.length >= 6 && fields.length <= 8) {
-    columnCount = 4;
-  } else if (fields.length >= 3 && fields.length <= 4) {
+  if (fields.length <= 3) {
     columnCount = fields.length;
-  } else if (fields.length > 8) {
-    columnCount = 4;
+  } else if (fields.length <= 6) {
+    columnCount = 3;
+  } else if (fields.length <= 9) {
+    columnCount = 3;
   } else {
-    columnCount = fields.length;
+    columnCount = 4;
   }
 
-  // Oblicz liczbę elementów w każdej kolumnie
-  const baseItemsPerColumn = Math.floor(fields.length / columnCount);
+  // Oblicz minimalną liczbę elementów w kolumnie
+  const minItemsPerColumn = Math.floor(fields.length / columnCount);
   const extraItems = fields.length % columnCount;
 
-  // Podziel pola na kolumny
-  const columns: Array<Array<ColumnField>> = [];
-  let currentIndex = 0;
+  // Podziel pola na kolumny, starając się zachować równą wysokość
+  const columns: Array<Array<ColumnField>> = Array(columnCount).fill(null).map(() => []);
+  let currentColumn = 0;
 
-  for (let i = 0; i < columnCount; i++) {
-    const itemsInThisColumn = baseItemsPerColumn + (i < extraItems ? 1 : 0);
-    columns.push(fields.slice(currentIndex, currentIndex + itemsInThisColumn));
-    currentIndex += itemsInThisColumn;
+  for (let i = 0; i < fields.length; i++) {
+    columns[currentColumn].push(fields[i]);
+    currentColumn = (currentColumn + 1) % columnCount;
   }
 
-  // Określ klasę CSS dla gridu
-  const gridClass = columnCount === 1 ? 'grid-cols-1' :
-                   columnCount === 2 ? 'grid-cols-2' :
-                   columnCount === 3 ? 'grid-cols-3' :
-                   'grid-cols-4';
+  // Określ klasę CSS dla gridu z uwzględnieniem responsywności
+  const gridClass = 
+    columnCount === 1 ? 'grid-cols-1' :
+    columnCount === 2 ? 'grid-cols-1 sm:grid-cols-2' :
+    columnCount === 3 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' :
+    'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
 
   return { columns, gridClass };
 }
