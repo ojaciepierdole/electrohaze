@@ -42,7 +42,7 @@ export function FileList({ files, onRemove, maxHeight }: FileListProps) {
     }
 
     function drag(clientY: number) {
-      if (!isDragging) return;
+      if (!isDragging || !container) return;
       
       const deltaY = clientY - lastY;
       const now = Date.now();
@@ -56,11 +56,11 @@ export function FileList({ files, onRemove, maxHeight }: FileListProps) {
     }
 
     function endDrag() {
-      if (!isDragging) return;
+      if (!isDragging || !container) return;
       setIsDragging(false);
 
       function momentum() {
-        if (Math.abs(velocity) > 0.1) {
+        if (Math.abs(velocity) > 0.1 && container) {
           container.scrollTop -= velocity * 16; // 16ms = około jedna klatka
           velocity *= 0.95; // Współczynnik tarcia
           momentumID = requestAnimationFrame(momentum);

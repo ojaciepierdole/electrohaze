@@ -1,22 +1,13 @@
 import { NextResponse } from 'next/server';
-import { DocumentAnalysisClient } from '@azure/ai-form-recognizer';
+import { DocumentAnalysisClient, DocumentField } from '@azure/ai-form-recognizer';
 import type { ProcessingResult, ProcessedField } from '@/types/processing';
+import type { DocumentFields } from '@/types/azure';
 import { determineFieldGroup } from '@/utils/fields';
 import { cacheManager } from '@/lib/cache-manager';
 import { decompressData } from '@/utils/compression';
 
 // Azure Document Intelligence pozwala na maksymalnie 15 równoległych żądań
 const MAX_CONCURRENT_REQUESTS = 15;
-
-interface AzureDocumentField {
-  value: string | null;
-  content?: string;
-  confidence: number;
-  type: string;
-  boundingRegions?: Array<{
-    pageNumber: number;
-  }>;
-}
 
 async function analyzeDocument(
   client: DocumentAnalysisClient,
@@ -52,7 +43,7 @@ async function analyzeDocument(
   console.log(`[${index}] Zakończono przetwarzanie w Azure (${Date.now() - startTime}ms)`);
 
   if (!result.documents?.[0]?.fields) {
-    const emptyResult = {
+    const emptyResult: ProcessingResult = {
       fileName: file instanceof File ? file.name : 'unknown',
       modelResults: [{
         modelId,
@@ -60,7 +51,15 @@ async function analyzeDocument(
         confidence: 0,
         pageCount: result.pages?.length || 1
       }],
-      processingTime: Date.now() - startTime
+      processingTime: Date.now() - startTime,
+      mappedData: {
+        fileName: file instanceof File ? file.name : 'unknown'
+      },
+      cacheStats: {
+        size: 0,
+        maxSize: 1000,
+        ttl: 3600
+      }
     };
     
     if (file instanceof File) {
@@ -71,7 +70,7 @@ async function analyzeDocument(
   }
 
   const fields: Record<string, ProcessedField> = {};
-  const documentFields = result.documents[0].fields as Record<string, AzureDocumentField>;
+  const documentFields = result.documents[0].fields;
   const isCustomModel = !modelId.startsWith('prebuilt-');
 
   for (const [key, field] of Object.entries(documentFields)) {
@@ -80,13 +79,13 @@ async function analyzeDocument(
     }
 
     fields[key] = {
-      content: field.value || field.content || null,
-      confidence: field.confidence,
-      type: field.type,
+      confidence: field.confidence || 0,
+      fieldType: field.kind || 'unknown',
+      content: field.content,
       page: field.boundingRegions?.[0]?.pageNumber || 1,
       definition: {
         name: key,
-        type: field.type,
+        type: field.kind || 'unknown',
         isRequired: false,
         description: key,
         group: determineFieldGroup(key)
@@ -94,15 +93,23 @@ async function analyzeDocument(
     };
   }
 
-  const finalResult = {
+  const finalResult: ProcessingResult = {
     fileName: file instanceof File ? file.name : 'unknown',
     modelResults: [{
       modelId,
-      fields,
+      fields: result.documents[0].fields,
       confidence: result.documents[0].confidence,
       pageCount: result.pages?.length || 1
     }],
-    processingTime: Date.now() - startTime
+    processingTime: Date.now() - startTime,
+    mappedData: {
+      fileName: file instanceof File ? file.name : 'unknown'
+    },
+    cacheStats: {
+      size: 0,
+      maxSize: 1000,
+      ttl: 3600
+    }
   };
 
   if (file instanceof File) {

@@ -95,16 +95,16 @@ export async function POST(request: Request) {
 
     // Walidacja wyniku przetwarzania
     const validationResult = safeValidateProcessingResult(processingResult);
-    if (!validationResult.isValid) {
+    if (!validationResult.success) {
       logger.error('Nieprawidłowy format wyniku przetwarzania', {
         ...context,
-        errors: validationResult.errors
+        error: validationResult.error
       });
 
       return NextResponse.json(
         { 
           error: 'Błąd walidacji danych',
-          details: validationResult.errors
+          details: validationResult.error
         },
         { status: 422 }
       );
@@ -115,7 +115,7 @@ export async function POST(request: Request) {
       ...context,
       processingTime,
       confidence: result.documents[0].confidence,
-      validationErrors: validationResult.errors
+      validationError: validationResult.error
     });
 
     logger.info('Zakończono przetwarzanie dokumentu', {

@@ -1,4 +1,5 @@
-import { DocumentAnalysisClient, AzureKeyCredential, DocumentAnalysisResponse } from '@azure/ai-form-recognizer';
+import { DocumentAnalysisClient, AzureKeyCredential, AnalyzeResult } from '@azure/ai-form-recognizer';
+import { DocumentAnalysisResponse } from '@/types/azure';
 import { DocumentValidator } from './document-validator';
 import { AzureDocumentIntelligenceError } from './azure-errors';
 import { DocumentCache } from './cache-service';
@@ -104,7 +105,7 @@ export class AzureDocumentService {
             const poller = await this.client.beginAnalyzeDocument(modelId, buffer);
             const result = await poller.pollUntilDone();
 
-            if (!result.documents?.[0]) {
+            if (!result.documents || result.documents.length === 0) {
               throw new AzureDocumentIntelligenceError(
                 'Nie znaleziono dokumentu w odpowiedzi',
                 'INVALID_RESPONSE',
@@ -125,7 +126,7 @@ export class AzureDocumentService {
 
         this.logger.info('Zakończono analizę dokumentu', {
           ...context,
-          confidence: result.documents[0].confidence,
+          confidence: result.documents[0]?.confidence,
           pageCount: result.pages?.length
         });
 

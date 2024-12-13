@@ -33,9 +33,9 @@ export interface FieldDefinition {
 }
 
 export interface ProcessedField {
-  content: string | null;
   confidence: number;
-  type: string;
+  fieldType: string;
+  content?: string;
   page?: number;
   definition: {
     name: string;
@@ -110,6 +110,7 @@ export interface ProcessingResult {
   modelResults: ModelResult[];
   processingTime: number;
   mappedData: DocumentAnalysisResult;
+  confidence: number;
   cacheStats: {
     size: number;
     maxSize: number;

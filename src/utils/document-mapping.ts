@@ -2,10 +2,7 @@
 import type { DocumentAnalysisResult } from '@/types/processing';
 import type { DocumentField } from '@azure/ai-form-recognizer';
 import { DateHelpers } from '@/types/common';
-import { 
-  safeValidateDocumentAnalysisResult, 
-  ValidatedDocumentAnalysisResult 
-} from '@/types/validation';
+import { safeValidateDocumentAnalysisResult } from '@/types/validation';
 import { Logger } from '@/lib/logger';
 
 const logger = Logger.getInstance();
@@ -121,68 +118,107 @@ export function findMissingFields(data: DocumentAnalysisResult): MissingFields {
   } as MissingFields;
 }
 
+// Funkcja pomocnicza do bezpiecznego pobierania wartości z DocumentField
+function getFieldValue(field: DocumentField | undefined): string | undefined {
+  if (!field) return undefined;
+  
+  // Sprawdzamy typ pola i odpowiednio pobieramy wartość
+  if ('valueString' in field && typeof field.valueString === 'string') {
+    return field.valueString;
+  }
+  if ('valuePhoneNumber' in field && typeof field.valuePhoneNumber === 'string') {
+    return field.valuePhoneNumber;
+  }
+  if ('valueTime' in field && typeof field.valueTime === 'string') {
+    return field.valueTime;
+  }
+  if ('valueInteger' in field && typeof field.valueInteger === 'number') {
+    return field.valueInteger.toString();
+  }
+  if ('valueNumber' in field && typeof field.valueNumber === 'number') {
+    return field.valueNumber.toString();
+  }
+  if ('valueDate' in field && typeof field.valueDate === 'string') {
+    return field.valueDate;
+  }
+  if ('valueSelectionMark' in field && typeof field.valueSelectionMark === 'string') {
+    return field.valueSelectionMark;
+  }
+  if ('valueCountryRegion' in field && typeof field.valueCountryRegion === 'string') {
+    return field.valueCountryRegion;
+  }
+  
+  // Dla pól tablicowych zwracamy pierwszą wartość lub undefined
+  if ('valueArray' in field && Array.isArray(field.valueArray) && field.valueArray.length > 0) {
+    const firstValue = field.valueArray[0];
+    if (firstValue && typeof firstValue === 'object') {
+      return getFieldValue(firstValue);
+    }
+  }
+  
+  return undefined;
+}
+
+// Funkcja pomocnicza do konwersji wartości na number
+function parseNumber(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const num = parseFloat(value.replace(',', '.'));
+  return isNaN(num) ? undefined : num;
+}
+
 export function mapDocumentAnalysisResult(fields: Record<string, DocumentField>): DocumentAnalysisResult {
   const mappedResult: DocumentAnalysisResult = {
     ppeData: {
-      ppeNumber: fields.ppeNum?.value || undefined,
-      meterNumber: fields.MeterNumber?.value || undefined,
-      tariffGroup: fields.Tariff?.value || undefined,
-      contractNumber: fields.ContractNumber?.value || undefined,
-      contractType: fields.ContractType?.value || undefined,
-      street: fields.dpStreet?.value || undefined,
-      building: fields.dpBuilding?.value || undefined,
-      unit: fields.dpUnit?.value || undefined,
-      city: fields.dpCity?.value?.replace(',', '') || undefined,
-      confidence: fields.ppeNum?.confidence || undefined,
-      osdName: fields.OSD_name?.value || undefined,
-      osdRegion: fields.OSD_region?.value || undefined
+      ppeNumber: getFieldValue(fields.ppeNum),
+      meterNumber: getFieldValue(fields.MeterNumber),
+      tariffGroup: getFieldValue(fields.Tariff),
+      contractNumber: getFieldValue(fields.ContractNumber),
+      contractType: getFieldValue(fields.ContractType),
+      street: getFieldValue(fields.dpStreet),
+      building: getFieldValue(fields.dpBuilding),
+      unit: getFieldValue(fields.dpUnit),
+      city: getFieldValue(fields.dpCity)?.replace(',', ''),
+      osdName: getFieldValue(fields.OSD_name),
+      osdRegion: getFieldValue(fields.OSD_region)
     },
     correspondenceData: {
-      firstName: fields.paFirstName?.value || undefined,
-      lastName: fields.paLastName?.value || undefined,
-      businessName: fields.paBusinessName?.value || undefined,
-      title: fields.paTitle?.value || undefined,
-      street: fields.paStreet?.value || undefined,
-      building: fields.paBuilding?.value || undefined,
-      unit: fields.paUnit?.value || undefined,
-      postalCode: fields.paPostalCode?.value || undefined,
-      city: fields.paCity?.value || undefined,
-      confidence: fields.paFirstName?.confidence || fields.paLastName?.confidence || undefined
+      firstName: getFieldValue(fields.paFirstName),
+      lastName: getFieldValue(fields.paLastName),
+      businessName: getFieldValue(fields.paBusinessName),
+      title: getFieldValue(fields.paTitle),
+      street: getFieldValue(fields.paStreet),
+      building: getFieldValue(fields.paBuilding),
+      unit: getFieldValue(fields.paUnit),
+      postalCode: getFieldValue(fields.paPostalCode),
+      city: getFieldValue(fields.paCity)
     },
     supplierData: {
-      supplierName: fields.supplierName?.value || undefined,
-      taxId: fields.taxID?.value || undefined,
-      street: fields.supplierStreet?.value || undefined,
-      building: fields.supplierBuilding?.value || undefined,
-      unit: fields.supplierUnit?.value || undefined,
-      postalCode: fields.supplierPostalCode?.value || undefined,
-      city: fields.supplierCity?.value || undefined,
-      bankAccount: fields.supplierBankAccount?.value || undefined,
-      bankName: fields.supplierBankName?.value || undefined,
-      email: fields.supplierEmail?.value || undefined,
-      phone: fields.supplierPhone?.value || undefined,
-      website: fields.supplierWebsite?.value || undefined,
-      osdName: fields.OSD_name?.value || undefined,
-      osdRegion: fields.OSD_region?.value || undefined,
-      confidence: fields.supplierName?.confidence || undefined
+      supplierName: getFieldValue(fields.supplierName),
+      taxId: getFieldValue(fields.taxID),
+      street: getFieldValue(fields.supplierStreet),
+      building: getFieldValue(fields.supplierBuilding),
+      unit: getFieldValue(fields.supplierUnit),
+      postalCode: getFieldValue(fields.supplierPostalCode),
+      city: getFieldValue(fields.supplierCity),
+      bankAccount: getFieldValue(fields.supplierBankAccount),
+      bankName: getFieldValue(fields.supplierBankName),
+      email: getFieldValue(fields.supplierEmail),
+      phone: getFieldValue(fields.supplierPhone),
+      website: getFieldValue(fields.supplierWebsite),
+      osdName: getFieldValue(fields.OSD_name),
+      osdRegion: getFieldValue(fields.OSD_region)
     },
     billingData: {
-      billingStartDate: DateHelpers.toISOString(fields.BillingStartDate?.value || undefined),
-      billingEndDate: DateHelpers.toISOString(fields.BillingEndDate?.value || undefined),
-      billedUsage: fields.BilledUsage?.value
-        ? parseFloat(fields.BilledUsage.value.replace(',', '.'))
-        : undefined,
-      usage12m: fields['12mUsage']?.value
-        ? parseFloat(fields['12mUsage'].value.replace(',', '.'))
-        : undefined,
-      confidence: fields.BillingStartDate?.confidence || fields.BillingEndDate?.confidence || undefined
+      billingStartDate: DateHelpers.toISOString(getFieldValue(fields.BillingStartDate)),
+      billingEndDate: DateHelpers.toISOString(getFieldValue(fields.BillingEndDate)),
+      billedUsage: parseNumber(getFieldValue(fields.BilledUsage)),
+      usage12m: parseNumber(getFieldValue(fields['12mUsage']))
     },
     customerData: {
-      firstName: fields.FirstName?.value || undefined,
-      lastName: fields.LastName?.value || undefined,
-      businessName: fields.BusinessName?.value || undefined,
-      taxId: fields.taxID?.value || undefined,
-      confidence: fields.FirstName?.confidence || fields.LastName?.confidence || undefined
+      firstName: getFieldValue(fields.FirstName),
+      lastName: getFieldValue(fields.LastName),
+      businessName: getFieldValue(fields.BusinessName),
+      taxId: getFieldValue(fields.taxID)
     }
   };
 
@@ -201,9 +237,9 @@ export function mapDocumentAnalysisResult(fields: Record<string, DocumentField>)
   // Walidacja wyniku
   const validationResult = safeValidateDocumentAnalysisResult(mappedResult);
   
-  if (!validationResult.isValid) {
+  if (!validationResult.success) {
     logger.warn('Nieprawidłowy format danych po mapowaniu', {
-      errors: validationResult.errors,
+      error: validationResult.error,
       data: mappedResult
     });
   }
