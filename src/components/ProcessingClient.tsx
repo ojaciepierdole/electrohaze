@@ -117,13 +117,6 @@ export function ProcessingClient() {
 
   return (
     <div className="container max-w-5xl mx-auto py-8 space-y-6">
-      <div className="flex flex-col items-start gap-2">
-        <h1 className="text-2xl font-semibold">Analiza dokumentów PDF</h1>
-        <p className="text-sm text-gray-500">
-          Przetwarzaj dokumenty PDF używając modeli OCR Azure Document Intelligence
-        </p>
-      </div>
-
       {/* Sekcja parametrów */}
       <Card className={cn(
         "border-gray-900/10",
