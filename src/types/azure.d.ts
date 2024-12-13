@@ -1,4 +1,6 @@
 declare module '@azure/ai-form-recognizer' {
+  import { AbortSignalLike } from '@azure/core-rest-pipeline';
+
   export class AzureKeyCredential {
     constructor(key: string);
   }
@@ -8,8 +10,18 @@ declare module '@azure/ai-form-recognizer' {
     beginAnalyzeDocument(modelId: string, buffer: ArrayBuffer): Promise<DocumentPoller>;
   }
 
+  export interface PollOperationState<T> {
+    isStarted: boolean;
+    isCompleted: boolean;
+    isCancelled: boolean;
+    error?: Error;
+    result?: T;
+  }
+
   export interface DocumentPoller {
-    pollUntilDone(): Promise<DocumentAnalysisResponse>;
+    getOperationState(): Promise<PollOperationState<DocumentAnalysisResponse>>;
+    poll(options?: { abortSignal?: AbortSignalLike }): Promise<PollOperationState<DocumentAnalysisResponse>>;
+    pollUntilDone(options?: { updateIntervalInMs?: number; abortSignal?: AbortSignalLike }): Promise<DocumentAnalysisResponse>;
   }
 
   export interface DocumentAnalysisResponse {

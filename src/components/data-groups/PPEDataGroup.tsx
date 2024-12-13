@@ -5,23 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle } from 'lucide-react';
 import type { PPEData } from '@/types/fields';
-import { formatAddress, formatPostalCode, formatCity, formatStreet, calculateGroupConfidence, getMissingFields, calculateOptimalColumns, formatPersonName } from '@/utils/text-formatting';
+import { formatAddress, formatPostalCode, formatCity, formatStreet, formatPersonName, calculateGroupConfidence, getMissingFields, calculateOptimalColumns } from '@/utils/text-formatting';
+import { ConfidenceDot } from '@/components/ui/confidence-dot';
 
 const FIELD_MAPPING: Record<keyof PPEData, string> = {
-  // Dane identyfikacyjne
   ppeNum: 'Numer PPE',
   MeterNumber: 'Numer licznika',
   TariffGroup: 'Grupa taryfowa',
   ContractNumber: 'Numer umowy',
   ContractType: 'Typ umowy',
-  // Dane OSD
   OSD_name: 'Nazwa OSD',
   OSD_region: 'Region OSD',
   ProductName: 'Nazwa produktu',
-  // Dane osobowe
   dpFirstName: 'Imię',
   dpLastName: 'Nazwisko',
-  // Dane adresowe
   dpStreet: 'Ulica',
   dpBuilding: 'Numer budynku',
   dpUnit: 'Numer lokalu',
@@ -36,9 +33,12 @@ interface PPEDataGroupProps {
 export function PPEDataGroup({ data }: PPEDataGroupProps) {
   // Oblicz statystyki grupy
   const confidence = calculateGroupConfidence(data, 'ppe');
-  const missingFields = getMissingFields(data, FIELD_MAPPING);
   const isEmpty = confidence.filledFields === 0;
   const completionPercentage = Math.round((confidence.filledFields / confidence.totalFields) * 100);
+  const confidencePercentage = Math.round(confidence.averageConfidence * 100);
+
+  // Oblicz brakujące pola
+  const missingFields = getMissingFields(data, FIELD_MAPPING);
 
   // Oblicz optymalny układ kolumn dla brakujących pól
   const { columns, gridClass } = React.useMemo(
@@ -47,28 +47,29 @@ export function PPEDataGroup({ data }: PPEDataGroupProps) {
   );
 
   // Formatuj wartości
-  const formattedData = {
-    ...data,
-    // Dane identyfikacyjne
-    ppeNum: data.ppeNum || null,
-    MeterNumber: data.MeterNumber || null,
-    TariffGroup: data.TariffGroup || null,
-    ContractNumber: data.ContractNumber || null,
-    ContractType: data.ContractType || null,
-    // Dane OSD
-    OSD_name: data.OSD_name || null,
-    OSD_region: data.OSD_region || null,
-    ProductName: data.ProductName || null,
-    // Dane osobowe
-    dpFirstName: formatPersonName(data.dpFirstName || null),
-    dpLastName: formatPersonName(data.dpLastName || null),
-    // Dane adresowe
-    dpStreet: formatStreet(data.dpStreet || null),
-    dpBuilding: formatAddress(data.dpBuilding || null),
-    dpUnit: formatAddress(data.dpUnit || null),
-    dpPostalCode: formatPostalCode(data.dpPostalCode || null),
-    dpCity: formatCity(data.dpCity || null)
-  };
+  const formattedData = React.useMemo(() => {
+    const formatted: Record<string, string | null> = {};
+    
+    for (const [key, value] of Object.entries(data)) {
+      if (key.startsWith('dp')) {
+        if (key === 'dpFirstName' || key === 'dpLastName') {
+          formatted[key] = formatPersonName((value as any)?.content || null);
+        } else if (key === 'dpStreet') {
+          formatted[key] = formatStreet((value as any)?.content || null);
+        } else if (key === 'dpBuilding' || key === 'dpUnit') {
+          formatted[key] = formatAddress((value as any)?.content || null);
+        } else if (key === 'dpPostalCode') {
+          formatted[key] = formatPostalCode((value as any)?.content || null);
+        } else if (key === 'dpCity') {
+          formatted[key] = formatCity((value as any)?.content || null);
+        }
+      } else {
+        formatted[key] = (value as any)?.content || null;
+      }
+    }
+    
+    return formatted;
+  }, [data]);
 
   if (isEmpty) {
     return (
@@ -96,20 +97,26 @@ export function PPEDataGroup({ data }: PPEDataGroupProps) {
       <CardHeader className="border-b">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-medium">Punkt poboru energii</CardTitle>
-          <Badge variant="outline">
-            {completionPercentage}% kompletności
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline">
+              {completionPercentage}% kompletności
+            </Badge>
+            <Badge variant={confidencePercentage > 80 ? "success" : confidencePercentage > 60 ? "warning" : "destructive"}>
+              {confidencePercentage}% pewności
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="p-4">
         <div className="space-y-6">
           {/* Wypełnione pola */}
           <div className="grid grid-cols-2 gap-4">
-            {(Object.keys(FIELD_MAPPING) as Array<keyof PPEData>).map((key) => (
-              formattedData[key] ? (
+            {Object.keys(FIELD_MAPPING).map((key) => (
+              data[key as keyof PPEData]?.content ? (
                 <div key={key} className="space-y-1">
-                  <dt className="text-sm text-gray-500">{FIELD_MAPPING[key]}</dt>
+                  <dt className="text-sm text-gray-500">{FIELD_MAPPING[key as keyof PPEData]}</dt>
                   <dd className="text-sm font-medium">{formattedData[key]}</dd>
+                  <ConfidenceDot confidence={data[key as keyof PPEData]?.confidence || 1} />
                 </div>
               ) : null
             ))}
@@ -124,12 +131,19 @@ export function PPEDataGroup({ data }: PPEDataGroupProps) {
                 <div className={`grid ${gridClass} gap-4`}>
                   {columns.map((column, columnIndex) => (
                     <div key={columnIndex} className="space-y-2">
-                      {column.map(({ key, label }) => (
-                        <div key={key} className="flex items-center gap-2">
-                          <span className="text-sm text-gray-400">{label}</span>
-                          <span className="text-sm text-gray-300">—</span>
-                        </div>
-                      ))}
+                      {column.map(({ key, label }) => {
+                        const fieldKey = key as keyof PPEData;
+                        const fieldData = data[fieldKey];
+                        return (
+                          <div key={key} className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-400">{label}</span>
+                              <span className="text-sm text-gray-300">—</span>
+                            </div>
+                            {fieldData && <ConfidenceDot confidence={fieldData.confidence || 0} />}
+                          </div>
+                        );
+                      })}
                     </div>
                   ))}
                 </div>

@@ -5,16 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle } from 'lucide-react';
 import type { CustomerData } from '@/types/fields';
-import { 
-  formatPersonName, 
-  formatStreet,
-  formatAddress,
-  formatPostalCode,
-  formatCity,
-  calculateGroupConfidence, 
-  getMissingFields, 
-  calculateOptimalColumns 
-} from '@/utils/text-formatting';
+import { formatAddress, formatPostalCode, formatCity, formatStreet, formatPersonName, calculateGroupConfidence, getMissingFields, calculateOptimalColumns } from '@/utils/text-formatting';
+import { ConfidenceDot } from '@/components/ui/confidence-dot';
 
 const FIELD_MAPPING: Record<keyof CustomerData, string> = {
   FirstName: 'Imię',
@@ -38,9 +30,12 @@ interface CustomerDataGroupProps {
 export function CustomerDataGroup({ data }: CustomerDataGroupProps) {
   // Oblicz statystyki grupy
   const confidence = calculateGroupConfidence(data, 'buyer_data');
-  const missingFields = getMissingFields(data, FIELD_MAPPING);
   const isEmpty = confidence.filledFields === 0;
   const completionPercentage = Math.round((confidence.filledFields / confidence.totalFields) * 100);
+  const confidencePercentage = Math.round(confidence.averageConfidence * 100);
+
+  // Oblicz brakujące pola
+  const missingFields = getMissingFields(data, FIELD_MAPPING);
 
   // Oblicz optymalny układ kolumn dla brakujących pól
   const { columns, gridClass } = React.useMemo(
@@ -49,28 +44,34 @@ export function CustomerDataGroup({ data }: CustomerDataGroupProps) {
   );
 
   // Formatuj wartości
-  const formattedData = {
-    ...data,
-    FirstName: formatPersonName(data.FirstName || null),
-    LastName: formatPersonName(data.LastName || null),
-    BusinessName: formatPersonName(data.BusinessName || null),
-    taxID: data.taxID || null,
-    Street: formatStreet(data.Street || null),
-    Building: formatAddress(data.Building || null),
-    Unit: formatAddress(data.Unit || null),
-    PostalCode: formatPostalCode(data.PostalCode || null),
-    City: formatCity(data.City || null),
-    Municipality: formatCity(data.Municipality || null),
-    District: formatCity(data.District || null),
-    Province: formatCity(data.Province || null)
-  };
+  const formattedData = React.useMemo(() => {
+    const formatted: Record<string, string | null> = {};
+    
+    for (const [key, value] of Object.entries(data)) {
+      if (key === 'FirstName' || key === 'LastName' || key === 'BusinessName') {
+        formatted[key] = formatPersonName((value as any)?.content || null);
+      } else if (key === 'Street') {
+        formatted[key] = formatStreet((value as any)?.content || null);
+      } else if (key === 'Building' || key === 'Unit') {
+        formatted[key] = formatAddress((value as any)?.content || null);
+      } else if (key === 'PostalCode') {
+        formatted[key] = formatPostalCode((value as any)?.content || null);
+      } else if (key === 'City' || key === 'Municipality' || key === 'District' || key === 'Province') {
+        formatted[key] = formatCity((value as any)?.content || null);
+      } else {
+        formatted[key] = (value as any)?.content || null;
+      }
+    }
+    
+    return formatted;
+  }, [data]);
 
   if (isEmpty) {
     return (
       <Card className="bg-gray-50 border-gray-200 opacity-75">
         <CardHeader className="border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg font-medium text-gray-500">Dane klienta</CardTitle>
+            <CardTitle className="text-lg font-medium text-gray-500">Dane nabywcy</CardTitle>
             <Badge variant="outline" className="text-gray-500">
               Brak danych
             </Badge>
@@ -79,7 +80,7 @@ export function CustomerDataGroup({ data }: CustomerDataGroupProps) {
         <CardContent className="p-4">
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <AlertCircle className="w-4 h-4" />
-            <p>Brak danych klienta w strukturze faktury tego dostawcy.</p>
+            <p>Brak danych nabywcy w strukturze faktury tego dostawcy.</p>
           </div>
         </CardContent>
       </Card>
@@ -90,21 +91,27 @@ export function CustomerDataGroup({ data }: CustomerDataGroupProps) {
     <Card className="bg-white shadow-sm">
       <CardHeader className="border-b">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-medium">Dane klienta</CardTitle>
-          <Badge variant="outline">
-            {completionPercentage}% kompletności
-          </Badge>
+          <CardTitle className="text-lg font-medium">Dane nabywcy</CardTitle>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline">
+              {completionPercentage}% kompletności
+            </Badge>
+            <Badge variant={confidencePercentage > 80 ? "success" : confidencePercentage > 60 ? "warning" : "destructive"}>
+              {confidencePercentage}% pewności
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="p-4">
         <div className="space-y-6">
           {/* Wypełnione pola */}
           <div className="grid grid-cols-2 gap-4">
-            {(Object.keys(FIELD_MAPPING) as Array<keyof CustomerData>).map((key) => (
-              formattedData[key] ? (
+            {Object.keys(FIELD_MAPPING).map((key) => (
+              data[key as keyof CustomerData]?.content ? (
                 <div key={key} className="space-y-1">
-                  <dt className="text-sm text-gray-500">{FIELD_MAPPING[key]}</dt>
+                  <dt className="text-sm text-gray-500">{FIELD_MAPPING[key as keyof CustomerData]}</dt>
                   <dd className="text-sm font-medium">{formattedData[key]}</dd>
+                  <ConfidenceDot confidence={data[key as keyof CustomerData]?.confidence || 1} />
                 </div>
               ) : null
             ))}
@@ -119,12 +126,19 @@ export function CustomerDataGroup({ data }: CustomerDataGroupProps) {
                 <div className={`grid ${gridClass} gap-4`}>
                   {columns.map((column, columnIndex) => (
                     <div key={columnIndex} className="space-y-2">
-                      {column.map(({ key, label }) => (
-                        <div key={key} className="flex items-center gap-2">
-                          <span className="text-sm text-gray-400">{label}</span>
-                          <span className="text-sm text-gray-300">—</span>
-                        </div>
-                      ))}
+                      {column.map(({ key, label }) => {
+                        const fieldKey = key as keyof CustomerData;
+                        const fieldData = data[fieldKey];
+                        return (
+                          <div key={key} className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-400">{label}</span>
+                              <span className="text-sm text-gray-300">—</span>
+                            </div>
+                            {fieldData && <ConfidenceDot confidence={fieldData.confidence || 0} />}
+                          </div>
+                        );
+                      })}
                     </div>
                   ))}
                 </div>

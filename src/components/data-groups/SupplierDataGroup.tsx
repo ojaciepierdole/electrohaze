@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertCircle } from 'lucide-react';
 import type { SupplierData } from '@/types/fields';
 import { formatAddress, formatPostalCode, formatCity, formatStreet, formatSupplierName, calculateGroupConfidence, getMissingFields, calculateOptimalColumns } from '@/utils/text-formatting';
+import { ConfidenceDot } from '@/components/ui/confidence-dot';
 
 const FIELD_MAPPING: Record<keyof SupplierData, string> = {
   supplierName: 'Nazwa',
@@ -47,16 +48,31 @@ export function SupplierDataGroup({ data }: SupplierDataGroupProps) {
   );
 
   // Formatuj wartości
-  const formattedData = {
-    ...data,
-    supplierName: formatSupplierName(data.supplierName || null),
-    supplierStreet: data.supplierStreet?.split('/')[0] || null,
-    supplierBuilding: data.supplierStreet?.split('/')[1] || data.supplierBuilding || null,
-    supplierUnit: data.supplierStreet?.split('/')[2] || data.supplierUnit || null,
-    supplierPostalCode: formatPostalCode(data.supplierPostalCode || null),
-    supplierCity: formatCity(data.supplierCity || null),
-    OSD_name: formatSupplierName(data.OSD_name || null)
-  };
+  const formattedData = React.useMemo(() => {
+    const formatted: Record<string, string | null> = {};
+    
+    for (const [key, value] of Object.entries(data)) {
+      if (key === 'supplierName') {
+        formatted[key] = formatSupplierName((value as any)?.content || null);
+      } else if (key === 'supplierStreet') {
+        formatted[key] = (value as any)?.content?.split('/')[0] || null;
+      } else if (key === 'supplierBuilding') {
+        formatted[key] = (value as any)?.content?.split('/')[1] || (data.supplierBuilding as any)?.content || null;
+      } else if (key === 'supplierUnit') {
+        formatted[key] = (value as any)?.content?.split('/')[2] || (data.supplierUnit as any)?.content || null;
+      } else if (key === 'supplierPostalCode') {
+        formatted[key] = formatPostalCode((value as any)?.content || null);
+      } else if (key === 'supplierCity') {
+        formatted[key] = formatCity((value as any)?.content || null);
+      } else if (key === 'OSD_name') {
+        formatted[key] = formatSupplierName((value as any)?.content || null);
+      } else {
+        formatted[key] = (value as any)?.content || null;
+      }
+    }
+    
+    return formatted;
+  }, [data]);
 
   if (isEmpty) {
     return (
@@ -100,15 +116,11 @@ export function SupplierDataGroup({ data }: SupplierDataGroupProps) {
           <div className="grid grid-cols-2 gap-4">
             {/* Najpierw wyświetl pola z Azure */}
             {AZURE_MAPPED_FIELDS.map((key) => (
-              formattedData[key] ? (
+              data[key]?.content ? (
                 <div key={key} className="space-y-1">
                   <dt className="text-sm text-gray-500">{FIELD_MAPPING[key]}</dt>
                   <dd className="text-sm font-medium">{formattedData[key]}</dd>
-                  {confidence.fieldConfidences[key] !== undefined && (
-                    <dd className="text-xs text-gray-400">
-                      Pewność: {Math.round(confidence.fieldConfidences[key] * 100)}%
-                    </dd>
-                  )}
+                  <ConfidenceDot confidence={data[key]?.confidence || 1} />
                 </div>
               ) : null
             ))}
@@ -117,10 +129,11 @@ export function SupplierDataGroup({ data }: SupplierDataGroupProps) {
             {(Object.keys(FIELD_MAPPING) as Array<keyof SupplierData>)
               .filter(key => !AZURE_MAPPED_FIELDS.includes(key as any))
               .map((key) => (
-                formattedData[key] ? (
+                data[key]?.content ? (
                   <div key={key} className="space-y-1">
                     <dt className="text-sm text-gray-500">{FIELD_MAPPING[key]}</dt>
                     <dd className="text-sm font-medium text-gray-600">{formattedData[key]}</dd>
+                    <ConfidenceDot confidence={data[key]?.confidence || 1} />
                   </div>
                 ) : null
               ))
@@ -136,12 +149,19 @@ export function SupplierDataGroup({ data }: SupplierDataGroupProps) {
                 <div className={`grid ${gridClass} gap-4`}>
                   {columns.map((column, columnIndex) => (
                     <div key={columnIndex} className="space-y-2">
-                      {column.map(({ key, label }) => (
-                        <div key={key} className="flex items-center gap-2">
-                          <span className="text-sm text-gray-400">{label}</span>
-                          <span className="text-sm text-gray-300">—</span>
-                        </div>
-                      ))}
+                      {column.map(({ key, label }) => {
+                        const fieldKey = key as keyof SupplierData;
+                        const fieldData = data[fieldKey];
+                        return (
+                          <div key={key} className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-400">{label}</span>
+                              <span className="text-sm text-gray-300">—</span>
+                            </div>
+                            {fieldData && <ConfidenceDot confidence={fieldData.confidence || 0} />}
+                          </div>
+                        );
+                      })}
                     </div>
                   ))}
                 </div>

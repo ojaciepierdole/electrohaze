@@ -1,68 +1,80 @@
 import { BillingData } from './processing';
 
+export interface FieldWithConfidence {
+  content: string | null;
+  confidence: number;
+}
+
 export interface CustomerData {
-  FirstName?: string;
-  LastName?: string;
-  BusinessName?: string;
-  taxID?: string;
-  Street?: string;
-  Building?: string;
-  Unit?: string;
-  PostalCode?: string;
-  City?: string;
-  Municipality?: string;
-  District?: string;
-  Province?: string;
+  FirstName?: FieldWithConfidence;
+  LastName?: FieldWithConfidence;
+  BusinessName?: FieldWithConfidence;
+  taxID?: FieldWithConfidence;
+  Street?: FieldWithConfidence;
+  Building?: FieldWithConfidence;
+  Unit?: FieldWithConfidence;
+  PostalCode?: FieldWithConfidence;
+  City?: FieldWithConfidence;
+  Municipality?: FieldWithConfidence;
+  District?: FieldWithConfidence;
+  Province?: FieldWithConfidence;
 }
 
 export interface PPEData {
-  ppeNum?: string;
-  MeterNumber?: string;
-  TariffGroup?: string;
-  ContractNumber?: string;
-  ContractType?: string;
-  OSD_name?: string;
-  OSD_region?: string;
-  ProductName?: string;
-  dpFirstName?: string;
-  dpLastName?: string;
-  dpStreet?: string;
-  dpBuilding?: string;
-  dpUnit?: string;
-  dpPostalCode?: string;
-  dpCity?: string;
+  ppeNum?: FieldWithConfidence;
+  MeterNumber?: FieldWithConfidence;
+  TariffGroup?: FieldWithConfidence;
+  ContractNumber?: FieldWithConfidence;
+  ContractType?: FieldWithConfidence;
+  OSD_name?: FieldWithConfidence;
+  OSD_region?: FieldWithConfidence;
+  ProductName?: FieldWithConfidence;
+  dpFirstName?: FieldWithConfidence;
+  dpLastName?: FieldWithConfidence;
+  dpStreet?: FieldWithConfidence;
+  dpBuilding?: FieldWithConfidence;
+  dpUnit?: FieldWithConfidence;
+  dpPostalCode?: FieldWithConfidence;
+  dpCity?: FieldWithConfidence;
 }
 
 export interface CorrespondenceData {
-  paFirstName?: string;
-  paLastName?: string;
-  paBusinessName?: string;
-  paTitle?: string;
-  paStreet?: string;
-  paBuilding?: string;
-  paUnit?: string;
-  paPostalCode?: string;
-  paCity?: string;
+  paFirstName?: FieldWithConfidence;
+  paLastName?: FieldWithConfidence;
+  paBusinessName?: FieldWithConfidence;
+  paTitle?: FieldWithConfidence;
+  paStreet?: FieldWithConfidence;
+  paBuilding?: FieldWithConfidence;
+  paUnit?: FieldWithConfidence;
+  paPostalCode?: FieldWithConfidence;
+  paCity?: FieldWithConfidence;
 }
 
 export interface SupplierData {
-  supplierName?: string;
-  supplierTaxID?: string;
-  supplierStreet?: string;
-  supplierBuilding?: string;
-  supplierUnit?: string;
-  supplierPostalCode?: string;
-  supplierCity?: string;
-  supplierBankAccount?: string;
-  supplierBankName?: string;
-  supplierEmail?: string;
-  supplierPhone?: string;
-  supplierWebsite?: string;
-  OSD_name?: string;
+  supplierName?: FieldWithConfidence;
+  supplierTaxID?: FieldWithConfidence;
+  supplierStreet?: FieldWithConfidence;
+  supplierBuilding?: FieldWithConfidence;
+  supplierUnit?: FieldWithConfidence;
+  supplierPostalCode?: FieldWithConfidence;
+  supplierCity?: FieldWithConfidence;
+  supplierBankAccount?: FieldWithConfidence;
+  supplierBankName?: FieldWithConfidence;
+  supplierEmail?: FieldWithConfidence;
+  supplierPhone?: FieldWithConfidence;
+  supplierWebsite?: FieldWithConfidence;
+  OSD_name?: FieldWithConfidence;
 }
 
 export interface FieldMapping {
   [key: string]: string;
+}
+
+export interface BillingData {
+  billingStartDate?: FieldWithConfidence;
+  billingEndDate?: FieldWithConfidence;
+  billedUsage?: FieldWithConfidence;
+  usage12m?: FieldWithConfidence;
 }
 
 export type { BillingData };

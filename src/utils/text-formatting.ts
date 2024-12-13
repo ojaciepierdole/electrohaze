@@ -146,15 +146,24 @@ export interface DocumentConfidence {
 
 export function calculateGroupConfidence(data: Record<string, unknown>, group: string): GroupConfidence {
   const fields = Object.entries(data);
-  const filledFields = fields.filter(([_, value]) => value !== null && value !== undefined).length;
+  const filledFields = fields.filter(([_, value]) => {
+    if (typeof value === 'object' && value !== null) {
+      if ('content' in value) {
+        return value.content !== null && value.content !== undefined;
+      }
+    }
+    return value !== null && value !== undefined;
+  }).length;
   const totalFields = fields.length;
   
   // Oblicz pewności dla poszczególnych pól
   const fieldConfidences = fields.reduce((acc, [key, value]) => {
     if (value !== null && value !== undefined) {
-      acc[key] = typeof value === 'object' && 'confidence' in value 
-        ? (value as { confidence: number }).confidence 
-        : 1;
+      if (typeof value === 'object' && 'confidence' in value) {
+        acc[key] = value.confidence;
+      } else {
+        acc[key] = 1;
+      }
     }
     return acc;
   }, {} as Record<string, number>);

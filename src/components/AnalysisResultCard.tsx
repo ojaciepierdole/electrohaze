@@ -82,78 +82,235 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
 
     return {
       customer: {
-        FirstName: mainNames.firstName || enrichedAddress.FirstName || null,
-        LastName: mainNames.lastName || enrichedAddress.LastName || null,
-        BusinessName: fields.BusinessName?.content || null,
-        taxID: fields.taxID?.content || null,
-        Street: enrichedAddress.Street || null,
-        Building: enrichedAddress.Building || null,
-        Unit: enrichedAddress.Unit || null,
-        PostalCode: enrichedAddress.PostalCode || null,
-        City: enrichedAddress.City || null,
-        Municipality: enrichedAddress.Municipality || null,
-        District: enrichedAddress.District || null,
-        Province: enrichedAddress.Province || null
+        FirstName: fields.FirstName ? {
+          content: fields.FirstName.content || null,
+          confidence: fields.FirstName.confidence || 1
+        } : undefined,
+        LastName: fields.LastName ? {
+          content: fields.LastName.content || null,
+          confidence: fields.LastName.confidence || 1
+        } : undefined,
+        BusinessName: fields.BusinessName ? {
+          content: fields.BusinessName.content || null,
+          confidence: fields.BusinessName.confidence || 1
+        } : undefined,
+        taxID: fields.taxID ? {
+          content: fields.taxID.content || null,
+          confidence: fields.taxID.confidence || 1
+        } : undefined,
+        Street: fields.Street ? {
+          content: fields.Street.content || null,
+          confidence: fields.Street.confidence || 1
+        } : undefined,
+        Building: fields.Building ? {
+          content: fields.Building.content || null,
+          confidence: fields.Building.confidence || 1
+        } : undefined,
+        Unit: fields.Unit ? {
+          content: fields.Unit.content || null,
+          confidence: fields.Unit.confidence || 1
+        } : undefined,
+        PostalCode: fields.PostalCode ? {
+          content: fields.PostalCode.content || null,
+          confidence: fields.PostalCode.confidence || 1
+        } : undefined,
+        City: fields.City ? {
+          content: fields.City.content || null,
+          confidence: fields.City.confidence || 1
+        } : undefined,
+        Municipality: fields.Municipality ? {
+          content: fields.Municipality.content || null,
+          confidence: fields.Municipality.confidence || 1
+        } : undefined,
+        District: fields.District ? {
+          content: fields.District.content || null,
+          confidence: fields.District.confidence || 1
+        } : undefined,
+        Province: fields.Province ? {
+          content: fields.Province.content || null,
+          confidence: fields.Province.confidence || 1
+        } : undefined,
       } as CustomerData,
       
       ppe: {
-        // Dane identyfikacyjne PPE
-        ppeNum: fields.ppeNum?.content || null,
-        // Dane techniczne
-        MeterNumber: fields.MeterNumber?.content || null,
-        TariffGroup: fields.Tariff?.content || null,
-        ContractNumber: fields.ContractNumber?.content || null,
-        ContractType: fields.ContractType?.content || null,
-        OSD_name: fields.OSD_name?.content || null,
-        OSD_region: fields.OSD_region?.content || null,
-        ProductName: fields.ProductName?.content || null,
-        // Dane osobowe z Azure API
-        dpFirstName: fields.dpFirstName?.content || null,
-        dpLastName: fields.dpLastName?.content || null,
-        // Dane adresowe z Azure API
-        dpStreet: fields.dpStreet?.content || null,
-        dpBuilding: fields.dpBuilding?.content || null,
-        dpUnit: fields.dpUnit?.content || null,
-        dpPostalCode: fields.dpPostalCode?.content || null,
-        dpCity: fields.dpCity?.content || null
+        ppeNum: fields.ppeNum ? {
+          content: fields.ppeNum.content || null,
+          confidence: fields.ppeNum.confidence || 1
+        } : undefined,
+        MeterNumber: fields.MeterNumber ? {
+          content: fields.MeterNumber.content || null,
+          confidence: fields.MeterNumber.confidence || 1
+        } : undefined,
+        TariffGroup: fields.TariffGroup ? {
+          content: fields.TariffGroup.content || null,
+          confidence: fields.TariffGroup.confidence || 1
+        } : undefined,
+        ContractNumber: fields.ContractNumber ? {
+          content: fields.ContractNumber.content || null,
+          confidence: fields.ContractNumber.confidence || 1
+        } : undefined,
+        ContractType: fields.ContractType ? {
+          content: fields.ContractType.content || null,
+          confidence: fields.ContractType.confidence || 1
+        } : undefined,
+        OSD_name: fields.OSD_name ? {
+          content: fields.OSD_name.content || null,
+          confidence: fields.OSD_name.confidence || 1
+        } : undefined,
+        OSD_region: fields.OSD_region ? {
+          content: fields.OSD_region.content || null,
+          confidence: fields.OSD_region.confidence || 1
+        } : undefined,
+        ProductName: fields.ProductName ? {
+          content: fields.ProductName.content || null,
+          confidence: fields.ProductName.confidence || 1
+        } : undefined,
+        dpFirstName: fields.dpFirstName ? {
+          content: fields.dpFirstName.content || null,
+          confidence: fields.dpFirstName.confidence || 1
+        } : undefined,
+        dpLastName: fields.dpLastName ? {
+          content: fields.dpLastName.content || null,
+          confidence: fields.dpLastName.confidence || 1
+        } : undefined,
+        dpStreet: fields.dpStreet ? {
+          content: fields.dpStreet.content || null,
+          confidence: fields.dpStreet.confidence || 1
+        } : undefined,
+        dpBuilding: fields.dpBuilding ? {
+          content: fields.dpBuilding.content || null,
+          confidence: fields.dpBuilding.confidence || 1
+        } : undefined,
+        dpUnit: fields.dpUnit ? {
+          content: fields.dpUnit.content || null,
+          confidence: fields.dpUnit.confidence || 1
+        } : undefined,
+        dpPostalCode: fields.dpPostalCode ? {
+          content: fields.dpPostalCode.content || null,
+          confidence: fields.dpPostalCode.confidence || 1
+        } : undefined,
+        dpCity: fields.dpCity ? {
+          content: fields.dpCity.content || null,
+          confidence: fields.dpCity.confidence || 1
+        } : undefined,
       } as PPEData,
       
       correspondence: {
-        paFirstName: paNames.firstName || enrichedAddress.paFirstName || null,
-        paLastName: paNames.lastName || enrichedAddress.paLastName || null,
-        paBusinessName: fields.paBusinessName?.content || null,
-        paTitle: paNames.title || null,
-        paStreet: enrichedAddress.paStreet || null,
-        paBuilding: enrichedAddress.paBuilding || null,
-        paUnit: enrichedAddress.paUnit || null,
-        paPostalCode: enrichedAddress.paPostalCode || null,
-        paCity: enrichedAddress.paCity || null,
+        paFirstName: fields.paFirstName ? {
+          content: fields.paFirstName.content || null,
+          confidence: fields.paFirstName.confidence || 1
+        } : undefined,
+        paLastName: fields.paLastName ? {
+          content: fields.paLastName.content || null,
+          confidence: fields.paLastName.confidence || 1
+        } : undefined,
+        paBusinessName: fields.paBusinessName ? {
+          content: fields.paBusinessName.content || null,
+          confidence: fields.paBusinessName.confidence || 1
+        } : undefined,
+        paTitle: fields.paTitle ? {
+          content: fields.paTitle.content || null,
+          confidence: fields.paTitle.confidence || 1
+        } : undefined,
+        paStreet: fields.paStreet ? {
+          content: fields.paStreet.content || null,
+          confidence: fields.paStreet.confidence || 1
+        } : undefined,
+        paBuilding: fields.paBuilding ? {
+          content: fields.paBuilding.content || null,
+          confidence: fields.paBuilding.confidence || 1
+        } : undefined,
+        paUnit: fields.paUnit ? {
+          content: fields.paUnit.content || null,
+          confidence: fields.paUnit.confidence || 1
+        } : undefined,
+        paPostalCode: fields.paPostalCode ? {
+          content: fields.paPostalCode.content || null,
+          confidence: fields.paPostalCode.confidence || 1
+        } : undefined,
+        paCity: fields.paCity ? {
+          content: fields.paCity.content || null,
+          confidence: fields.paCity.confidence || 1
+        } : undefined,
       } as CorrespondenceData,
       
       supplier: {
-        supplierName: fields.supplierName?.content || null,
-        supplierTaxID: fields.supplierTaxID?.content || null,
-        supplierStreet: fields.supplierStreet?.content || null,
-        supplierBuilding: fields.supplierBuilding?.content || null,
-        supplierUnit: fields.supplierUnit?.content || null,
-        supplierPostalCode: fields.supplierPostalCode?.content || null,
-        supplierCity: fields.supplierCity?.content || null,
-        supplierBankAccount: fields.supplierBankAccount?.content || null,
-        supplierBankName: fields.supplierBankName?.content || null,
-        supplierEmail: fields.supplierEmail?.content || null,
-        supplierPhone: fields.supplierPhone?.content || null,
-        supplierWebsite: fields.supplierWebsite?.content || null,
-        OSD_name: fields.OSD_name?.content || null,
-        OSD_region: fields.OSD_region?.content || null,
+        supplierName: fields.supplierName ? {
+          content: fields.supplierName.content || null,
+          confidence: fields.supplierName.confidence || 1
+        } : undefined,
+        supplierTaxID: fields.supplierTaxID ? {
+          content: fields.supplierTaxID.content || null,
+          confidence: fields.supplierTaxID.confidence || 1
+        } : undefined,
+        supplierStreet: fields.supplierStreet ? {
+          content: fields.supplierStreet.content || null,
+          confidence: fields.supplierStreet.confidence || 1
+        } : undefined,
+        supplierBuilding: fields.supplierBuilding ? {
+          content: fields.supplierBuilding.content || null,
+          confidence: fields.supplierBuilding.confidence || 1
+        } : undefined,
+        supplierUnit: fields.supplierUnit ? {
+          content: fields.supplierUnit.content || null,
+          confidence: fields.supplierUnit.confidence || 1
+        } : undefined,
+        supplierPostalCode: fields.supplierPostalCode ? {
+          content: fields.supplierPostalCode.content || null,
+          confidence: fields.supplierPostalCode.confidence || 1
+        } : undefined,
+        supplierCity: fields.supplierCity ? {
+          content: fields.supplierCity.content || null,
+          confidence: fields.supplierCity.confidence || 1
+        } : undefined,
+        supplierBankAccount: fields.supplierBankAccount ? {
+          content: fields.supplierBankAccount.content || null,
+          confidence: fields.supplierBankAccount.confidence || 1
+        } : undefined,
+        supplierBankName: fields.supplierBankName ? {
+          content: fields.supplierBankName.content || null,
+          confidence: fields.supplierBankName.confidence || 1
+        } : undefined,
+        supplierEmail: fields.supplierEmail ? {
+          content: fields.supplierEmail.content || null,
+          confidence: fields.supplierEmail.confidence || 1
+        } : undefined,
+        supplierPhone: fields.supplierPhone ? {
+          content: fields.supplierPhone.content || null,
+          confidence: fields.supplierPhone.confidence || 1
+        } : undefined,
+        supplierWebsite: fields.supplierWebsite ? {
+          content: fields.supplierWebsite.content || null,
+          confidence: fields.supplierWebsite.confidence || 1
+        } : undefined,
+        OSD_name: fields.OSD_name ? {
+          content: fields.OSD_name.content || null,
+          confidence: fields.OSD_name.confidence || 1
+        } : undefined,
+        OSD_region: fields.OSD_region ? {
+          content: fields.OSD_region.content || null,
+          confidence: fields.OSD_region.confidence || 1
+        } : undefined,
       } as SupplierData,
       
       billing: {
-        billingStartDate: fields.BillingStartDate?.content || undefined,
-        billingEndDate: fields.BillingEndDate?.content || undefined,
-        billedUsage: fields.BilledUsage?.content ? parseFloat(fields.BilledUsage.content) : undefined,
-        usage12m: fields.usage12m?.content ? parseFloat(fields.usage12m.content) : undefined,
-        confidence: fields.confidence || undefined,
-      } satisfies Partial<BillingData>,
+        billingStartDate: fields.BillingStartDate ? {
+          content: fields.BillingStartDate.content || null,
+          confidence: fields.BillingStartDate.confidence || 1
+        } : undefined,
+        billingEndDate: fields.BillingEndDate ? {
+          content: fields.BillingEndDate.content || null,
+          confidence: fields.BillingEndDate.confidence || 1
+        } : undefined,
+        billedUsage: fields.BilledUsage ? {
+          content: fields.BilledUsage.content || null,
+          confidence: fields.BilledUsage.confidence || 1
+        } : undefined,
+        usage12m: fields.usage12m ? {
+          content: fields.usage12m.content || null,
+          confidence: fields.usage12m.confidence || 1
+        } : undefined,
+      } as BillingData,
     };
   }, [modelResults]);
 
