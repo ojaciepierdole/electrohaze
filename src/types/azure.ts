@@ -2,8 +2,9 @@ import type {
   DocumentField,
   AnalyzeResult,
   DocumentAnalysisClient,
-  DocumentAnalysisOperation,
-  AzureKeyCredential 
+  AzureKeyCredential,
+  AnalyzedDocument,
+  AnalyzeDocumentPoller
 } from '@azure/ai-form-recognizer';
 
 // Re-eksport typów z Azure Form Recognizer
@@ -11,13 +12,13 @@ export type {
   DocumentField,
   AnalyzeResult,
   DocumentAnalysisClient,
-  DocumentAnalysisOperation,
-  AzureKeyCredential
+  AzureKeyCredential,
+  AnalyzedDocument
 };
 
 // Aliasy typów dla lepszej czytelności
-export type DocumentAnalysisResponse = AnalyzeResult;
-export type DocumentPoller = DocumentAnalysisOperation;
+export type DocumentAnalysisResponse = AnalyzeResult<AnalyzedDocument>;
+export type DocumentPoller = AnalyzeDocumentPoller;
 
 // Własne typy bazujące na typach z Azure
 export type DocumentFields = Record<string, DocumentField>; 

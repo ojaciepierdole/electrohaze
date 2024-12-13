@@ -70,16 +70,27 @@ export async function POST(request: Request) {
     const service = AzureDocumentService.getInstance();
     const result = await service.analyzeDocument(file, modelId, { skipCache });
 
+    // Sprawdzenie czy mamy dokumenty w wyniku
+    if (!result.documents || result.documents.length === 0) {
+      logger.error('Brak dokumentów w wyniku analizy', context);
+      return NextResponse.json(
+        { error: 'Nie znaleziono dokumentu w wyniku analizy' },
+        { status: 422 }
+      );
+    }
+
+    const document = result.documents[0];
+
     // Mapowanie wyniku do formatu aplikacji
-    const mappedResult = mapDocumentAnalysisResult(result.documents[0].fields);
+    const mappedResult = mapDocumentAnalysisResult(document.fields);
 
     const processingTime = performanceMonitor.getActiveOperations()
       .find(op => op.operationId === operationId)?.duration || 0;
 
     const modelResult = {
       modelId,
-      fields: result.documents[0].fields,
-      confidence: result.documents[0].confidence,
+      fields: document.fields,
+      confidence: document.confidence,
       pageCount: result.pages?.length || 1
     };
 
@@ -114,13 +125,13 @@ export async function POST(request: Request) {
     await alertService.checkAndTrigger({
       ...context,
       processingTime,
-      confidence: result.documents[0].confidence,
+      confidence: document.confidence,
       validationError: validationResult.error
     });
 
     logger.info('Zakończono przetwarzanie dokumentu', {
       ...context,
-      confidence: result.documents[0].confidence,
+      confidence: document.confidence,
       pageCount: result.pages?.length || 1,
       processingTime
     });

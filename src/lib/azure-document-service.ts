@@ -126,8 +126,8 @@ export class AzureDocumentService {
 
         this.logger.info('Zakończono analizę dokumentu', {
           ...context,
-          confidence: result.documents[0]?.confidence,
-          pageCount: result.pages?.length
+          confidence: result.documents?.[0]?.confidence ?? 0,
+          pageCount: result.pages?.length ?? 1
         });
 
         // Zapisz wynik w cache

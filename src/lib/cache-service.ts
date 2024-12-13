@@ -1,4 +1,4 @@
-import { DocumentAnalysisResponse } from '@azure/ai-form-recognizer';
+import { DocumentAnalysisResponse } from '@/types/azure';
 
 interface CacheEntry {
   result: DocumentAnalysisResponse;

@@ -1,8 +1,8 @@
 // Funkcja mapująca surowe dane do naszej struktury
 import type { DocumentAnalysisResult } from '@/types/processing';
-import type { DocumentField } from '@azure/ai-form-recognizer';
+import type { DocumentField, DocumentAnalysisResponse } from '@/types/azure';
 import { DateHelpers } from '@/types/common';
-import { safeValidateDocumentAnalysisResult } from '@/types/validation';
+import { safeValidateMappedResult } from '@/types/validation';
 import { Logger } from '@/lib/logger';
 
 const logger = Logger.getInstance();
@@ -235,7 +235,7 @@ export function mapDocumentAnalysisResult(fields: Record<string, DocumentField>)
   });
 
   // Walidacja wyniku
-  const validationResult = safeValidateDocumentAnalysisResult(mappedResult);
+  const validationResult = safeValidateMappedResult(mappedResult);
   
   if (!validationResult.success) {
     logger.warn('Nieprawidłowy format danych po mapowaniu', {
@@ -245,4 +245,13 @@ export function mapDocumentAnalysisResult(fields: Record<string, DocumentField>)
   }
 
   return mappedResult;
+}
+
+// Funkcja pomocnicza do mapowania odpowiedzi z Azure na nasz format
+export function mapAzureResponse(response: DocumentAnalysisResponse): DocumentAnalysisResult {
+  if (!response.documents || response.documents.length === 0) {
+    return {};
+  }
+
+  return mapDocumentAnalysisResult(response.documents[0].fields);
 } 

@@ -55,6 +55,7 @@ async function analyzeDocument(
       mappedData: {
         fileName: file instanceof File ? file.name : 'unknown'
       },
+      confidence: 0,
       cacheStats: {
         size: 0,
         maxSize: 1000,
@@ -105,6 +106,7 @@ async function analyzeDocument(
     mappedData: {
       fileName: file instanceof File ? file.name : 'unknown'
     },
+    confidence: result.documents[0].confidence,
     cacheStats: {
       size: 0,
       maxSize: 1000,

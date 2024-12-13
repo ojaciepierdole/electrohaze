@@ -124,6 +124,14 @@ export function safeValidateDocumentAnalysisResult(result: DocumentAnalysisRespo
   };
 }
 
+export function safeValidateMappedResult(result: DocumentAnalysisResult): ValidationResult {
+  const validation = DocumentAnalysisSchema.safeParse(result);
+  return {
+    success: validation.success,
+    error: !validation.success ? validation.error.message : undefined
+  };
+}
+
 export function validateDocumentAnalysisResult(result: DocumentAnalysisResponse): ValidationResult {
   const validation = safeValidateDocumentAnalysisResult(result);
   if (!validation.success) {
