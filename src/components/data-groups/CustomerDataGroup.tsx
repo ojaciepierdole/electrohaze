@@ -68,21 +68,51 @@ export function CustomerDataGroup({ data }: CustomerDataGroupProps) {
   const formattedData = React.useMemo(() => {
     const formatted: Record<string, string | null> = {};
     
+    console.group('CustomerDataGroup - formatowanie');
+    console.log('Dane wejściowe:', data);
+    
     for (const [key, value] of Object.entries(data)) {
-      if (key === 'FirstName' || key === 'LastName' || key === 'BusinessName') {
-        formatted[key] = formatPersonName((value as any)?.content || null);
-      } else if (key === 'Street') {
-        formatted[key] = formatStreet((value as any)?.content || null);
-      } else if (key === 'Building' || key === 'Unit') {
-        formatted[key] = formatAddress((value as any)?.content || null);
-      } else if (key === 'PostalCode') {
-        formatted[key] = formatPostalCode((value as any)?.content || null);
-      } else if (key === 'City' || key === 'Municipality' || key === 'District' || key === 'Province') {
-        formatted[key] = formatCity((value as any)?.content || null);
-      } else {
-        formatted[key] = (value as any)?.content || null;
+      console.log(`Przetwarzanie pola ${key}:`, value);
+      const content = (value as any)?.content || null;
+      
+      if (!content) {
+        formatted[key] = null;
+        continue;
+      }
+
+      try {
+        if (key === 'FirstName' || key === 'LastName' || key === 'BusinessName' || key === 'Title') {
+          // Tylko konwersja na wielkie litery, bez formatowania
+          formatted[key] = content.toUpperCase();
+          console.log(`${key} -> toUpperCase:`, formatted[key]);
+        } else if (key === 'Street') {
+          const withoutPrefix = formatStreet(content);
+          formatted[key] = withoutPrefix.toUpperCase();
+          console.log(`${key} -> formatStreet + toUpperCase:`, formatted[key]);
+        } else if (key === 'Building' || key === 'Unit') {
+          const formattedNumber = formatAddress(content);
+          formatted[key] = formattedNumber.toUpperCase();
+          console.log(`${key} -> formatAddress + toUpperCase:`, formatted[key]);
+        } else if (key === 'PostalCode') {
+          const formattedPostalCode = formatPostalCode(content);
+          formatted[key] = formattedPostalCode.toUpperCase();
+          console.log(`${key} -> formatPostalCode + toUpperCase:`, formatted[key]);
+        } else if (key === 'City') {
+          const formattedCity = formatCity(content);
+          formatted[key] = formattedCity.toUpperCase();
+          console.log(`${key} -> formatCity + toUpperCase:`, formatted[key]);
+        } else {
+          formatted[key] = content.toUpperCase();
+          console.log(`${key} -> toUpperCase:`, formatted[key]);
+        }
+      } catch (error) {
+        console.error(`Błąd podczas formatowania pola ${key}:`, error);
+        formatted[key] = content.toUpperCase();
       }
     }
+    
+    console.log('\nWynik końcowy formatowania:', formatted);
+    console.groupEnd();
     
     return formatted;
   }, [data]);

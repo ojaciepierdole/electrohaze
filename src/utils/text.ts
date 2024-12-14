@@ -23,4 +23,11 @@ export function formatText(text: string | null | undefined): string {
 
   // Jeśli tekst ma mieszane wielkości liter, zostaw go bez zmian
   return trimmedText;
+}
+
+export function capitalizeFirstLetter(text: string): string {
+  const trimmedText = text.trim();
+  if (!trimmedText) return '';
+  // Konwertuj na wielkie litery
+  return trimmedText.toUpperCase();
 } 

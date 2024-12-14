@@ -2,13 +2,9 @@ import { Compose2Result, DisplayInvoiceData } from '@/types/compose2';
 
 function formatText(text: string): string {
   if (text === text.toUpperCase() && text !== text.toLowerCase()) {
-    return text
-      .toLowerCase()
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+    return text;
   }
-  return text;
+  return text.toUpperCase();
 }
 
 function cleanText(text?: string): string {

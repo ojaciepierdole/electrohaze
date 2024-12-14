@@ -37,6 +37,9 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
       // Podstawowe pola adresowe
       FirstName: fields.FirstName?.content || undefined,
       LastName: fields.LastName?.content || undefined,
+      BusinessName: fields.BusinessName?.content || undefined,
+      TaxID: fields.taxID?.content || undefined,
+      MeterID: fields.MeterNumber?.content || undefined,
       Street: fields.Street?.content || undefined,
       Building: fields.Building?.content || undefined,
       Unit: fields.Unit?.content || undefined,
@@ -50,6 +53,9 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
       // Pola adresu korespondencyjnego
       paFirstName: fields.paFirstName?.content || undefined,
       paLastName: fields.paLastName?.content || undefined,
+      paBusinessName: fields.paBusinessName?.content || undefined,
+      paTaxID: fields.paTaxID?.content || undefined,
+      paMeterID: fields.paMeterID?.content || undefined,
       paStreet: fields.paStreet?.content || undefined,
       paBuilding: fields.paBuilding?.content || undefined,
       paUnit: fields.paUnit?.content || undefined,
@@ -61,17 +67,39 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
       paProvince: fields.paProvince?.content || undefined,
 
       // Pola adresu PPE
-      ppeFirstName: fields.ppeFirstName?.content || undefined,
-      ppeLastName: fields.ppeLastName?.content || undefined,
-      ppeStreet: fields.ppeStreet?.content || undefined,
-      ppeBuilding: fields.ppeBuilding?.content || undefined,
-      ppeUnit: fields.ppeUnit?.content || undefined,
-      ppePostalCode: fields.ppePostalCode?.content || undefined,
-      ppeCity: fields.ppeCity?.content || undefined,
-      ppeTitle: fields.ppeTitle?.content || undefined,
-      ppeMunicipality: fields.ppeMunicipality?.content || undefined,
-      ppeDistrict: fields.ppeDistrict?.content || undefined,
-      ppeProvince: fields.ppeProvince?.content || undefined,
+      dpFirstName: fields.dpFirstName?.content || undefined,
+      dpLastName: fields.dpLastName?.content || undefined,
+      dpBusinessName: fields.dpBusinessName?.content || undefined,
+      dpTaxID: fields.dpTaxID?.content || undefined,
+      dpMeterID: fields.dpMeterID?.content || undefined,
+      dpStreet: fields.dpStreet?.content || undefined,
+      dpBuilding: fields.dpBuilding?.content || undefined,
+      dpUnit: fields.dpUnit?.content || undefined,
+      dpPostalCode: fields.dpPostalCode?.content || undefined,
+      dpCity: fields.dpCity?.content || undefined,
+      dpTitle: fields.dpTitle?.content || undefined,
+      dpMunicipality: fields.dpMunicipality?.content || undefined,
+      dpDistrict: fields.dpDistrict?.content || undefined,
+      dpProvince: fields.dpProvince?.content || undefined,
+
+      // Pola dostawcy (supplier)
+      spFirstName: fields.spFirstName?.content || undefined,
+      spLastName: fields.spLastName?.content || undefined,
+      spBusinessName: fields.spBusinessName?.content || undefined,
+      spTaxID: fields.spTaxID?.content || undefined,
+      spMeterID: fields.spMeterID?.content || undefined,
+      spStreet: fields.spStreet?.content || undefined,
+      spBuilding: fields.spBuilding?.content || undefined,
+      spUnit: fields.spUnit?.content || undefined,
+      spPostalCode: fields.spPostalCode?.content || undefined,
+      spCity: fields.spCity?.content || undefined,
+      spTitle: fields.spTitle?.content || undefined,
+      spMunicipality: fields.spMunicipality?.content || undefined,
+      spDistrict: fields.spDistrict?.content || undefined,
+      spProvince: fields.spProvince?.content || undefined,
+
+      // Pole specjalne
+      ppeNum: fields.ppeNum?.content || undefined,
     };
 
     // Wzbogać dane adresowe

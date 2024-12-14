@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle } from 'lucide-react';
 import type { CorrespondenceData } from '@/types/fields';
-import { formatAddress, formatPostalCode, formatCity, formatStreet, formatPersonName, calculateGroupConfidence, getMissingFields, calculateOptimalColumns } from '@/utils/text-formatting';
+import { formatAddress, formatPostalCode, formatCity, formatStreet, calculateGroupConfidence, getMissingFields, calculateOptimalColumns } from '@/utils/text-formatting';
 import { ConfidenceDot } from '@/components/ui/confidence-dot';
 
 const FIELD_GROUPS = {
@@ -21,6 +21,11 @@ const FIELD_GROUPS = {
     paUnit: 'Numer lokalu',
     paPostalCode: 'Kod pocztowy',
     paCity: 'Miejscowość',
+  },
+  administracyjne: {
+    paProvince: 'Województwo',
+    paMunicipality: 'Gmina',
+    paDistrict: 'Powiat',
   }
 } as const;
 
@@ -63,21 +68,51 @@ export function CorrespondenceDataGroup({ data }: CorrespondenceDataGroupProps) 
   const formattedData = React.useMemo(() => {
     const formatted: Record<string, string | null> = {};
     
+    console.group('CorrespondenceDataGroup - formatowanie');
+    console.log('Dane wejściowe:', data);
+    
     for (const [key, value] of Object.entries(data)) {
-      if (key === 'paFirstName' || key === 'paLastName' || key === 'paBusinessName' || key === 'paTitle') {
-        formatted[key] = formatPersonName((value as any)?.content || null);
-      } else if (key === 'paStreet') {
-        formatted[key] = formatStreet((value as any)?.content || null);
-      } else if (key === 'paBuilding' || key === 'paUnit') {
-        formatted[key] = formatAddress((value as any)?.content || null);
-      } else if (key === 'paPostalCode') {
-        formatted[key] = formatPostalCode((value as any)?.content || null);
-      } else if (key === 'paCity') {
-        formatted[key] = formatCity((value as any)?.content || null);
-      } else {
-        formatted[key] = (value as any)?.content || null;
+      console.log(`Przetwarzanie pola ${key}:`, value);
+      const content = (value as any)?.content || null;
+      
+      if (!content) {
+        formatted[key] = null;
+        continue;
+      }
+
+      try {
+        if (key === 'paFirstName' || key === 'paLastName' || key === 'paBusinessName' || key === 'paTitle') {
+          // Tylko konwersja na wielkie litery, bez formatowania
+          formatted[key] = content.toUpperCase();
+          console.log(`${key} -> toUpperCase:`, formatted[key]);
+        } else if (key === 'paStreet') {
+          const withoutPrefix = formatStreet(content);
+          formatted[key] = withoutPrefix.toUpperCase();
+          console.log(`${key} -> formatStreet + toUpperCase:`, formatted[key]);
+        } else if (key === 'paBuilding' || key === 'paUnit') {
+          const formattedNumber = formatAddress(content);
+          formatted[key] = formattedNumber.toUpperCase();
+          console.log(`${key} -> formatAddress + toUpperCase:`, formatted[key]);
+        } else if (key === 'paPostalCode') {
+          const formattedPostalCode = formatPostalCode(content);
+          formatted[key] = formattedPostalCode.toUpperCase();
+          console.log(`${key} -> formatPostalCode + toUpperCase:`, formatted[key]);
+        } else if (key === 'paCity') {
+          const formattedCity = formatCity(content);
+          formatted[key] = formattedCity.toUpperCase();
+          console.log(`${key} -> formatCity + toUpperCase:`, formatted[key]);
+        } else {
+          formatted[key] = content.toUpperCase();
+          console.log(`${key} -> toUpperCase:`, formatted[key]);
+        }
+      } catch (error) {
+        console.error(`Błąd podczas formatowania pola ${key}:`, error);
+        formatted[key] = content.toUpperCase();
       }
     }
+    
+    console.log('\nWynik końcowy formatowania:', formatted);
+    console.groupEnd();
     
     return formatted;
   }, [data]);
