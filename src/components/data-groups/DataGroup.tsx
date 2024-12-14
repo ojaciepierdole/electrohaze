@@ -3,7 +3,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Eraser } from 'lucide-react';
 import { ConfidenceDot } from '@/components/ui/confidence-dot';
 import { calculateOptimalColumns } from '@/utils/text-formatting';
 import type { DocumentField } from '@/types/document-processing';
@@ -25,18 +25,22 @@ interface OptimalColumnsResult {
 }
 
 export const DataGroup: React.FC<DataGroupProps> = ({ title, data, fieldLabels }) => {
+  console.log('DataGroup input:', { title, data, fieldLabels });
+
   // Oblicz statystyki grupy
   const stats = React.useMemo(() => {
     const fields = Object.entries(data);
     const filledFields = fields.filter(([_, field]) => field?.content !== null && field?.content !== undefined);
     const totalConfidence = filledFields.reduce((sum, [_, field]) => sum + (field?.confidence ?? 0), 0);
     
-    return {
+    const result = {
       total: fields.length,
       filled: filledFields.length,
       completeness: filledFields.length / fields.length,
       confidence: filledFields.length > 0 ? totalConfidence / filledFields.length : 0
     };
+    console.log('Calculated stats:', result);
+    return result;
   }, [data]);
 
   // Oblicz optymalny układ kolumn dla brakujących pól
@@ -51,6 +55,7 @@ export const DataGroup: React.FC<DataGroupProps> = ({ title, data, fieldLabels }
 
   // Sprawdź czy grupa jest pusta
   if (stats.filled === 0) {
+    console.log('Group is empty');
     return (
       <Card className="bg-gray-50 border-gray-200 opacity-75">
         <CardHeader className="border-b border-gray-200">
@@ -73,6 +78,10 @@ export const DataGroup: React.FC<DataGroupProps> = ({ title, data, fieldLabels }
 
   const completionPercentage = Math.round(stats.completeness * 100);
   const confidencePercentage = Math.round(stats.confidence * 100);
+
+  console.log('Rendering filled fields:', Object.entries(fieldLabels)
+    .filter(([key]) => data[key]?.content)
+    .map(([key]) => ({ key, content: data[key]?.content })));
 
   return (
     <Card className="bg-white shadow-sm">
@@ -103,7 +112,13 @@ export const DataGroup: React.FC<DataGroupProps> = ({ title, data, fieldLabels }
                   <dd className="text-sm font-medium">
                     {fieldData.content}
                   </dd>
-                  <ConfidenceDot confidence={fieldData?.confidence ?? 0} />
+                  {fieldData.isEnriched ? (
+                    <div className="flex items-center text-gray-400">
+                      <Eraser className="w-4 h-4" />
+                    </div>
+                  ) : (
+                    <ConfidenceDot confidence={fieldData?.confidence ?? 0} />
+                  )}
                 </div>
               );
             })}

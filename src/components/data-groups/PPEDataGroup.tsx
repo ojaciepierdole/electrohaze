@@ -9,8 +9,11 @@ interface PPEDataGroupProps {
 }
 
 export const PPEDataGroup: React.FC<PPEDataGroupProps> = ({ data }) => {
+  console.log('PPEDataGroup input:', data);
+
   // Przetwórz dane PPE
   const processedData = processSection('ppe', data);
+  console.log('PPEDataGroup processedData:', processedData);
 
   return (
     <DataGroup
@@ -19,7 +22,7 @@ export const PPEDataGroup: React.FC<PPEDataGroupProps> = ({ data }) => {
       fieldLabels={{
         ppeNum: 'Numer PPE',
         MeterNumber: 'Numer licznika',
-        Tariff: 'Grupa taryfowa',
+        TariffGroup: 'Grupa taryfowa',
         ContractNumber: 'Numer umowy',
         ContractType: 'Typ umowy',
         dpStreet: 'Ulica',

@@ -402,7 +402,12 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
         <Card className="bg-white shadow-sm">
           {renderDocumentHeader()}
           <div className="p-4 space-y-6">
-            <SupplierDataGroup data={data.supplier} />
+            <SupplierDataGroup 
+              data={data.supplier} 
+              ppeData={data.ppe}
+              customerData={data.customer}
+              correspondenceData={data.correspondence}
+            />
             <PPEDataGroup data={data.ppe} />
             <CustomerDataGroup data={data.customer} />
             <CorrespondenceDataGroup data={data.correspondence} />
@@ -426,7 +431,12 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
       <Card className="bg-white shadow-sm">
         {renderDocumentHeader()}
         <div className="p-4 space-y-6">
-          <SupplierDataGroup data={data.supplier} />
+          <SupplierDataGroup 
+            data={data.supplier} 
+            ppeData={data.ppe}
+            customerData={data.customer}
+            correspondenceData={data.correspondence}
+          />
           <PPEDataGroup data={data.ppe} />
           <CustomerDataGroup data={data.customer} />
           <CorrespondenceDataGroup data={data.correspondence} />

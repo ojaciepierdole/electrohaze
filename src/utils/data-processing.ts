@@ -445,7 +445,7 @@ const fieldRules: Record<string, (value: string, allFields?: Record<string, Docu
     return result.lastName;
   },
   
-  // Reguły dla numerów i identyfikatorów
+  // Reguły dla numerów i identyfikator��w
   MeterNumber: (value) => cleanSpecialCharacters(value),
   ContractNumber: (value) => cleanSpecialCharacters(value),
   ppeNum: (value) => value?.replace(/[^\d]/g, ''),
@@ -502,11 +502,11 @@ export function processSection<T extends Record<string, DocumentField>>(
   section: DocumentSection,
   data: T
 ): T {
-  let result = { ...data } as T;
-
-  console.log(`[processSection] Przetwarzanie sekcji ${section}:`, {
+  console.log(`[processSection] Processing section ${section}:`, {
     inputFields: Object.keys(data)
   });
+
+  let result = { ...data } as T;
 
   // Zbiór przetworzonych pól
   const processedFields = new Set<string>();
@@ -519,7 +519,7 @@ export function processSection<T extends Record<string, DocumentField>>(
       const lastName = data[lastNameField]?.content;
 
       if (firstName || lastName) {
-        console.log(`[processSection] Przetwarzam parę pól ${firstNameField}-${lastNameField}:`, {
+        console.log(`[processSection] Processing name pair ${firstNameField}-${lastNameField}:`, {
           firstName,
           lastName
         });
@@ -531,7 +531,8 @@ export function processSection<T extends Record<string, DocumentField>>(
           result[firstNameField as keyof T] = {
             ...data[firstNameField],
             content: processedName.firstName,
-            confidence: (data[firstNameField]?.confidence || 1) * 0.9
+            confidence: (data[firstNameField]?.confidence || 1) * 0.9,
+            isEnriched: true
           } as T[keyof T];
         }
         
@@ -540,7 +541,8 @@ export function processSection<T extends Record<string, DocumentField>>(
           result[lastNameField as keyof T] = {
             ...data[lastNameField],
             content: processedName.lastName,
-            confidence: (data[lastNameField]?.confidence || 1) * 0.9
+            confidence: (data[lastNameField]?.confidence || 1) * 0.9,
+            isEnriched: true
           } as T[keyof T];
         }
 
@@ -560,7 +562,7 @@ export function processSection<T extends Record<string, DocumentField>>(
 
     // Jeśli pole nie istnieje lub nie ma wartości, pomijamy je
     if (!field?.content) {
-      console.log(`[processSection] Pomijam puste pole ${key}`);
+      console.log(`[processSection] Skipping empty field ${key}`);
       continue;
     }
 
@@ -570,7 +572,7 @@ export function processSection<T extends Record<string, DocumentField>>(
 
     if (rule) {
       try {
-        console.log(`[processSection] Przetwarzam pole ${key} (${standardFieldName}):`, {
+        console.log(`[processSection] Processing field ${key} (${standardFieldName}):`, {
           originalValue: field.content,
           confidence: field.confidence
         });
@@ -580,22 +582,25 @@ export function processSection<T extends Record<string, DocumentField>>(
           const processedField: DocumentField = {
             ...field,
             content: processedValue,
-            confidence: field.confidence * 0.9
+            confidence: field.confidence * 0.9,
+            isEnriched: true
           };
           result[key as keyof T] = processedField as T[keyof T];
 
-          console.log(`[processSection] Pole ${key} przetworzone:`, {
+          console.log(`[processSection] Field ${key} processed:`, {
             newValue: processedValue,
-            newConfidence: processedField.confidence
+            newConfidence: processedField.confidence,
+            isEnriched: true
           });
         }
       } catch (error) {
-        console.error(`[processSection] Błąd przetwarzania pola ${key}:`, error);
+        console.error(`[processSection] Error processing field ${key}:`, error);
       }
     } else {
-      console.log(`[processSection] Brak reguły dla pola ${standardFieldName}`);
+      console.log(`[processSection] No rule found for field ${standardFieldName}`);
     }
   }
 
+  console.log(`[processSection] Final result for section ${section}:`, result);
   return result;
 } 

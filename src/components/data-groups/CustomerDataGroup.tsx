@@ -9,8 +9,11 @@ interface CustomerDataGroupProps {
 }
 
 export const CustomerDataGroup: React.FC<CustomerDataGroupProps> = ({ data }) => {
+  console.log('CustomerDataGroup input:', data);
+
   // Przetwórz dane klienta
   const processedData = processSection('customer', data);
+  console.log('CustomerDataGroup processedData:', processedData);
 
   return (
     <DataGroup
@@ -25,10 +28,7 @@ export const CustomerDataGroup: React.FC<CustomerDataGroupProps> = ({ data }) =>
         Building: 'Numer budynku',
         Unit: 'Numer lokalu',
         PostalCode: 'Kod pocztowy',
-        City: 'Miejscowość',
-        Municipality: 'Gmina',
-        District: 'Powiat',
-        Province: 'Województwo'
+        City: 'Miejscowość'
       }}
     />
   );

@@ -62,6 +62,7 @@ export interface DocumentField {
     generatedFrom?: string;
     transformationType?: string;
   };
+  isEnriched?: boolean;
 }
 
 /**

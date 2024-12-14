@@ -1,16 +1,118 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { DataGroup } from '@/components/data-groups/DataGroup';
 import type { DocumentField } from '@/types/document-processing';
 import { processSection } from '@/utils/data-processing';
-import type { SupplierData } from '@/types/fields';
+import type { SupplierData, PPEData, CustomerData, CorrespondenceData } from '@/types/fields';
+import { getOSDInfoByPostalCode } from '@/utils/osd-mapping';
 
 interface SupplierDataGroupProps {
   data: SupplierData;
+  ppeData?: PPEData;
+  customerData?: CustomerData;
+  correspondenceData?: CorrespondenceData;
 }
 
-export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({ data }) => {
+export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({ 
+  data,
+  ppeData,
+  customerData,
+  correspondenceData
+}) => {
+  console.log('SupplierDataGroup input:', { data, ppeData, customerData, correspondenceData });
+
   // Przetwórz dane dostawcy
   const processedData = processSection('supplier', data);
+  console.log('SupplierDataGroup processedData:', processedData);
+
+  // Jeśli mamy dane OSD z faktury, zachowujemy je, tylko normalizując nazewnictwo
+  if (data.OSD_name?.content) {
+    console.log('Found OSD in invoice:', data.OSD_name);
+    const normalizedInfo = getOSDInfoByPostalCode(data.supplierPostalCode?.content || '');
+    console.log('Normalized OSD info:', normalizedInfo);
+    
+    if (normalizedInfo && normalizedInfo.name.toUpperCase().includes(data.OSD_name.content.toUpperCase())) {
+      // Zachowujemy oryginalną pewność, tylko oznaczamy jako wzbogacone
+      processedData.OSD_name = {
+        ...data.OSD_name,
+        content: normalizedInfo.name,
+        isEnriched: true
+      };
+      // Jeśli mamy region w fakturze, zachowujemy go bez zmian
+      if (data.OSD_region) {
+        processedData.OSD_region = data.OSD_region;
+      } 
+      // Jeśli nie mamy regionu w fakturze, ale znaleźliśmy go w mapowaniu
+      else if (normalizedInfo.region) {
+        processedData.OSD_region = {
+          content: normalizedInfo.region,
+          confidence: data.OSD_name.confidence,
+          isEnriched: true
+        };
+      }
+    }
+  } 
+  // Jeśli nie mamy danych OSD z faktury, próbujemy znaleźć na podstawie kodów pocztowych
+  else {
+    // Sprawdź kod pocztowy z PPE
+    if (ppeData?.dpPostalCode?.content) {
+      console.log('Looking up OSD by PPE postal code:', ppeData.dpPostalCode.content);
+      const info = getOSDInfoByPostalCode(ppeData.dpPostalCode.content);
+      console.log('Found OSD info from PPE:', info);
+      
+      if (info) {
+        processedData.OSD_name = {
+          content: info.name,
+          confidence: ppeData.dpPostalCode.confidence || 1.0,
+          isEnriched: true
+        };
+        processedData.OSD_region = {
+          content: info.region,
+          confidence: ppeData.dpPostalCode.confidence || 1.0,
+          isEnriched: true
+        };
+      }
+    }
+    // Jeśli nie znaleziono w PPE, sprawdź adres korespondencyjny
+    else if (correspondenceData?.paPostalCode?.content) {
+      console.log('Looking up OSD by correspondence postal code:', correspondenceData.paPostalCode.content);
+      const info = getOSDInfoByPostalCode(correspondenceData.paPostalCode.content);
+      console.log('Found OSD info from correspondence:', info);
+      
+      if (info) {
+        processedData.OSD_name = {
+          content: info.name,
+          confidence: correspondenceData.paPostalCode.confidence || 0.9,
+          isEnriched: true
+        };
+        processedData.OSD_region = {
+          content: info.region,
+          confidence: correspondenceData.paPostalCode.confidence || 0.9,
+          isEnriched: true
+        };
+      }
+    }
+    // Jeśli nie znaleziono w adresie korespondencyjnym, sprawdź adres zamieszkania
+    else if (customerData?.PostalCode?.content) {
+      console.log('Looking up OSD by customer postal code:', customerData.PostalCode.content);
+      const info = getOSDInfoByPostalCode(customerData.PostalCode.content);
+      console.log('Found OSD info from customer:', info);
+      
+      if (info) {
+        processedData.OSD_name = {
+          content: info.name,
+          confidence: customerData.PostalCode.confidence || 0.8,
+          isEnriched: true
+        };
+        processedData.OSD_region = {
+          content: info.region,
+          confidence: customerData.PostalCode.confidence || 0.8,
+          isEnriched: true
+        };
+      }
+    }
+  }
+
+  console.log('Final processedData:', processedData);
 
   return (
     <DataGroup

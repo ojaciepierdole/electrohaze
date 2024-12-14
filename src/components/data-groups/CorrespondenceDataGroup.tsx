@@ -9,12 +9,15 @@ interface CorrespondenceDataGroupProps {
 }
 
 export const CorrespondenceDataGroup: React.FC<CorrespondenceDataGroupProps> = ({ data }) => {
-  // Przetwórz dane korespondencyjne
+  console.log('CorrespondenceDataGroup input:', data);
+
+  // Przetwórz dane adresu korespondencyjnego
   const processedData = processSection('correspondence', data);
+  console.log('CorrespondenceDataGroup processedData:', processedData);
 
   return (
     <DataGroup
-      title="Dane korespondencyjne"
+      title="Adres korespondencyjny"
       data={processedData}
       fieldLabels={{
         paFirstName: 'Imię',
