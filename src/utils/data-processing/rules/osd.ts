@@ -1,7 +1,7 @@
-import type { TransformationRule, TransformationContext } from '@/types/document-processing';
-import type { ProcessSectionContext } from '@/utils/data-processing';
+import type { TransformationRule, TransformationContext, ProcessSectionContext } from '@/types/document-processing';
 import { normalizeText } from '@/utils/data-processing/core/normalization';
 import { getOSDInfoByPostalCode } from '@/utils/osd-mapping';
+import type { PPEData, CustomerData, CorrespondenceData } from '@/types/fields';
 
 // Słownik poprawnych nazw OSD
 const OSD_NAMES = {
@@ -97,16 +97,17 @@ function findOSDByPostalCode(context?: ProcessSectionContext): { name: string; r
   if (!context) return null;
 
   // Najpierw sprawdź czy mamy dane OSD z PPE
-  if (context.ppe?.OSD_name?.content) {
+  const ppeData = context.ppe as PPEData;
+  if (ppeData?.OSD_name?.content) {
     return {
-      name: context.ppe.OSD_name.content,
-      region: context.ppe.OSD_region?.content || ''
+      name: ppeData.OSD_name.content,
+      region: ppeData.OSD_region?.content || ''
     };
   }
 
   // Sprawdź kod pocztowy z PPE
-  if (context.ppe?.dpPostalCode?.content) {
-    const info = getOSDInfoByPostalCode(context.ppe.dpPostalCode.content);
+  if (ppeData?.dpPostalCode?.content) {
+    const info = getOSDInfoByPostalCode(ppeData.dpPostalCode.content);
     if (info) {
       return {
         name: info.name,
@@ -116,8 +117,9 @@ function findOSDByPostalCode(context?: ProcessSectionContext): { name: string; r
   }
 
   // Sprawdź kod pocztowy z adresu korespondencyjnego
-  if (context.correspondence?.paPostalCode?.content) {
-    const info = getOSDInfoByPostalCode(context.correspondence.paPostalCode.content);
+  const correspondenceData = context.correspondence as CorrespondenceData;
+  if (correspondenceData?.paPostalCode?.content) {
+    const info = getOSDInfoByPostalCode(correspondenceData.paPostalCode.content);
     if (info) {
       return {
         name: info.name,
@@ -127,8 +129,9 @@ function findOSDByPostalCode(context?: ProcessSectionContext): { name: string; r
   }
 
   // Sprawdź kod pocztowy z danych klienta
-  if (context.customer?.PostalCode?.content) {
-    const info = getOSDInfoByPostalCode(context.customer.PostalCode.content);
+  const customerData = context.customer as CustomerData;
+  if (customerData?.PostalCode?.content) {
+    const info = getOSDInfoByPostalCode(customerData.PostalCode.content);
     if (info) {
       return {
         name: info.name,
@@ -153,14 +156,15 @@ export const osdRules: TransformationRule[] = [
       console.log('[OSD Rule] Starting OSD_name transformation:', { value, context });
       
       // Najpierw sprawdź czy mamy dane OSD z PPE
-      if (context.document._context?.ppe?.OSD_name?.content) {
-        console.log('[OSD Rule] Found OSD name in PPE context:', context.document._context.ppe.OSD_name);
+      const ppeData = context.document._context?.ppe as PPEData;
+      if (ppeData?.OSD_name?.content) {
+        console.log('[OSD Rule] Found OSD name in PPE context:', ppeData.OSD_name);
         return {
-          value: context.document._context.ppe.OSD_name.content,
-          additionalFields: context.document._context.ppe.OSD_region?.content ? {
+          value: ppeData.OSD_name.content,
+          additionalFields: ppeData.OSD_region?.content ? {
             OSD_region: {
-              value: context.document._context.ppe.OSD_region.content,
-              confidence: context.document._context.ppe.OSD_region.confidence || 0.8
+              value: ppeData.OSD_region.content,
+              confidence: ppeData.OSD_region.confidence || 0.8
             }
           } : undefined,
           metadata: {
@@ -185,7 +189,7 @@ export const osdRules: TransformationRule[] = [
             additionalFields: {
               OSD_region: {
                 value: osdInfo.region,
-                confidence: context.document[context.section]?.OSD_name?.confidence || 0.8
+                confidence: 0.8
               }
             },
             metadata: {
@@ -214,9 +218,10 @@ export const osdRules: TransformationRule[] = [
     condition: (value, context) => context.field === 'OSD_region',
     transform: (value, context: TransformationContext) => {
       // Najpierw sprawdź czy mamy region z PPE
-      if (context.document._context?.ppe?.OSD_region?.content) {
+      const ppeData = context.document._context?.ppe as PPEData;
+      if (ppeData?.OSD_region?.content) {
         return {
-          value: context.document._context.ppe.OSD_region.content,
+          value: ppeData.OSD_region.content,
           metadata: {
             transformationType: 'osd_normalization',
             fieldType: 'osd_region',

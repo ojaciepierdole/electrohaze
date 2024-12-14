@@ -1,4 +1,4 @@
-import type { DocumentField } from '@/types/document-processing';
+import type { DocumentField, ProcessSectionInput, ProcessSectionContext } from '@/types/document-processing';
 import type { SupplierData, CustomerData, PPEData, CorrespondenceData, BillingData } from '@/types/fields';
 import { formatStreet } from './text-formatting/address';
 import { splitAddressLine } from './text-formatting/address';
@@ -445,7 +445,7 @@ const fieldRules: Record<string, (value: string, allFields?: Record<string, Docu
     return result.lastName;
   },
   
-  // Reguły dla numerów i identyfikator��w
+  // Reguły dla numerów i identyfikatorów
   MeterNumber: (value) => cleanSpecialCharacters(value),
   ContractNumber: (value) => cleanSpecialCharacters(value),
   ppeNum: (value) => value?.replace(/[^\d]/g, ''),

@@ -26,20 +26,20 @@ export interface Address {
 }
 
 /**
- * Interfejs reprezentujący wynik przetwarzania
+ * Interfejs reprezentujący kontekst sekcji podczas przetwarzania
  */
-export interface ProcessingResult<T> {
-  value: T;
-  confidence: number;
-  source: {
-    section: DocumentSection;
-    field: string;
-  };
-  metadata?: {
-    originalValue?: string;
-    transformations?: string[];
-    generatedFrom?: string;
-  };
+export interface ProcessSectionContext {
+  ppe?: Record<string, DocumentField>;
+  customer?: Record<string, DocumentField>;
+  correspondence?: Record<string, DocumentField>;
+  supplier?: Record<string, DocumentField>;
+}
+
+/**
+ * Interfejs dla danych wejściowych sekcji
+ */
+export interface ProcessSectionInput extends Record<string, DocumentField> {
+  _context?: ProcessSectionContext;
 }
 
 /**
@@ -80,7 +80,7 @@ export interface DocumentData {
 export interface TransformationContext {
   section: DocumentSection;
   field: string;
-  document: DocumentData;
+  document: DocumentData & { _context?: ProcessSectionContext };
   metadata?: Record<string, any>;
 }
 

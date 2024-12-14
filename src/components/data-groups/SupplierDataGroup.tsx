@@ -152,12 +152,11 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
         if (key === 'supplierName' && field.content) {
           return (
             <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <SupplierLogo supplierName={field.content} className="w-8 h-8" />
-                <h2 className="text-xl font-medium">{field.content}</h2>
-                <ConfidenceDot confidence={field.confidence ?? 0} />
+              <div className="flex items-center gap-4">
+                <SupplierLogo supplierName={field.content} className="w-24 h-24 flex-shrink-0" />
+                <h2 className="text-xl font-medium whitespace-nowrap">{field.content}</h2>
                 {field.isEnriched && (
-                  <Eraser className="w-4 h-4 text-gray-400" />
+                  <Eraser className="w-4 h-4 text-gray-400 flex-shrink-0" />
                 )}
               </div>
             </div>
@@ -165,6 +164,7 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
         }
         return field.content;
       }}
+      className="grid grid-cols-[auto_1fr_1fr] gap-4 items-center"
     />
   );
 }; 
