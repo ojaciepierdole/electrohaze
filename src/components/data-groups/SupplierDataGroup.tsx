@@ -7,6 +7,7 @@ import { AlertCircle } from 'lucide-react';
 import type { SupplierData } from '@/types/fields';
 import { formatAddress, formatPostalCode, formatCity, formatStreet, formatSupplierName, calculateGroupConfidence, getMissingFields, calculateOptimalColumns } from '@/utils/text-formatting';
 import { ConfidenceDot } from '@/components/ui/confidence-dot';
+import { SupplierLogo } from '@/components/ui/supplier-logo';
 
 // Pola pogrupowane tematycznie w logicznej kolejności
 const FIELD_GROUPS = {
@@ -38,7 +39,7 @@ const FIELD_GROUPS = {
 // Połącz wszystkie pola w jeden obiekt zachowując kolejność grup
 const FIELD_MAPPING: Record<keyof SupplierData, string> = Object.values(FIELD_GROUPS).reduce(
   (acc, group) => ({ ...acc, ...group }),
-  {}
+  {} as Record<keyof SupplierData, string>
 );
 
 interface SupplierDataGroupProps {
@@ -124,10 +125,34 @@ export function SupplierDataGroup({ data }: SupplierDataGroupProps) {
       </CardHeader>
       <CardContent className="p-4">
         <div className="space-y-6">
+          {/* Logo i nazwa sprzedawcy */}
+          {data.supplierName?.content && (
+            <div className="flex items-start gap-6 mb-8">
+              <SupplierLogo 
+                supplierName={data.supplierName.content} 
+                className="w-[88px] h-[88px] shrink-0"
+              />
+              <div className="space-y-1.5">
+                <dt className="text-base font-medium text-gray-600">Sprzedawca</dt>
+                <dd className="text-2xl font-semibold tracking-tight leading-tight">
+                  {formattedData.supplierName}
+                </dd>
+                <div className="flex items-center gap-2 mt-1">
+                  <ConfidenceDot confidence={data.supplierName.confidence || 1} />
+                  <span className="text-sm text-gray-500">
+                    pewność rozpoznania nazwy
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Wypełnione pola */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Object.entries(FIELD_MAPPING).map(([key, label]) => {
               const fieldKey = key as keyof SupplierData;
+              // Pomijamy nazwę dostawcy, bo jest już wyświetlona wyżej
+              if (fieldKey === 'supplierName') return null;
               const fieldData = data[fieldKey];
               return fieldData?.content ? (
                 <div key={key} className="space-y-1">
@@ -150,6 +175,8 @@ export function SupplierDataGroup({ data }: SupplierDataGroupProps) {
                     <div key={columnIndex} className="space-y-2">
                       {column.map(({ key, label }) => {
                         const fieldKey = key as keyof SupplierData;
+                        // Pomijamy nazwę dostawcy w brakujących polach
+                        if (fieldKey === 'supplierName') return null;
                         const fieldData = data[fieldKey];
                         return (
                           <div key={key} className="flex items-center gap-2">

@@ -15,6 +15,7 @@ import { AnalysisSummary } from './AnalysisSummary';
 import { enrichAddressData } from '@/utils/address-enrichment';
 import { processNames } from '@/utils/name-helpers';
 import { calculateDocumentConfidence } from '@/utils/text-formatting';
+import { SupplierLogo } from '@/components/ui/supplier-logo';
 
 interface AnalysisResultCardProps {
   result: ProcessingResult | GroupedResult;
@@ -141,9 +142,9 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
           content: fields.MeterNumber.content || null,
           confidence: fields.MeterNumber.confidence || 1
         } : undefined,
-        TariffGroup: fields.TariffGroup ? {
-          content: fields.TariffGroup.content || null,
-          confidence: fields.TariffGroup.confidence || 1
+        Tariff: fields.Tariff ? {
+          content: fields.Tariff.content || null,
+          confidence: fields.Tariff.confidence || 1
         } : undefined,
         ContractNumber: fields.ContractNumber ? {
           content: fields.ContractNumber.content || null,
@@ -331,29 +332,28 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
   const renderDocumentHeader = () => (
     <div className="p-4 border-b">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           <FileText className="w-5 h-5 text-muted-foreground" />
-          <h3 className="font-medium truncate max-w-[200px]" title={result.fileName}>
-            {result.fileName}
-          </h3>
+          <div className="flex flex-col">
+            <h3 className="font-medium truncate max-w-[300px]" title={result.fileName}>
+              {result.fileName}
+            </h3>
+            <span className="text-sm text-gray-500 truncate">
+              {data.supplier.supplierName?.content}
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1">
-            <span className="text-sm text-gray-500">Pewność</span>
-            <Badge variant={confidencePercentage > 80 ? "success" : confidencePercentage > 60 ? "warning" : "destructive"}>
-              {confidencePercentage}%
-            </Badge>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-sm text-gray-500">Model</span>
-            <Badge variant={modelResults[0].confidence > 0.8 ? "success" : modelResults[0].confidence > 0.6 ? "warning" : "destructive"}>
-              {(modelResults[0].confidence * 100).toFixed(1)}%
-            </Badge>
-          </div>
           <div className="flex items-center gap-1">
             <span className="text-sm text-gray-500">Kompletność</span>
             <Badge variant="outline">
               {completionPercentage}%
+            </Badge>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-sm text-gray-500">Pewność</span>
+            <Badge variant={confidencePercentage > 80 ? "success" : confidencePercentage > 60 ? "warning" : "destructive"}>
+              {confidencePercentage}%
             </Badge>
           </div>
         </div>
@@ -386,15 +386,25 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
   }
 
   return (
-    <Card className="bg-white shadow-sm">
-      {renderDocumentHeader()}
-      <div className="p-4 space-y-6">
-        <SupplierDataGroup data={data.supplier} />
-        <PPEDataGroup data={data.ppe} />
-        <CustomerDataGroup data={data.customer} />
-        <CorrespondenceDataGroup data={data.correspondence} />
-        <BillingDataGroup data={data.billing} />
-      </div>
-    </Card>
+    <div className="space-y-6">
+      {totalTime !== undefined && (
+        <AnalysisSummary 
+          documents={[{ modelResults }]} 
+          totalTime={totalTime}
+          onExport={onExport}
+        />
+      )}
+
+      <Card className="bg-white shadow-sm">
+        {renderDocumentHeader()}
+        <div className="p-4 space-y-6">
+          <SupplierDataGroup data={data.supplier} />
+          <PPEDataGroup data={data.ppe} />
+          <CustomerDataGroup data={data.customer} />
+          <CorrespondenceDataGroup data={data.correspondence} />
+          <BillingDataGroup data={data.billing} />
+        </div>
+      </Card>
+    </div>
   );
 } 

@@ -81,14 +81,15 @@ FieldsList.displayName = 'FieldsList';
 
 // Główny komponent karty
 export const OptimizedResultCard = React.memo(({ result, modelResults }: OptimizedResultCardProps) => {
+  // Oblicz średnią pewność dla wszystkich modeli
+  const avgConfidence = React.useMemo(() => {
+    if (!modelResults.length) return 0;
+    return modelResults.reduce((sum, mr) => sum + mr.confidence, 0) / modelResults.length;
+  }, [modelResults]);
+
   if (!modelResults.length) {
     return null;
   }
-
-  // Oblicz średnią pewność dla wszystkich modeli
-  const avgConfidence = React.useMemo(() => (
-    modelResults.reduce((sum, mr) => sum + mr.confidence, 0) / modelResults.length
-  ), [modelResults]);
 
   return (
     <Card className="bg-white shadow-sm">

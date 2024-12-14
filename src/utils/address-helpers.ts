@@ -113,7 +113,7 @@ function parseAddressNumbers(
 
 export function normalizeAndSplitAddressNumbers(data: AddressSet): AddressSet {
   // Najpierw kopiujemy wartości między polami
-  let enriched = copyFields(data);
+  const enriched = copyFields(data);
   const prefixes = ['', 'pa', 'ppe'] as const;
   
   // Dla każdego prefiksu

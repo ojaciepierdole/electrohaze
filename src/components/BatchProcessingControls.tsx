@@ -84,10 +84,10 @@ export function BatchProcessingControls({
         <ModelSelector
           models={models}
           selectedModels={selectedModels}
-          onModelSelect={onModelSelect}
-          disabled={isProcessing}
+          onSelectionChange={onModelSelect}
+          isDisabled={isProcessing}
           isLoading={isLoadingModels}
-          error={modelsError}
+          error={modelsError?.message}
         />
       </div>
 

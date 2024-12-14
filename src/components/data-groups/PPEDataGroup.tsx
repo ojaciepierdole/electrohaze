@@ -14,7 +14,7 @@ const FIELD_GROUPS = {
     MeterNumber: 'Numer licznika',
   },
   umowa: {
-    TariffGroup: 'Grupa taryfowa',
+    Tariff: 'Grupa taryfowa',
     ContractNumber: 'Numer umowy',
     ContractType: 'Typ umowy',
     ProductName: 'Nazwa produktu',
@@ -31,12 +31,17 @@ const FIELD_GROUPS = {
     dpUnit: 'Numer lokalu',
     dpPostalCode: 'Kod pocztowy',
     dpCity: 'Miejscowość',
+  },
+  dodatkowe: {
+    EnergySaleBreakdown: 'Rozbicie sprzedaży energii',
+    FortumZuzycie: 'Zużycie Fortum',
+    BillBreakdown: 'Rozbicie rachunku',
   }
 } as const;
 
 const FIELD_MAPPING: Record<keyof PPEData, string> = Object.values(FIELD_GROUPS).reduce(
   (acc, group) => ({ ...acc, ...group }),
-  {}
+  {} as Record<keyof PPEData, string>
 );
 
 interface PPEDataGroupProps {

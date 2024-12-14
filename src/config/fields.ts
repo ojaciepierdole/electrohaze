@@ -31,7 +31,7 @@ export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
       'District',
       'Province'
     ] as const,
-    requiredFields: ['FirstName', 'LastName']
+    requiredFields: ['FirstName', 'LastName', 'Street', 'Building', 'Unit', 'PostalCode', 'City']
   },
 
   delivery_point: {
@@ -40,14 +40,14 @@ export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
     fields: [
       'ppeNum',
       'MeterNumber',
-      'TariffGroup',
+      'Tariff',
       'ContractNumber',
       'ContractType',
       'OSD_name',
       'OSD_region',
       'ProductName'
     ] as const,
-    requiredFields: ['ppeNum']
+    requiredFields: ['ppeNum', 'Tariff']
   },
 
   consumption_info: {
@@ -62,7 +62,7 @@ export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
       'ReadingType',
       'Usage12m'
     ] as const,
-    requiredFields: ['BilledUsage']
+    requiredFields: ['BilledUsage', 'Usage12m']
   },
 
   postal_address: {
@@ -81,7 +81,7 @@ export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
       'District',
       'Province'
     ] as const,
-    requiredFields: []
+    requiredFields: ['paFirstName', 'paLastName','paStreet', 'paBuilding', 'paUnit', 'paPostalCode', 'paCity']
   },
 
   supplier: {
@@ -144,6 +144,7 @@ export const FIELD_LABELS: Record<string, string> = {
   Unit: 'Lokal',
   City: 'Miejscowość',
   PostalCode: 'Kod pocztowy',
+  Province: 'Województwo',
   Tariff: 'Taryfa',
   InvoiceType: 'Typ dokumentu',
   taxID: 'NIP',

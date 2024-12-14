@@ -31,7 +31,7 @@ const FIELD_GROUPS = {
 
 const FIELD_MAPPING: Record<keyof CustomerData, string> = Object.values(FIELD_GROUPS).reduce(
   (acc, group) => ({ ...acc, ...group }),
-  {}
+  {} as Record<keyof CustomerData, string>
 );
 
 interface CustomerDataGroupProps {

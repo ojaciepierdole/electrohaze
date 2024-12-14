@@ -208,7 +208,7 @@ export default function AnalyticsPage() {
           // Punkt poboru
           PPENumber: data.result.PPENumber,
           DeliveryAddress: data.result.DeliveryAddress,
-          TariffGroup: data.result.TariffGroup,
+          Tariff: data.result.Tariff,
           
           // Dane klienta
           CustomerName: data.result.CustomerName,

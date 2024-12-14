@@ -26,7 +26,7 @@ const FIELD_GROUPS = {
 
 const FIELD_MAPPING: Record<keyof CorrespondenceData, string> = Object.values(FIELD_GROUPS).reduce(
   (acc, group) => ({ ...acc, ...group }),
-  {}
+  {} as Record<keyof CorrespondenceData, string>
 );
 
 interface CorrespondenceDataGroupProps {

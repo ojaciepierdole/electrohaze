@@ -42,7 +42,7 @@ export const PersonSchema = z.object({
 export const PPESchema = AddressSchema.extend({
   ppeNumber: z.string().optional(),
   meterNumber: z.string().optional(),
-  tariffGroup: z.string().optional(),
+  tariff: z.string().optional(),
   contractNumber: z.string().optional(),
   contractType: z.string().optional(),
   osdName: z.string().optional(),

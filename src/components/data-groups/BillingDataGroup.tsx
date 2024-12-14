@@ -24,6 +24,14 @@ export function BillingDataGroup({ data }: BillingDataGroupProps) {
   const missingFields = getMissingFields(data, FIELD_MAPPING);
   const { columns: missingColumns, gridClass: missingGridClass } = calculateOptimalColumns(missingFields);
 
+  const { completionPercentage, confidencePercentage } = React.useMemo(() => {
+    const confidence = calculateGroupConfidence(data, 'billing');
+    return {
+      completionPercentage: Math.round((confidence.filledFields / confidence.totalFields) * 100),
+      confidencePercentage: Math.round(confidence.averageConfidence * 100)
+    };
+  }, [data]);
+
   const formattedData = React.useMemo(() => {
     const formatted: Record<string, string | null> = {};
     
@@ -39,10 +47,6 @@ export function BillingDataGroup({ data }: BillingDataGroupProps) {
     }
     
     return formatted;
-  }, [data]);
-
-  const { completionPercentage, confidencePercentage } = React.useMemo(() => {
-    return calculateGroupConfidence(data, FIELD_MAPPING);
   }, [data]);
 
   if (isEmpty) {

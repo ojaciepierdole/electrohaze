@@ -1,9 +1,4 @@
-import { BillingData } from './processing';
-
-export interface FieldWithConfidence {
-  content: string | null;
-  confidence: number;
-}
+import { FieldWithConfidence } from './processing';
 
 export interface CustomerData {
   FirstName?: FieldWithConfidence;
@@ -23,7 +18,7 @@ export interface CustomerData {
 export interface PPEData {
   ppeNum?: FieldWithConfidence;
   MeterNumber?: FieldWithConfidence;
-  TariffGroup?: FieldWithConfidence;
+  Tariff?: FieldWithConfidence;
   ContractNumber?: FieldWithConfidence;
   ContractType?: FieldWithConfidence;
   OSD_name?: FieldWithConfidence;
@@ -36,6 +31,9 @@ export interface PPEData {
   dpUnit?: FieldWithConfidence;
   dpPostalCode?: FieldWithConfidence;
   dpCity?: FieldWithConfidence;
+  EnergySaleBreakdown?: FieldWithConfidence;
+  FortumZuzycie?: FieldWithConfidence;
+  BillBreakdown?: FieldWithConfidence;
 }
 
 export interface CorrespondenceData {
@@ -76,6 +74,4 @@ export interface BillingData {
   billedUsage?: FieldWithConfidence;
   usage12m?: FieldWithConfidence;
 }
-
-export type { BillingData };
  

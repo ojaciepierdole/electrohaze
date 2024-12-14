@@ -7,14 +7,14 @@ export async function GET() {
     const response: DocumentIntelligenceResponse = { 
       models: [
         { 
-          modelId: "prebuilt-invoice", 
-          description: "Invoice model",
-          createdOn: new Date()
+          id: "prebuilt-invoice",
+          name: "Invoice model",
+          description: "Model do analizy faktur"
         },
         { 
-          modelId: "prebuilt-receipt", 
-          description: "Receipt model",
-          createdOn: new Date()
+          id: "prebuilt-receipt",
+          name: "Receipt model", 
+          description: "Model do analizy paragonów"
         }
       ]
     };

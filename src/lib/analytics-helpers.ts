@@ -140,7 +140,7 @@ export const availableFields = [
   { key: 'Unit', label: 'Lokal', category: 'Punkt Poboru Energii' },
   
   // Informacje o zużyciu
-  { key: 'TariffGroup', label: 'Taryfa', category: 'Informacje o zużyciu' },
+  { key: 'Tariff', label: 'Taryfa', category: 'Informacje o zużyciu' },
   { key: 'InvoiceType', label: 'Typ dokumentu', category: 'Informacje o zużyciu' },
   { key: 'ReadingType', label: 'Typ odczytu', category: 'Informacje o zużyciu' },
   { key: 'BillingStartDate', label: 'Okres od', category: 'Informacje o zużyciu' },

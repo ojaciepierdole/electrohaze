@@ -72,35 +72,55 @@ export const getCompletionColor = (completion: number): string => {
 export function convertLegacyToModern(legacy: LegacyFields): ModernFields {
   return {
     // Dane sprzedawcy
-    SupplierName: legacy.supplierName || legacy.OSD_name,
-    SupplierTaxId: legacy.taxID,
-    SupplierRegion: legacy.osdRegion,
+    SupplierName: legacy.supplierName || legacy.OSD_name || 'Nieznany dostawca',
+    SupplierTaxID: legacy.spTaxID,
+    SupplierRegion: legacy.OSD_region,
+    SupplierStreet: legacy.spStreet,
+    SupplierBuilding: legacy.spBuilding,
+    SupplierUnit: legacy.spUnit,
+    SupplierCity: legacy.spCity,
+    SupplierPostalCode: legacy.spPostalCode,
+    SupplierProvince: legacy.spProvince,
+    SupplierMunicipality: legacy.spMunicipality,
+    SupplierDistrict: legacy.spDistrict,
+    SupplierIBAN: legacy.spIBAN,
+    SupplierPhoneNum: legacy.spPhoneNum,
+    SupplierWebURL: legacy.spWebUrl,
 
     // Dane klienta
-    CustomerName: `${legacy.firstName} ${legacy.lastName}`.trim(),
+    CustomerName: legacy.BusinessName || `${legacy.FirstName} ${legacy.LastName}`.trim(),
     CustomerTaxId: legacy.taxID,
-    CustomerStreet: legacy.paStreet,
-    CustomerBuilding: legacy.paBuilding,
-    CustomerUnit: legacy.paUnit,
-    CustomerCity: legacy.paCity,
-    CustomerPostalCode: legacy.paPostalCode,
+    CustomerStreet: legacy.Street,
+    CustomerBuilding: legacy.Building,
+    CustomerUnit: legacy.Unit,
+    CustomerCity: legacy.City,
+    CustomerPostalCode: legacy.PostalCode,
+    CustomerProvince: legacy.Province,
 
     // Adres korespondencyjny
-    PostalName: `${legacy.firstName} ${legacy.lastName}`.trim(),
+    PostalName: legacy.paBusinessName || `${legacy.paFirstName} ${legacy.paLastName}`.trim(),
+    PostalTitle: legacy.paTitle,
     PostalStreet: legacy.paStreet,
     PostalBuilding: legacy.paBuilding,
     PostalUnit: legacy.paUnit,
     PostalCity: legacy.paCity,
     PostalPostalCode: legacy.paPostalCode,
+    PostalProvince: legacy.paProvince,
+    PostalMunicipality: legacy.paMunicipality,
+    PostalDistrict: legacy.paDistrict,
 
     // Miejsce dostawy
-    PPENumber: legacy.ppeNumber,
-    DeliveryStreet: legacy.paStreet,
-    DeliveryBuilding: legacy.paBuilding,
-    DeliveryUnit: legacy.paUnit,
-    DeliveryCity: legacy.paCity,
-    DeliveryPostalCode: legacy.paPostalCode,
-    TariffGroup: legacy.tariffGroup,
+    PPENumber: legacy.ppeNum,
+    MeterID: legacy.dpMeterID,
+    DeliveryStreet: legacy.dpStreet,
+    DeliveryBuilding: legacy.dpBuilding,
+    DeliveryUnit: legacy.dpUnit,
+    DeliveryCity: legacy.dpCity,
+    DeliveryPostalCode: legacy.dpPostalCode,
+    DeliveryProvince: legacy.dpProvince,
+    DeliveryMunicipality: legacy.dpMunicipality,
+    DeliveryDistrict: legacy.dpDistrict,
+    Tariff: legacy.Tariff,
 
     // Dane faktury
     InvoiceNumber: legacy.invoiceNumber,
@@ -108,21 +128,26 @@ export function convertLegacyToModern(legacy: LegacyFields): ModernFields {
     DueDate: legacy.dueDate,
     TotalAmount: legacy.totalAmount,
     Currency: legacy.currency,
-    InvoiceType: 'Faktura',
-    BillingStartDate: legacy.periodStart,
-    BillingEndDate: legacy.periodEnd,
+    InvoiceType: legacy.invoiceType || 'Faktura',
+    BillingStartDate: legacy.BillingStartDate || legacy.periodStart,
+    BillingEndDate: legacy.BillingEndDate || legacy.periodEnd,
     NetAmount: legacy.netAmount,
     VatAmount: legacy.vatAmount,
     VatRate: legacy.vatRate,
 
     // Dane zużycia
-    ConsumptionValue: legacy.consumption,
+    BilledUsage: legacy.BilledUsage,
     ConsumptionUnit: 'kWh',
-    Consumption12m: legacy.consumption12m,
-    ReadingType: legacy.readingType,
+    Usage12m: legacy['12mUsage'],
+    ReadingType: legacy.ReadingType,
 
     // Dane produktu
-    ProductName: legacy.productName,
+    ProductName: legacy.ProductName,
     ProductCode: legacy.productCode,
+
+    // Dodatkowe dane
+    EnergySaleBreakdown: legacy.EnergySaleBreakdown,
+    FortumUsage: legacy.Fortum_zużycie,
+    BillBreakdown: legacy.BillBreakdown
   };
 } 

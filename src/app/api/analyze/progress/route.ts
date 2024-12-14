@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-
-// Globalny obiekt do przechowywania emiterów dla każdej sesji
-const progressEmitters = new Map<string, (data: string) => void>();
+import { progressEmitters } from '@/lib/progress-emitter';
 
 export function GET(request: Request) {
   const url = new URL(request.url);
@@ -45,15 +43,4 @@ export function GET(request: Request) {
       'Connection': 'keep-alive'
     }
   });
-}
-
-// Funkcja pomocnicza do wysyłania aktualizacji postępu
-export function sendProgress(sessionId: string, data: any) {
-  console.log(`Sending progress update for session ${sessionId}:`, data);
-  const emitter = progressEmitters.get(sessionId);
-  if (emitter) {
-    emitter(JSON.stringify(data));
-  } else {
-    console.warn(`No emitter found for session ${sessionId}`);
-  }
 } 

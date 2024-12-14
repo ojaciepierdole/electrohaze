@@ -5,8 +5,8 @@ import { Card } from '@/components/ui/card';
 import { FileList } from '@/components/FileList';
 import { ModelSelector } from '@/components/ModelSelector';
 import { ProcessingProgress } from '@/components/ProcessingProgress';
-import { ProcessingSummary } from '@/components/ProcessingSummary';
 import { BatchProcessingResults } from '@/components/BatchProcessingResults';
+import { AnalysisSummary } from '@/components/AnalysisSummary';
 import { useDocumentProcessing } from '@/hooks/useDocumentProcessing';
 import { useDocumentIntelligenceModels } from '@/hooks/useDocumentIntelligenceModels';
 import { useProcessingStore } from '@/stores/processing-store';
@@ -19,6 +19,7 @@ export function ProcessingClient() {
   const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
   const [selectedModels, setSelectedModels] = React.useState<string[]>([]);
   const [isParametersExpanded, setIsParametersExpanded] = React.useState(true);
+  const [processingStartTime, setProcessingStartTime] = React.useState<number | null>(null);
   const { isProcessing, processDocuments } = useDocumentProcessing();
   const { data: models = [], isLoading: isLoadingModels } = useDocumentIntelligenceModels();
   const processingStatus = useProcessingStore();
@@ -75,6 +76,7 @@ export function ProcessingClient() {
     }
 
     setIsParametersExpanded(false);
+    setProcessingStartTime(Date.now());
 
     try {
       await processDocuments(selectedFiles, selectedModels);
@@ -113,7 +115,9 @@ export function ProcessingClient() {
     : 0;
 
   // Oblicz całkowity czas przetwarzania
-  const totalProcessingTime = processingStatus.results.reduce((sum, result) => sum + result.processingTime, 0);
+  const totalProcessingTime = processingStartTime && !isProcessing
+    ? Date.now() - processingStartTime
+    : processingStatus.results.reduce((sum, result) => sum + result.processingTime, 0);
 
   return (
     <div className="container max-w-5xl mx-auto py-8 space-y-6">
@@ -225,10 +229,9 @@ export function ProcessingClient() {
       {/* Wyniki przetwarzania */}
       {processingStatus.results.length > 0 && !isProcessing && (
         <>
-          <ProcessingSummary
-            fileCount={processingStatus.results.length}
+          <AnalysisSummary
+            documents={processingStatus.results}
             totalTime={totalProcessingTime}
-            averageConfidence={averageConfidence}
             onExport={() => {
               addToast(
                 'info',

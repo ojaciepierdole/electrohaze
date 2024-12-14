@@ -1,6 +1,6 @@
 // Funkcja mapująca surowe dane do naszej struktury
-import type { DocumentAnalysisResult } from '@/types/processing';
-import type { DocumentField, DocumentAnalysisResponse } from '@/types/azure';
+import type { DocumentAnalysisResult, FieldWithConfidence, CustomerData, PPEData, CorrespondenceData, SupplierData, BillingData } from '@/types/processing';
+import type { DocumentField } from '@azure/ai-form-recognizer';
 import { DateHelpers } from '@/types/common';
 import { safeValidateMappedResult } from '@/types/validation';
 import { Logger } from '@/lib/logger';
@@ -24,7 +24,7 @@ const requiredCustomerFields = {
 
 const requiredPPEFields = {
   ppeNumber: 'Numer PPE',
-  tariffGroup: 'Grupa taryfowa'
+  tariff: 'Grupa taryfowa'
 } as const;
 
 const requiredCorrespondenceFields = {
@@ -188,7 +188,7 @@ export function mapDocumentAnalysisResult(fields: Record<string, DocumentField>)
     ppeData: {
       ppeNum: emptyField,
       MeterNumber: emptyField,
-      TariffGroup: emptyField,
+      Tariff: emptyField,
       ContractNumber: emptyField,
       ContractType: emptyField,
       OSD_name: emptyField,
@@ -200,7 +200,10 @@ export function mapDocumentAnalysisResult(fields: Record<string, DocumentField>)
       dpBuilding: emptyField,
       dpUnit: emptyField,
       dpPostalCode: emptyField,
-      dpCity: emptyField
+      dpCity: emptyField,
+      EnergySaleBreakdown: emptyField,
+      FortumZuzycie: emptyField,
+      BillBreakdown: emptyField
     },
     correspondenceData: {
       paFirstName: emptyField,
@@ -241,27 +244,27 @@ export function mapDocumentAnalysisResult(fields: Record<string, DocumentField>)
     const value = getFieldValue(field);
     if (value !== undefined) {
       // Mapujemy wartość na odpowiednie pole w strukturze
-      if (key in mappedResult.customerData) {
+      if (mappedResult.customerData && key in mappedResult.customerData) {
         mappedResult.customerData[key as keyof CustomerData] = {
           content: value,
           confidence: field.confidence || 0
         };
-      } else if (key in mappedResult.ppeData) {
+      } else if (mappedResult.ppeData && key in mappedResult.ppeData) {
         mappedResult.ppeData[key as keyof PPEData] = {
           content: value,
           confidence: field.confidence || 0
         };
-      } else if (key in mappedResult.correspondenceData) {
+      } else if (mappedResult.correspondenceData && key in mappedResult.correspondenceData) {
         mappedResult.correspondenceData[key as keyof CorrespondenceData] = {
           content: value,
           confidence: field.confidence || 0
         };
-      } else if (key in mappedResult.supplierData) {
+      } else if (mappedResult.supplierData && key in mappedResult.supplierData) {
         mappedResult.supplierData[key as keyof SupplierData] = {
           content: value,
           confidence: field.confidence || 0
         };
-      } else if (key in mappedResult.billingData) {
+      } else if (mappedResult.billingData && key in mappedResult.billingData) {
         mappedResult.billingData[key as keyof BillingData] = {
           content: value,
           confidence: field.confidence || 0
@@ -274,10 +277,15 @@ export function mapDocumentAnalysisResult(fields: Record<string, DocumentField>)
 }
 
 // Funkcja pomocnicza do mapowania odpowiedzi z Azure na nasz format
-export function mapAzureResponse(response: DocumentAnalysisResponse): DocumentAnalysisResult {
-  if (!response.documents || response.documents.length === 0) {
+export function mapAzureResponse(response: DocumentAnalysisResult): DocumentAnalysisResult {
+  if (!response.documents || !Array.isArray(response.documents) || response.documents.length === 0) {
     return {};
   }
 
-  return mapDocumentAnalysisResult(response.documents[0].fields);
+  const firstDocument = response.documents[0];
+  if (!firstDocument || !firstDocument.fields) {
+    return {};
+  }
+
+  return mapDocumentAnalysisResult(firstDocument.fields);
 } 

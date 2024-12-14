@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { DocumentAnalysisClient, DocumentField } from '@azure/ai-form-recognizer';
-import type { ProcessingResult, ProcessedField } from '@/types/processing';
+import type { ProcessingResult, ProcessedField, PollOptions } from '@/types/processing';
 import type { DocumentFields } from '@/types/azure';
 import { determineFieldGroup } from '@/utils/fields';
 import { cacheManager } from '@/lib/cache-manager';
 import { decompressData } from '@/utils/compression';
-import { sendProgress } from '../progress/route';
+import { sendProgress } from '@/lib/progress-emitter';
 import { headers } from 'next/headers';
 
 // Azure Document Intelligence pozwala na maksymalnie 15 równoległych żądań
@@ -92,9 +92,11 @@ async function analyzeDocument(
   const progressInterval = setInterval(updateProgress, pollingInterval);
   
   try {
-    const result = await poller.pollUntilDone({
+    const pollOptions: PollOptions = {
       intervalInMs: pollingInterval
-    });
+    };
+    
+    const result = await poller.pollUntilDone(pollOptions);
     
     const azureTime = Date.now() - azureStartTime;
     console.log(`[${index}] Zakończono przetwarzanie w Azure (${azureTime}ms)`);

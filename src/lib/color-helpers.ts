@@ -1,4 +1,11 @@
-import Vibrant from 'node-vibrant';
+// Importujemy node-vibrant dynamicznie tylko po stronie serwera
+let Vibrant: any;
+
+if (typeof window === 'undefined') {
+  import('node-vibrant').then((module) => {
+    Vibrant = module.default;
+  });
+}
 
 export interface ColorPalette {
   primary: string;
@@ -9,6 +16,10 @@ export interface ColorPalette {
 
 export async function extractColorsFromLogo(imageUrl: string): Promise<ColorPalette> {
   try {
+    if (!Vibrant) {
+      throw new Error('Vibrant is not available on client side');
+    }
+
     console.log('Extracting colors from:', imageUrl);
     
     const palette = await Vibrant.from(imageUrl)
@@ -18,7 +29,6 @@ export async function extractColorsFromLogo(imageUrl: string): Promise<ColorPale
     
     console.log('Vibrant palette:', palette);
     
-    // Używamy Vibrant jako głównego koloru dla słupków i tła (z przezroczystością)
     const primaryColor = palette.Vibrant?.hex || '#3b82f6';
     const mutedColor = palette.Muted?.hex || primaryColor;
     
@@ -26,8 +36,7 @@ export async function extractColorsFromLogo(imageUrl: string): Promise<ColorPale
       primary: primaryColor,
       secondary: palette.LightVibrant?.hex,
       background: mutedColor,
-      // Używamy tego samego koloru primary z 10% przezroczystością dla tła
-      muted: `${primaryColor}1A` // 1A w hex = 10% przezroczystości
+      muted: `${primaryColor}1A`
     };
     
     console.log('Final color palette:', colors);
@@ -50,10 +59,10 @@ export async function getSupplierColors(domain: string): Promise<ColorPalette> {
   }
 
   try {
-    const response = await fetch(`/api/logo?domain=${domain}`);
-    if (!response.ok) throw new Error('Failed to fetch logo');
+    const response = await fetch(`/api/logo/colors?domain=${domain}`);
+    if (!response.ok) throw new Error('Failed to fetch colors');
     
-    const colors = await extractColorsFromLogo(response.url);
+    const colors = await response.json();
     colorCache[domain] = colors;
     return colors;
   } catch (error) {

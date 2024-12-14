@@ -29,6 +29,7 @@ export function FileList({ files, onRemove, maxHeight }: FileListProps) {
     let lastTime = 0;
 
     function startDrag(clientY: number) {
+      if (!container) return;
       if (momentumID !== null) {
         cancelAnimationFrame(momentumID);
         momentumID = null;
