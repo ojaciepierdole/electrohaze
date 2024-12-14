@@ -1,77 +1,81 @@
 import { FieldWithConfidence } from './processing';
+import { DocumentField } from './document-processing';
 
-export interface CustomerData {
-  FirstName?: FieldWithConfidence;
-  LastName?: FieldWithConfidence;
-  BusinessName?: FieldWithConfidence;
-  taxID?: FieldWithConfidence;
-  Street?: FieldWithConfidence;
-  Building?: FieldWithConfidence;
-  Unit?: FieldWithConfidence;
-  PostalCode?: FieldWithConfidence;
-  City?: FieldWithConfidence;
-  Municipality?: FieldWithConfidence;
-  District?: FieldWithConfidence;
-  Province?: FieldWithConfidence;
-}
+// Typ bazowy dla wszystkich pól dokumentu
+type BaseDocumentFields = Record<string, DocumentField>;
 
-export interface PPEData {
-  ppeNum?: FieldWithConfidence;
-  MeterNumber?: FieldWithConfidence;
-  Tariff?: FieldWithConfidence;
-  ContractNumber?: FieldWithConfidence;
-  ContractType?: FieldWithConfidence;
-  OSD_name?: FieldWithConfidence;
-  OSD_region?: FieldWithConfidence;
-  ProductName?: FieldWithConfidence;
-  dpFirstName?: FieldWithConfidence;
-  dpLastName?: FieldWithConfidence;
-  dpStreet?: FieldWithConfidence;
-  dpBuilding?: FieldWithConfidence;
-  dpUnit?: FieldWithConfidence;
-  dpPostalCode?: FieldWithConfidence;
-  dpCity?: FieldWithConfidence;
-  EnergySaleBreakdown?: FieldWithConfidence;
-  FortumZuzycie?: FieldWithConfidence;
-  BillBreakdown?: FieldWithConfidence;
-}
+// Typ pomocniczy do definiowania pól
+type DocumentFieldKeys<T extends string> = Record<T, DocumentField>;
 
-export interface CorrespondenceData {
-  paFirstName?: FieldWithConfidence;
-  paLastName?: FieldWithConfidence;
-  paBusinessName?: FieldWithConfidence;
-  paTitle?: FieldWithConfidence;
-  paStreet?: FieldWithConfidence;
-  paBuilding?: FieldWithConfidence;
-  paUnit?: FieldWithConfidence;
-  paPostalCode?: FieldWithConfidence;
-  paCity?: FieldWithConfidence;
-}
+export interface CustomerData extends DocumentFieldKeys<
+  | 'FirstName'
+  | 'LastName'
+  | 'BusinessName'
+  | 'taxID'
+  | 'Street'
+  | 'Building'
+  | 'Unit'
+  | 'PostalCode'
+  | 'City'
+  | 'Municipality'
+  | 'District'
+  | 'Province'
+> {}
 
-export interface SupplierData {
-  supplierName?: FieldWithConfidence;
-  supplierTaxID?: FieldWithConfidence;
-  supplierStreet?: FieldWithConfidence;
-  supplierBuilding?: FieldWithConfidence;
-  supplierUnit?: FieldWithConfidence;
-  supplierPostalCode?: FieldWithConfidence;
-  supplierCity?: FieldWithConfidence;
-  supplierBankAccount?: FieldWithConfidence;
-  supplierBankName?: FieldWithConfidence;
-  supplierEmail?: FieldWithConfidence;
-  supplierPhone?: FieldWithConfidence;
-  supplierWebsite?: FieldWithConfidence;
-  OSD_name?: FieldWithConfidence;
-}
+export interface PPEData extends DocumentFieldKeys<
+  | 'ppeNum'
+  | 'MeterNumber'
+  | 'Tariff'
+  | 'ContractNumber'
+  | 'ContractType'
+  | 'OSD_name'
+  | 'OSD_region'
+  | 'ProductName'
+  | 'dpFirstName'
+  | 'dpLastName'
+  | 'dpStreet'
+  | 'dpBuilding'
+  | 'dpUnit'
+  | 'dpPostalCode'
+  | 'dpCity'
+  | 'EnergySaleBreakdown'
+  | 'FortumZuzycie'
+  | 'BillBreakdown'
+> {}
 
-export interface FieldMapping {
-  [key: string]: string;
-}
+export interface CorrespondenceData extends DocumentFieldKeys<
+  | 'paFirstName'
+  | 'paLastName'
+  | 'paBusinessName'
+  | 'paTitle'
+  | 'paStreet'
+  | 'paBuilding'
+  | 'paUnit'
+  | 'paPostalCode'
+  | 'paCity'
+> {}
 
-export interface BillingData {
-  billingStartDate?: FieldWithConfidence;
-  billingEndDate?: FieldWithConfidence;
-  billedUsage?: FieldWithConfidence;
-  usage12m?: FieldWithConfidence;
-}
+export interface SupplierData extends DocumentFieldKeys<
+  | 'supplierName'
+  | 'supplierTaxID'
+  | 'supplierStreet'
+  | 'supplierBuilding'
+  | 'supplierUnit'
+  | 'supplierPostalCode'
+  | 'supplierCity'
+  | 'supplierBankAccount'
+  | 'supplierBankName'
+  | 'supplierEmail'
+  | 'supplierPhone'
+  | 'supplierWebsite'
+  | 'OSD_name'
+  | 'OSD_region'
+> {}
+
+export interface BillingData extends DocumentFieldKeys<
+  | 'billingStartDate'
+  | 'billingEndDate'
+  | 'billedUsage'
+  | 'usage12m'
+> {}
  

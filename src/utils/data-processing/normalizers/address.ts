@@ -36,8 +36,18 @@ export function normalizeAddressNumbers(value: string | null): { building: strin
   
   const normalized = value.toUpperCase().trim();
   
+  console.log(`[normalizeAddressNumbers] Przetwarzanie wartości: "${normalized}"`);
+  
   // Wzorce dla różnych formatów numerów
   const patterns = [
+    // 4C/29 - format z literą w numerze budynku
+    {
+      pattern: /^(\d+[A-Z])\/(\d+[A-Z]?)$/i,
+      extract: (match: RegExpMatchArray) => ({
+        building: match[1],
+        unit: match[2]
+      })
+    },
     // 123/45 lub 123A/45B - najpopularniejszy format
     {
       pattern: /^(\d+[A-Z]?)\/(\d+[A-Z]?)$/i,
@@ -72,14 +82,15 @@ export function normalizeAddressNumbers(value: string | null): { building: strin
     }
   ];
 
-  console.log(`[normalizeAddressNumbers] Przetwarzanie wartości: "${normalized}"`);
-
   for (const { pattern, extract } of patterns) {
     const match = normalized.match(pattern);
     if (match) {
       const result = extract(match);
       console.log(`[normalizeAddressNumbers] Dopasowano wzorzec:`, { pattern: pattern.toString(), result });
-      return result;
+      return {
+        building: result.building,
+        unit: result.unit
+      };
     }
   }
 
@@ -134,73 +145,172 @@ export function normalizeCity(value: string | null): string | null {
 
 export function normalizeAddress(
   field: FieldWithConfidence | undefined | null,
-  options: ProcessingOptions = {}
+  options: ProcessingOptions = {},
+  prefix: 'dp' | 'pa' | 'supplier' = 'dp'
 ): NormalizedAddress {
   const { confidenceThreshold = 0.3 } = options;
   
+  const emptyAddress: NormalizedAddress = {
+    dpFirstName: null,
+    dpLastName: null,
+    dpStreet: null,
+    dpBuilding: null,
+    dpUnit: null,
+    dpPostalCode: null,
+    dpCity: null,
+    paFirstName: null,
+    paLastName: null,
+    paStreet: null,
+    paBuilding: null,
+    paUnit: null,
+    paPostalCode: null,
+    paCity: null,
+    supplierFirstName: null,
+    supplierLastName: null,
+    supplierStreet: null,
+    supplierBuilding: null,
+    supplierUnit: null,
+    supplierPostalCode: null,
+    supplierCity: null,
+    confidence: 0
+  };
+  
   if (!field?.content || (field.confidence < confidenceThreshold)) {
-    return {
-      street: null,
-      building: null,
-      unit: null,
-      originalStreet: null,
-      postalCode: null,
-      city: null,
-      confidence: 0
-    };
+    return emptyAddress;
   }
 
-  // Zachowaj oryginalną wartość
-  const originalStreet = field.content;
-  
   // Jeśli to pole zawiera pełny adres (np. "UL GIEŁDOWA 4C/29")
   if (field.content.includes(' ')) {
-    const components = splitAddressLine(field.content);
-    return {
-      ...components,
-      originalStreet,
-      postalCode: null,
-      city: null,
+    const components = splitAddressLine(field.content, prefix);
+    const result = {
+      ...emptyAddress,
       confidence: field.confidence
     };
+
+    if (components[`${prefix}Street`]) {
+      result[`${prefix}Street`] = components[`${prefix}Street`];
+    }
+    if (components[`${prefix}Building`]) {
+      result[`${prefix}Building`] = components[`${prefix}Building`];
+    }
+    if (components[`${prefix}Unit`]) {
+      result[`${prefix}Unit`] = components[`${prefix}Unit`];
+    }
+
+    return result;
   }
   
   // Jeśli to pojedyncze pole (np. samo "4C/29")
   const { building, unit } = normalizeAddressNumbers(field.content);
-  return {
-    street: null,
-    building,
-    unit,
-    originalStreet,
-    postalCode: null,
-    city: null,
+  const result = {
+    ...emptyAddress,
     confidence: field.confidence
   };
+
+  if (building) {
+    result[`${prefix}Building`] = building;
+  }
+  if (unit) {
+    result[`${prefix}Unit`] = unit;
+  }
+
+  return result;
 }
 
-export function splitAddressLine(addressLine: string): AddressComponents {
+export function splitAddressLine(addressLine: string, prefix: 'dp' | 'pa' | 'supplier' = 'dp'): AddressComponents {
   // Normalizuj ulicę
   const normalizedStreet = normalizeStreet(addressLine);
   if (!normalizedStreet) {
-    return { street: null, building: null, unit: null };
+    const emptyResult: AddressComponents = {
+      dpFirstName: null,
+      dpLastName: null,
+      dpStreet: null,
+      dpBuilding: null,
+      dpUnit: null,
+      dpPostalCode: null,
+      dpCity: null,
+      paFirstName: null,
+      paLastName: null,
+      paStreet: null,
+      paBuilding: null,
+      paUnit: null,
+      paPostalCode: null,
+      paCity: null,
+      supplierFirstName: null,
+      supplierLastName: null,
+      supplierStreet: null,
+      supplierBuilding: null,
+      supplierUnit: null,
+      supplierPostalCode: null,
+      supplierCity: null
+    };
+    return emptyResult;
   }
 
   // Znajdź ostatnią grupę cyfr (potencjalny numer)
   const streetNumberMatch = normalizedStreet.match(/^(.*?)\s+(\d+.*?)$/);
   if (!streetNumberMatch) {
-    return { 
-      street: normalizedStreet,
-      building: null,
-      unit: null
+    const result: AddressComponents = {
+      dpFirstName: null,
+      dpLastName: null,
+      dpStreet: null,
+      dpBuilding: null,
+      dpUnit: null,
+      dpPostalCode: null,
+      dpCity: null,
+      paFirstName: null,
+      paLastName: null,
+      paStreet: null,
+      paBuilding: null,
+      paUnit: null,
+      paPostalCode: null,
+      paCity: null,
+      supplierFirstName: null,
+      supplierLastName: null,
+      supplierStreet: null,
+      supplierBuilding: null,
+      supplierUnit: null,
+      supplierPostalCode: null,
+      supplierCity: null
     };
+    result[`${prefix}Street`] = normalizedStreet;
+    return result;
   }
 
   const [_, streetName, numberPart] = streetNumberMatch;
   const { building, unit } = normalizeAddressNumbers(numberPart);
 
-  return {
-    street: streetName.trim(),
-    building,
-    unit
+  const result: AddressComponents = {
+    dpFirstName: null,
+    dpLastName: null,
+    dpStreet: null,
+    dpBuilding: null,
+    dpUnit: null,
+    dpPostalCode: null,
+    dpCity: null,
+    paFirstName: null,
+    paLastName: null,
+    paStreet: null,
+    paBuilding: null,
+    paUnit: null,
+    paPostalCode: null,
+    paCity: null,
+    supplierFirstName: null,
+    supplierLastName: null,
+    supplierStreet: null,
+    supplierBuilding: null,
+    supplierUnit: null,
+    supplierPostalCode: null,
+    supplierCity: null
   };
+
+  result[`${prefix}Street`] = streetName.trim();
+  if (building) {
+    result[`${prefix}Building`] = building;
+  }
+  if (unit) {
+    result[`${prefix}Unit`] = unit;
+  }
+
+  return result;
 } 

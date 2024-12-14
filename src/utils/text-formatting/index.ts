@@ -159,4 +159,11 @@ export function clearSelectedModels(): void {
   } catch (error) {
     console.error('Błąd podczas czyszczenia wybranych modeli:', error);
   }
+}
+
+import type { FieldWithConfidence } from '@/types/processing';
+
+export function shouldProcessField(field: FieldWithConfidence | undefined | null, threshold = 0.3): boolean {
+  if (!field?.content) return false;
+  return field.confidence >= threshold;
 } 

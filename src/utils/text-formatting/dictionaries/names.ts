@@ -146,4 +146,24 @@ export const TYPICAL_LAST_NAMES = new Set([
   // Nazwiska od roślin
   'BRZOZA', 'DĄB', 'GRUSZKA', 'JABŁOŃSKI', 'KLON', 'LIPA', 'MALINA', 'OLCHA', 'SOSNA', 'WIERZBA',
   'BURAK', 'CHMIEL', 'GROCH', 'JAGODA', 'KAPUSTA', 'MARCHEWKA', 'ORZECH', 'PIETRUSZKA', 'RZEPKA', 'ŻYTO'
-]); 
+]);
+
+/**
+ * Sprawdza, czy podany tekst jest typowym imieniem
+ * @param name Tekst do sprawdzenia
+ * @returns true jeśli tekst jest typowym imieniem
+ */
+export function isFirstName(name: string): boolean {
+  const normalized = name.trim().toUpperCase();
+  return TYPICAL_FIRST_NAMES.has(normalized);
+}
+
+/**
+ * Sprawdza, czy podany tekst jest typowym nazwiskiem
+ * @param name Tekst do sprawdzenia
+ * @returns true jeśli tekst jest typowym nazwiskiem
+ */
+export function isLastName(name: string): boolean {
+  const normalized = name.trim().toUpperCase();
+  return TYPICAL_LAST_NAMES.has(normalized);
+} 

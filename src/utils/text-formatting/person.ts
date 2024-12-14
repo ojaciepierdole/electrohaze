@@ -1,6 +1,15 @@
 import { TYPICAL_FIRST_NAMES, TYPICAL_LAST_NAMES } from './dictionaries/names';
 import type { FieldWithConfidence } from './types';
 
+// Funkcje pomocnicze do sprawdzania imion i nazwisk
+function isTypicalFirstName(name: string): boolean {
+  return TYPICAL_FIRST_NAMES.has(name.toUpperCase());
+}
+
+function isTypicalLastName(name: string): boolean {
+  return TYPICAL_LAST_NAMES.has(name.toUpperCase());
+}
+
 // Funkcja do rozdzielania imienia i nazwiska
 export function splitPersonName(fullName: string | null): {
   firstName: string | null;
@@ -23,74 +32,109 @@ export function splitPersonName(fullName: string | null): {
     return { firstName: null, lastName: parts[0] };
   }
 
-  // Sprawdź każdą część pod kątem typowych imion i nazwisk
-  let firstNameIndex = -1;
-  let lastNameIndex = -1;
+  if (parts.length === 2) {
+    const first = parts[0];
+    const second = parts[1];
 
-  parts.forEach((part, index) => {
-    if (TYPICAL_FIRST_NAMES.has(part)) {
-      firstNameIndex = index;
+    // Sprawdź czy części pasują do słowników
+    const isFirstFirstName = isTypicalFirstName(first);
+    const isFirstLastName = isTypicalLastName(first);
+    const isSecondFirstName = isTypicalFirstName(second);
+    const isSecondLastName = isTypicalLastName(second);
+
+    // Jeśli obie części są jednoznacznie rozpoznane
+    if (isFirstFirstName && isSecondLastName) {
+      return {
+        firstName: first,
+        lastName: second
+      };
     }
-    if (TYPICAL_LAST_NAMES.has(part)) {
-      lastNameIndex = index;
+    if (isFirstLastName && isSecondFirstName) {
+      return {
+        firstName: second,
+        lastName: first
+      };
     }
-  });
 
-  // Jeśli znaleźliśmy zarówno imię jak i nazwisko w słownikach
-  if (firstNameIndex !== -1 && lastNameIndex !== -1) {
+    // Jeśli tylko jedna część jest rozpoznana jako imię
+    if (isFirstFirstName && !isSecondFirstName) {
+      return {
+        firstName: first,
+        lastName: second
+      };
+    }
+    if (!isFirstFirstName && isSecondFirstName) {
+      return {
+        firstName: second,
+        lastName: first
+      };
+    }
+
+    // Jeśli tylko jedna część jest rozpoznana jako nazwisko
+    if (!isFirstLastName && isSecondLastName) {
+      return {
+        firstName: first,
+        lastName: second
+      };
+    }
+    if (isFirstLastName && !isSecondLastName) {
+      return {
+        firstName: second,
+        lastName: first
+      };
+    }
+
+    // Jeśli nie znaleźliśmy w słownikach, sprawdź wzorce
+    const lastNamePattern = /(SKI|CKI|DZKI|AK|EK|UK|YK|CZYK)$/;
+    if (lastNamePattern.test(second)) {
+      return {
+        firstName: first,
+        lastName: second
+      };
+    }
+    if (lastNamePattern.test(first)) {
+      return {
+        firstName: second,
+        lastName: first
+      };
+    }
+
+    // Jeśli nie znaleźliśmy żadnych wzorców, zakładamy że pierwsza część to imię
+    // (bardziej typowa kolejność w polskich dokumentach)
     return {
-      firstName: parts[firstNameIndex],
-      lastName: parts[lastNameIndex]
+      firstName: first,
+      lastName: second
     };
   }
 
-  // Jeśli znaleźliśmy tylko imię w słowniku
-  if (firstNameIndex !== -1) {
-    // Weź część po imieniu jako nazwisko
-    const remainingParts = parts.filter((_, index) => index !== firstNameIndex);
-    return {
-      firstName: parts[firstNameIndex],
-      lastName: remainingParts.join(' ')
-    };
+  // Jeśli mamy więcej części, spróbuj znaleźć imię i nazwisko w słownikach
+  for (let i = 0; i < parts.length; i++) {
+    if (isTypicalFirstName(parts[i])) {
+      // Znaleźliśmy imię, reszta to prawdopodobnie nazwisko
+      const firstName = parts[i];
+      const remainingParts = [...parts];
+      remainingParts.splice(i, 1);
+      return {
+        firstName: firstName,
+        lastName: remainingParts.join(' ')
+      };
+    }
+    if (isTypicalLastName(parts[i])) {
+      // Znaleźliśmy nazwisko, reszta to prawdopodobnie imię/imiona
+      const lastName = parts[i];
+      const remainingParts = [...parts];
+      remainingParts.splice(i, 1);
+      return {
+        firstName: remainingParts.join(' '),
+        lastName: lastName
+      };
+    }
   }
 
-  // Jeśli znaleźliśmy tylko nazwisko w słowniku
-  if (lastNameIndex !== -1) {
-    // Weź część przed nazwiskiem jako imię
-    const remainingParts = parts.filter((_, index) => index !== lastNameIndex);
-    return {
-      firstName: remainingParts.join(' '),
-      lastName: parts[lastNameIndex]
-    };
-  }
-
-  // Jeśli nie znaleźliśmy w słownikach, użyj heurystyki:
-  
-  // 1. Sprawdź czy któraś część kończy się na -ski, -cki, -dzki (typowe końcówki nazwisk)
-  const lastNamePattern = /(SKI|CKI|DZKI)$/;
-  const lastNameByPattern = parts.findIndex(part => lastNamePattern.test(part));
-  if (lastNameByPattern !== -1) {
-    const remainingParts = parts.filter((_, index) => index !== lastNameByPattern);
-    return {
-      firstName: remainingParts.join(' '),
-      lastName: parts[lastNameByPattern]
-    };
-  }
-
-  // 2. Jeśli żadna z powyższych metod nie zadziałała, 
-  // zachowaj domyślne zachowanie (ostatnia część to nazwisko)
-  // ale dodaj ostrzeżenie w konsoli
-  console.warn(
-    `Nie można jednoznacznie określić imienia i nazwiska dla "${fullName}". ` +
-    `Używam domyślnej heurystyki: ostatnia część jako nazwisko.`
-  );
-  
-  const lastName = parts.pop()!;
-  const firstName = parts.join(' ');
-
+  // Jeśli nie znaleźliśmy w słownikach, zakładamy że pierwsza część to imię
   return {
-    firstName: firstName,
-    lastName: lastName
+    firstName: parts[0],
+    lastName: parts.slice(1).join(' ')
   };
 }
 
@@ -137,16 +181,28 @@ export function enrichPersonFields(
     }
   }
 
+  // Sprawdź czy mamy połączone imię i nazwisko w polu lastName
+  let splitMainLastName = undefined;
+  if (mainFields?.lastName?.content?.includes(' ')) {
+    const { firstName, lastName } = splitPersonName(mainFields.lastName.content);
+    if (firstName && lastName) {
+      splitMainLastName = {
+        firstName: { content: firstName, confidence: mainFields.lastName.confidence },
+        lastName: { content: lastName, confidence: mainFields.lastName.confidence }
+      };
+    }
+  }
+
   // Wzbogać imię
   const enrichedFirstName = mergeFieldsWithConfidence([
-    { field: splitMainName?.firstName || mainFields?.firstName, weight: mainWeight },
+    { field: splitMainName?.firstName || splitMainLastName?.firstName || mainFields?.firstName, weight: mainWeight },
     { field: correspondenceFields?.firstName, weight: correspondenceWeight },
     { field: deliveryFields?.firstName || splitDeliveryName?.firstName, weight: deliveryWeight }
   ], { confidenceThreshold });
 
   // Wzbogać nazwisko
   const enrichedLastName = mergeFieldsWithConfidence([
-    { field: splitMainName?.lastName || mainFields?.lastName, weight: mainWeight },
+    { field: splitMainName?.lastName || splitMainLastName?.lastName || mainFields?.lastName, weight: mainWeight },
     { field: correspondenceFields?.lastName, weight: correspondenceWeight },
     { field: deliveryFields?.lastName || splitDeliveryName?.lastName, weight: deliveryWeight }
   ], { confidenceThreshold });

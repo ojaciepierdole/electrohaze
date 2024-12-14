@@ -14,22 +14,33 @@ interface DataSetRequirements {
 
 const REQUIREMENTS: Record<DataSection, DataSetRequirements> = {
   ppe: {
-    requiredFields: ['street', 'building', 'postalCode', 'city'],
-    optionalFields: ['unit']
+    requiredFields: ['dpStreet', 'dpBuilding', 'dpPostalCode', 'dpCity', 'dpFirstName', 'dpLastName'],
+    optionalFields: ['dpUnit', 'dpMunicipality', 'dpDistrict', 'dpProvince']
   },
   correspondence: {
-    requiredFields: ['street', 'building', 'postalCode', 'city'],
-    optionalFields: ['unit']
-  },
-  delivery: {
-    requiredFields: ['street', 'building', 'postalCode', 'city'],
-    optionalFields: ['unit']
+    requiredFields: ['paStreet', 'paBuilding', 'paPostalCode', 'paCity', 'paFirstName', 'paLastName'],
+    optionalFields: ['paUnit', 'paMunicipality', 'paDistrict', 'paProvince', 'paTitle', 'paBusinessName']
   },
   supplier: {
-    requiredFields: ['street', 'building', 'postalCode', 'city'],
-    optionalFields: ['unit']
+    requiredFields: ['supplierStreet', 'supplierBuilding', 'supplierPostalCode', 'supplierCity', 'supplierName', 'supplierTaxID'],
+    optionalFields: ['supplierUnit', 'supplierBankAccount', 'supplierBankName', 'supplierEmail', 'supplierPhone', 'supplierWebsite']
+  },
+  delivery: {
+    requiredFields: ['dpStreet', 'dpBuilding', 'dpPostalCode', 'dpCity', 'dpFirstName', 'dpLastName'],
+    optionalFields: ['dpUnit', 'dpMunicipality', 'dpDistrict', 'dpProvince']
   }
 };
+
+function isFieldEmpty(value: any): boolean {
+  if (value && typeof value === 'object' && 'content' in value) {
+    return isFieldEmpty(value.content);
+  }
+  
+  if (value === null || value === undefined) return true;
+  if (typeof value === 'string') return value.trim() === '';
+  if (typeof value === 'object') return Object.keys(value).length === 0;
+  return false;
+}
 
 export function checkAddressCompleteness(
   addresses: Record<DataSection, NormalizedAddress>
@@ -40,23 +51,66 @@ export function checkAddressCompleteness(
     const sectionKey = section as DataSection;
     const requirements = REQUIREMENTS[sectionKey];
 
-    const missingFields = [
-      ...requirements.requiredFields.filter(field => !address[field as keyof NormalizedAddress]),
-      ...requirements.optionalFields.filter(field => !address[field as keyof NormalizedAddress])
-    ];
+    console.log(`[checkAddressCompleteness] Sprawdzanie sekcji ${sectionKey}:`, {
+      address: JSON.stringify(address, null, 2),
+      requirements
+    });
 
-    const totalFields = requirements.requiredFields.length + requirements.optionalFields.length;
-    const filledFields = totalFields - missingFields.length;
-    const hasRequiredFields = requirements.requiredFields.every(field => 
-      address[field as keyof NormalizedAddress] !== null
-    );
+    // Sprawdzanie wymaganych pól
+    const missingRequiredFields = requirements.requiredFields.filter(field => {
+      const value = address[field as keyof NormalizedAddress];
+      const isEmpty = isFieldEmpty(value);
+      console.log(`[checkAddressCompleteness] Sprawdzanie wymaganego pola ${field}:`, {
+        field,
+        value: JSON.stringify(value),
+        isEmpty,
+        type: typeof value,
+        hasField: field in address
+      });
+      return isEmpty;
+    });
 
-    result[sectionKey] = {
+    // Sprawdzanie opcjonalnych pól - tylko jeśli pole istnieje w danych
+    const missingOptionalFields = requirements.optionalFields.filter(field => {
+      const value = address[field as keyof NormalizedAddress];
+      // Jeśli pole nie istnieje w danych, nie traktujemy go jako brakujące
+      if (!(field in address)) {
+        console.log(`[checkAddressCompleteness] Pole opcjonalne ${field} nie istnieje w danych`);
+        return false;
+      }
+      const isEmpty = isFieldEmpty(value);
+      console.log(`[checkAddressCompleteness] Sprawdzanie opcjonalnego pola ${field}:`, {
+        value: JSON.stringify(value),
+        isEmpty,
+        type: typeof value,
+        exists: field in address
+      });
+      return isEmpty;
+    });
+
+    // Obliczanie kompletności tylko dla wymaganych pól i istniejących opcjonalnych
+    const existingOptionalFields = requirements.optionalFields.filter(field => field in address);
+    const totalFields = requirements.requiredFields.length + existingOptionalFields.length;
+    const filledFields = totalFields - (missingRequiredFields.length + missingOptionalFields.length);
+    const hasRequiredFields = missingRequiredFields.length === 0;
+
+    const completenessResult = {
       completeness: filledFields / totalFields,
-      missingFields,
+      missingFields: [...missingRequiredFields, ...missingOptionalFields],
       hasRequiredFields,
       confidence: address.confidence
     };
+
+    console.log(`[checkAddressCompleteness] Wynik dla sekcji ${sectionKey}:`, {
+      ...completenessResult,
+      filledFields,
+      totalFields,
+      existingOptionalFields,
+      missingRequiredFields,
+      missingOptionalFields
+    });
+
+    result[sectionKey] = completenessResult;
   });
 
   return result;

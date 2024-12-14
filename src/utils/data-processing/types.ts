@@ -4,9 +4,27 @@ export interface FieldWithConfidence {
 }
 
 export interface AddressComponents {
-  street: string | null;
-  building: string | null;
-  unit: string | null;
+  dpFirstName: string | null;
+  dpLastName: string | null;
+  dpStreet: string | null;
+  dpBuilding: string | null;
+  dpUnit: string | null;
+  dpPostalCode: string | null;
+  dpCity: string | null;
+  paFirstName: string | null;
+  paLastName: string | null;
+  paStreet: string | null;
+  paBuilding: string | null;
+  paUnit: string | null;
+  paPostalCode: string | null;
+  paCity: string | null;
+  supplierFirstName: string | null;
+  supplierLastName: string | null;
+  supplierStreet: string | null;
+  supplierBuilding: string | null;
+  supplierUnit: string | null;
+  supplierPostalCode: string | null;
+  supplierCity: string | null;
 }
 
 export interface PersonComponents {
@@ -16,9 +34,6 @@ export interface PersonComponents {
 }
 
 export interface NormalizedAddress extends AddressComponents {
-  originalStreet: string | null;
-  postalCode: string | null;
-  city: string | null;
   confidence: number;
 }
 

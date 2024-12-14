@@ -203,15 +203,15 @@ function parseNameString(nameString: string): {
       // Jeśli mamy jedno słowo, zakładamy że to nazwisko
       result.surnames.push(expandInitials(words[0]));
     } else {
-      // Jeśli więcej słów, ostatnie traktujemy jako nazwisko, resztę jako imiona
-      const surname = words.slice(-1)[0];
+      // W polskich dokumentach pierwsza część to nazwisko
+      const surname = words[0];
       // Sprawdzamy czy to nie jest nazwisko dwuczłonowe
-      if (words.length > 2 && /[A-Z]/.test(words[words.length - 2][0])) {
-        result.surnames.push(expandInitials(words.slice(-2).join(' ')));
-        result.firstNames.push(...words.slice(0, -2).map(expandInitials));
+      if (words.length > 2 && /[A-Z]/.test(words[1][0])) {
+        result.surnames.push(expandInitials(words.slice(0, 2).join(' ')));
+        result.firstNames.push(...words.slice(2).map(expandInitials));
       } else {
         result.surnames.push(expandInitials(surname));
-        result.firstNames.push(...words.slice(0, -1).map(expandInitials));
+        result.firstNames.push(...words.slice(1).map(expandInitials));
       }
     }
   }

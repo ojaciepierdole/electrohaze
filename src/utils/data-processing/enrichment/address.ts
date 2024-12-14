@@ -2,6 +2,8 @@ import { NormalizedAddress, ProcessingOptions, DataSection } from '../types';
 import { normalizeAddress, normalizePostalCode, normalizeCity } from '../normalizers/address';
 
 interface AddressSet {
+  firstName?: { content: string; confidence: number };
+  lastName?: { content: string; confidence: number };
   street?: { content: string; confidence: number };
   building?: { content: string; confidence: number };
   unit?: { content: string; confidence: number };
@@ -16,6 +18,13 @@ interface WeightedAddress {
   section: DataSection;
 }
 
+const SECTION_TO_PREFIX: Record<DataSection, 'dp' | 'pa' | 'supplier'> = {
+  ppe: 'dp',
+  correspondence: 'pa',
+  supplier: 'supplier',
+  delivery: 'dp'
+};
+
 export function enrichAddress(
   addresses: Record<DataSection, AddressSet | undefined>,
   options: ProcessingOptions = {}
@@ -23,39 +32,49 @@ export function enrichAddress(
   const { confidenceThreshold = 0.3 } = options;
   
   // Najpierw normalizujemy wszystkie adresy
-  const normalizedAddresses: Record<DataSection, NormalizedAddress> = {};
+  const normalizedAddresses: Record<DataSection, NormalizedAddress> = {
+    ppe: normalizeAddress(null, options, 'dp'),
+    correspondence: normalizeAddress(null, options, 'pa'),
+    delivery: normalizeAddress(null, options, 'dp'),
+    supplier: normalizeAddress(null, options, 'supplier')
+  };
 
   // Przetwórz każdą sekcję
   Object.entries(addresses).forEach(([section, addressSet]) => {
     if (!addressSet) {
-      normalizedAddresses[section as DataSection] = {
-        street: null,
-        building: null,
-        unit: null,
-        originalStreet: null,
-        postalCode: null,
-        city: null,
-        confidence: 0
-      };
-      return;
+      return; // Sekcja już ma domyślne wartości null
     }
 
+    const prefix = SECTION_TO_PREFIX[section as DataSection];
+
+    // Normalizuj imię i nazwisko
+    const firstName = addressSet.firstName?.content || null;
+    const lastName = addressSet.lastName?.content || null;
+
     // Normalizuj ulicę
-    const streetNormalized = normalizeAddress(addressSet.street || addressSet.fullAddress, options);
+    const streetNormalized = normalizeAddress(addressSet.street || addressSet.fullAddress, options, prefix);
     
     // Normalizuj numer budynku i mieszkania
-    const buildingNormalized = normalizeAddress(addressSet.building, options);
-    const unitNormalized = normalizeAddress(addressSet.unit, options);
+    const buildingNormalized = normalizeAddress(addressSet.building, options, prefix);
+    const unitNormalized = normalizeAddress(addressSet.unit, options, prefix);
+
+    // Normalizuj kod pocztowy i miasto
+    const postalCode = normalizePostalCode(addressSet.postalCode?.content || null);
+    const city = normalizeCity(addressSet.city?.content || null);
 
     // Połącz dane
     normalizedAddresses[section as DataSection] = {
-      street: streetNormalized.street,
-      building: buildingNormalized.building || streetNormalized.building,
-      unit: unitNormalized.unit || streetNormalized.unit,
-      originalStreet: streetNormalized.originalStreet,
-      postalCode: normalizePostalCode(addressSet.postalCode?.content || null),
-      city: normalizeCity(addressSet.city?.content || null),
+      ...normalizedAddresses[section as DataSection],
+      [`${prefix}FirstName`]: firstName,
+      [`${prefix}LastName`]: lastName,
+      [`${prefix}Street`]: streetNormalized[`${prefix}Street`],
+      [`${prefix}Building`]: buildingNormalized[`${prefix}Building`] || streetNormalized[`${prefix}Building`],
+      [`${prefix}Unit`]: unitNormalized[`${prefix}Unit`] || streetNormalized[`${prefix}Unit`],
+      [`${prefix}PostalCode`]: postalCode,
+      [`${prefix}City`]: city,
       confidence: Math.max(
+        addressSet.firstName?.confidence || 0,
+        addressSet.lastName?.confidence || 0,
         streetNormalized.confidence,
         buildingNormalized.confidence,
         unitNormalized.confidence,
@@ -64,18 +83,6 @@ export function enrichAddress(
       )
     };
   });
-
-  // Przygotuj ważone adresy do analizy spójności
-  const weightedAddresses: WeightedAddress[] = Object.entries(normalizedAddresses)
-    .filter(([_, address]) => address.confidence >= confidenceThreshold)
-    .map(([section, address]) => ({
-      address,
-      weight: getAddressSectionWeight(section as DataSection),
-      section: section as DataSection
-    }));
-
-  // Sprawdź spójność między adresami
-  checkAddressConsistency(weightedAddresses, normalizedAddresses);
 
   return normalizedAddresses;
 }
@@ -106,37 +113,44 @@ function checkAddressConsistency(
 
   // Weź adres z najwyższą wagą jako referencyjny
   const reference = weightedAddresses[0];
+  const refPrefix = SECTION_TO_PREFIX[reference.section];
 
   // Sprawdź spójność z pozostałymi adresami
   weightedAddresses.slice(1).forEach(weighted => {
     const { address, section } = weighted;
+    const prefix = SECTION_TO_PREFIX[section];
 
     // Sprawdź czy ulice są podobne
-    if (reference.address.street && address.street) {
-      const similarity = calculateStreetSimilarity(reference.address.street, address.street);
+    if (reference.address[`${refPrefix}Street`] && address[`${prefix}Street`]) {
+      const similarity = calculateStreetSimilarity(
+        reference.address[`${refPrefix}Street`],
+        address[`${prefix}Street`]
+      );
       if (similarity > 0.8) {
         // Jeśli ulice są bardzo podobne, ale numery się różnią,
         // możemy uzupełnić brakujące informacje
-        if (!normalizedAddresses[section].building && reference.address.building) {
-          normalizedAddresses[section].building = reference.address.building;
+        if (!normalizedAddresses[section][`${prefix}Building`] && reference.address[`${refPrefix}Building`]) {
+          normalizedAddresses[section][`${prefix}Building`] = reference.address[`${refPrefix}Building`];
         }
-        if (!normalizedAddresses[section].unit && reference.address.unit) {
-          normalizedAddresses[section].unit = reference.address.unit;
+        if (!normalizedAddresses[section][`${prefix}Unit`] && reference.address[`${refPrefix}Unit`]) {
+          normalizedAddresses[section][`${prefix}Unit`] = reference.address[`${refPrefix}Unit`];
         }
       }
     }
 
     // Sprawdź spójność kodów pocztowych i miast
-    if (!normalizedAddresses[section].postalCode && reference.address.postalCode) {
-      normalizedAddresses[section].postalCode = reference.address.postalCode;
+    if (!normalizedAddresses[section][`${prefix}PostalCode`] && reference.address[`${refPrefix}PostalCode`]) {
+      normalizedAddresses[section][`${prefix}PostalCode`] = reference.address[`${refPrefix}PostalCode`];
     }
-    if (!normalizedAddresses[section].city && reference.address.city) {
-      normalizedAddresses[section].city = reference.address.city;
+    if (!normalizedAddresses[section][`${prefix}City`] && reference.address[`${refPrefix}City`]) {
+      normalizedAddresses[section][`${prefix}City`] = reference.address[`${refPrefix}City`];
     }
   });
 }
 
-function calculateStreetSimilarity(street1: string, street2: string): number {
+function calculateStreetSimilarity(street1: string | null, street2: string | null): number {
+  if (!street1 || !street2) return 0;
+  
   // Prosta implementacja podobieństwa - można rozszerzyć o bardziej zaawansowane algorytmy
   const s1 = street1.toUpperCase();
   const s2 = street2.toUpperCase();
