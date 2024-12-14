@@ -1,9 +1,13 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { DataGroup } from '@/components/data-groups/DataGroup';
 import type { DocumentField } from '@/types/document-processing';
 import { processSection } from '@/utils/data-processing';
+import type { ProcessSectionInput } from '@/utils/data-processing';
 import type { SupplierData, PPEData, CustomerData, CorrespondenceData } from '@/types/fields';
 import { getOSDInfoByPostalCode } from '@/utils/osd-mapping';
+import { SupplierLogo } from '@/components/ui/supplier-logo';
+import { ConfidenceDot } from '@/components/ui/confidence-dot';
+import { Eraser } from 'lucide-react';
 
 interface SupplierDataGroupProps {
   data: SupplierData;
@@ -20,8 +24,18 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
 }) => {
   console.log('SupplierDataGroup input:', { data, ppeData, customerData, correspondenceData });
 
-  // Przetwórz dane dostawcy
-  const processedData = processSection('supplier', data);
+  // Przygotuj dane wejściowe z kontekstem
+  const inputData: ProcessSectionInput = {
+    ...data,
+    _context: {
+      ppe: ppeData || {},
+      customer: customerData || {},
+      correspondence: correspondenceData || {}
+    }
+  };
+
+  // Przetwórz dane dostawcy z uwzględnieniem kontekstu
+  const processedData = processSection<SupplierData>('supplier', inputData);
   console.log('SupplierDataGroup processedData:', processedData);
 
   // Jeśli mamy dane OSD z faktury, zachowujemy je, tylko normalizując nazewnictwo
@@ -119,7 +133,9 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
       title="Dane dostawcy"
       data={processedData}
       fieldLabels={{
-        supplierName: 'Nazwa',
+        supplierName: '',
+        OSD_name: 'Nazwa OSD',
+        OSD_region: 'Region OSD',
         supplierTaxID: 'NIP',
         supplierStreet: 'Ulica',
         supplierBuilding: 'Numer budynku',
@@ -130,9 +146,24 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
         supplierBankName: 'Nazwa banku',
         supplierEmail: 'Email',
         supplierPhone: 'Telefon',
-        supplierWebsite: 'Strona WWW',
-        OSD_name: 'Nazwa OSD',
-        OSD_region: 'Region OSD'
+        supplierWebsite: 'Strona WWW'
+      }}
+      renderField={(key, field) => {
+        if (key === 'supplierName' && field.content) {
+          return (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <SupplierLogo supplierName={field.content} className="w-8 h-8" />
+                <h2 className="text-xl font-medium">{field.content}</h2>
+                <ConfidenceDot confidence={field.confidence ?? 0} />
+                {field.isEnriched && (
+                  <Eraser className="w-4 h-4 text-gray-400" />
+                )}
+              </div>
+            </div>
+          );
+        }
+        return field.content;
       }}
     />
   );

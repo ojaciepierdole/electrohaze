@@ -12,6 +12,7 @@ interface DataGroupProps {
   title: string;
   data: Record<string, DocumentField>;
   fieldLabels: Record<string, string>;
+  renderField?: (key: string, field: DocumentField) => React.ReactNode;
 }
 
 interface FieldInfo {
@@ -24,7 +25,7 @@ interface OptimalColumnsResult {
   gridClass: string;
 }
 
-export const DataGroup: React.FC<DataGroupProps> = ({ title, data, fieldLabels }) => {
+export const DataGroup: React.FC<DataGroupProps> = ({ title, data, fieldLabels, renderField }) => {
   console.log('DataGroup input:', { title, data, fieldLabels });
 
   // Oblicz statystyki grupy
@@ -110,7 +111,9 @@ export const DataGroup: React.FC<DataGroupProps> = ({ title, data, fieldLabels }
                 <div key={key} className="space-y-1">
                   <dt className="text-sm text-gray-500">{label}</dt>
                   <dd className="text-sm font-medium flex items-center gap-2">
-                    <span>{fieldData.content}</span>
+                    <span>
+                      {renderField ? renderField(key, fieldData) : fieldData.content}
+                    </span>
                     <ConfidenceDot confidence={fieldData.confidence ?? 0} />
                     {fieldData.isEnriched && (
                       <Eraser className="w-4 h-4 text-gray-400" />
