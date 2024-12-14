@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { FileText } from 'lucide-react';
 import type { ProcessingResult, GroupedResult, AddressSet } from '@/types/processing';
 import type { CustomerData, PPEData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
+import type { ProcessSectionInput } from '@/types/document-processing';
+import { processSection } from '@/utils/data-processing';
 import { CustomerDataGroup } from './data-groups/CustomerDataGroup';
 import { PPEDataGroup } from './data-groups/PPEDataGroup';
 import { CorrespondenceDataGroup } from './data-groups/CorrespondenceDataGroup';
@@ -170,7 +172,7 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
           content: fields.MeterNumber.content || null,
           confidence: fields.MeterNumber.confidence || 1
         } : undefined,
-        Tariff: fields.Tariff ? {
+        TariffGroup: fields.Tariff ? {
           content: fields.Tariff.content || null,
           confidence: fields.Tariff.confidence || 1
         } : undefined,
@@ -189,18 +191,6 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
         OSD_region: fields.OSD_region ? {
           content: fields.OSD_region.content || null,
           confidence: fields.OSD_region.confidence || 1
-        } : undefined,
-        ProductName: fields.ProductName ? {
-          content: fields.ProductName.content || null,
-          confidence: fields.ProductName.confidence || 1
-        } : undefined,
-        dpFirstName: fields.dpFirstName ? {
-          content: fields.dpFirstName.content || null,
-          confidence: fields.dpFirstName.confidence || 1
-        } : undefined,
-        dpLastName: fields.dpLastName ? {
-          content: fields.dpLastName.content || null,
-          confidence: fields.dpLastName.confidence || 1
         } : undefined,
         dpStreet: fields.dpStreet ? {
           content: fields.dpStreet.content || null,
@@ -222,6 +212,18 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
           content: fields.dpCity.content || null,
           confidence: fields.dpCity.confidence || 1
         } : undefined,
+        dpMunicipality: fields.dpMunicipality ? {
+          content: fields.dpMunicipality.content || null,
+          confidence: fields.dpMunicipality.confidence || 1
+        } : undefined,
+        dpDistrict: fields.dpDistrict ? {
+          content: fields.dpDistrict.content || null,
+          confidence: fields.dpDistrict.confidence || 1
+        } : undefined,
+        dpProvince: fields.dpProvince ? {
+          content: fields.dpProvince.content || null,
+          confidence: fields.dpProvince.confidence || 1
+        } : undefined
       } as PPEData,
       
       correspondence: {

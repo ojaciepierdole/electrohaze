@@ -13,24 +13,24 @@ export function splitAddressLine(addressLine: string | null): {
   const cleanedAddress = addressLine.trim().toUpperCase();
 
   // Usuń prefiksy ulicy (UL, ULICA) na początku adresu
-  const withoutPrefix = cleanedAddress.replace(/^(?:UL\.?|ULICA)\s+/i, '');
+  const withoutPrefix = cleanedAddress.replace(/^(?:UL|UL\.|ULICA)\s+/i, '');
 
   // Typowe wzorce adresów w Polsce
   const patterns = [
-    // Nazwa Ulicy 123/45
-    /^([^0-9]+?)\s+(\d+[A-Z]?)(?:\/(\d+[A-Z]?))?$/i,
+    // Nazwa Ulicy 4C/29 (numer budynku z literą i lokalem)
+    /^([^0-9]+?)\s+(\d+[A-Z]?)\/(\d+)$/i,
     
-    // Nazwa Ulicy 123 m. 45
-    /^([^0-9]+?)\s+(\d+[A-Z]?)(?:\s+m\.?\s*(\d+[A-Z]?))?$/i,
+    // Nazwa Ulicy 123/45 (numer budynku z lokalem)
+    /^([^0-9]+?)\s+(\d+)\/(\d+)$/i,
     
-    // Nazwa Ulicy 123 lok. 45
-    /^([^0-9]+?)\s+(\d+[A-Z]?)(?:\s+lok\.?\s*(\d+[A-Z]?))?$/i,
+    // Nazwa Ulicy 123 m. 45 (numer budynku z mieszkaniem)
+    /^([^0-9]+?)\s+(\d+[A-Z]?)\s+(?:m\.?|lok\.?|mieszk\.?|lokal)\s*(\d+[A-Z]?)$/i,
     
-    // Nazwa Ulicy 123/45/67 (podwójny numer budynku i mieszkanie)
-    /^([^0-9]+?)\s+(\d+[A-Z]?\/\d+[A-Z]?)\/(\d+[A-Z]?)$/i,
+    // Nazwa Ulicy 4C (sam numer budynku z literą)
+    /^([^0-9]+?)\s+(\d+[A-Z])$/i,
     
-    // Nazwa Ulicy 123A
-    /^([^0-9]+?)\s+(\d+[A-Z]?)$/i
+    // Nazwa Ulicy 123 (sam numer budynku)
+    /^([^0-9]+?)\s+(\d+)$/i
   ];
 
   for (const pattern of patterns) {
@@ -38,7 +38,7 @@ export function splitAddressLine(addressLine: string | null): {
     if (match) {
       const [_, street, building, unit] = match;
       return {
-        street: street.trim(),
+        street: formatStreet(street.trim()),
         building: building.trim(),
         unit: unit ? unit.trim() : null
       };
@@ -49,8 +49,17 @@ export function splitAddressLine(addressLine: string | null): {
   const lastNumberMatch = withoutPrefix.match(/^(.*?)\s+(\d+[A-Z]?)(?:\s*|$)/i);
   if (lastNumberMatch) {
     const [_, street, building] = lastNumberMatch;
+    // Sprawdź czy numer budynku zawiera ukośnik
+    if (building && building.includes('/')) {
+      const [buildingNumber, unitNumber] = building.split('/');
+      return {
+        street: formatStreet(street.trim()),
+        building: buildingNumber.trim(),
+        unit: unitNumber.trim()
+      };
+    }
     return {
-      street: street.trim(),
+      street: formatStreet(street.trim()),
       building: building.trim(),
       unit: null
     };
@@ -58,7 +67,7 @@ export function splitAddressLine(addressLine: string | null): {
 
   // Jeśli nie znaleziono żadnego numeru, zwróć cały tekst jako nazwę ulicy
   return {
-    street: withoutPrefix,
+    street: formatStreet(withoutPrefix),
     building: null,
     unit: null
   };
@@ -201,11 +210,11 @@ export function formatStreet(value: string | null): string | null {
   // Usuń potencjalne duplikaty oddzielone znakiem nowej linii
   const cleanedValue = value.split('\n')[0];
   
-  // Usuń prefiksy ulicy
+  // Usuń prefiksy ulicy - dodajemy spację po prefiksie aby uniknąć usuwania części nazw
   const withoutPrefix = cleanedValue.replace(
-    /^(?:UL|UL\.|ULICA|AL|AL\.|ALEJA|PL|PL\.|PLAC|RONDO|OS|OS\.|OSIEDLE)\b\s*/i,
+    /^(?:UL|UL\.|ULICA|AL|AL\.|ALEJA|PL|PL\.|PLAC|RONDO|OS|OS\.|OSIEDLE)\s+/i,
     ''
-  );
+  ).trim();
   
   console.log(`[formatStreet] Przetwarzanie ulicy:`, {
     input: value,

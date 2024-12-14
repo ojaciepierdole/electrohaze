@@ -32,15 +32,16 @@ export interface ProcessSectionContext {
   ppe?: Record<string, DocumentField>;
   customer?: Record<string, DocumentField>;
   correspondence?: Record<string, DocumentField>;
-  supplier?: Record<string, DocumentField>;
 }
 
 /**
  * Interfejs dla danych wejściowych sekcji
  */
-export interface ProcessSectionInput extends Record<string, DocumentField> {
+export type ProcessSectionInput = {
+  [key: string]: DocumentField;
+} & {
   _context?: ProcessSectionContext;
-}
+};
 
 /**
  * Interfejs reprezentujący pojedyncze pole dokumentu

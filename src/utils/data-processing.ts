@@ -21,6 +21,13 @@ interface ProcessingRules {
   [key: string]: (value: string) => string;
 }
 
+// Interfejs dla kontekstu przetwarzania
+interface ProcessingContext {
+  ppe?: Partial<PPEData>;
+  customer?: Partial<CustomerData>;
+  correspondence?: Partial<CorrespondenceData>;
+}
+
 // Funkcja do czyszczenia tekstu ze znaków specjalnych
 function cleanSpecialCharacters(value: string): string {
   if (!value) return '';
@@ -381,7 +388,7 @@ function calculateSimilarity(str1: string, str2: string): number {
 }
 
 // Reguły przetwarzania dla pól
-const fieldRules: Record<string, (value: string, allFields?: Record<string, DocumentField>) => string> = {
+const fieldRules: Record<string, (value: string, context?: ProcessingContext) => string> = {
   // Reguły dla adresów
   Street: (value) => {
     console.log('[Street] Przetwarzanie:', value);
@@ -414,32 +421,30 @@ const fieldRules: Record<string, (value: string, allFields?: Record<string, Docu
   Province: (value) => normalizeLocationName(cleanSpecialCharacters(value)),
   
   // Reguły dla danych osobowych
-  FirstName: (value, allFields) => {
-    if (!allFields) return cleanSpecialCharacters(value);
+  FirstName: (value, context) => {
+    if (!context) return cleanSpecialCharacters(value);
     
     // Znajdź odpowiadające pole nazwiska
-    let lastNameField = '';
-    if ('LastName' in allFields) lastNameField = 'LastName';
-    else if ('dpLastName' in allFields) lastNameField = 'dpLastName';
-    else if ('paLastName' in allFields) lastNameField = 'paLastName';
+    let lastName = null;
+    if (context.customer?.LastName?.content) lastName = context.customer.LastName.content;
+    else if (context.ppe?.dpLastName?.content) lastName = context.ppe.dpLastName.content;
+    else if (context.correspondence?.paLastName?.content) lastName = context.correspondence.paLastName.content;
     
-    const lastName = lastNameField ? allFields[lastNameField]?.content : null;
-    console.log('[FirstName] Znalezione pola:', { value, lastName, lastNameField });
+    console.log('[FirstName] Znalezione pola:', { value, lastName });
     
     const result = processPersonName(value, lastName);
     return result.firstName;
   },
-  LastName: (value, allFields) => {
-    if (!allFields) return cleanSpecialCharacters(value);
+  LastName: (value, context) => {
+    if (!context) return cleanSpecialCharacters(value);
     
     // Znajdź odpowiadające pole imienia
-    let firstNameField = '';
-    if ('FirstName' in allFields) firstNameField = 'FirstName';
-    else if ('dpFirstName' in allFields) firstNameField = 'dpFirstName';
-    else if ('paFirstName' in allFields) firstNameField = 'paFirstName';
+    let firstName = null;
+    if (context.customer?.FirstName?.content) firstName = context.customer.FirstName.content;
+    else if (context.ppe?.dpFirstName?.content) firstName = context.ppe.dpFirstName.content;
+    else if (context.correspondence?.paFirstName?.content) firstName = context.correspondence.paFirstName.content;
     
-    const firstName = firstNameField ? allFields[firstNameField]?.content : null;
-    console.log('[LastName] Znalezione pola:', { firstName, value, firstNameField });
+    console.log('[LastName] Znalezione pola:', { firstName, value });
     
     const result = processPersonName(firstName, value);
     return result.lastName;
@@ -500,10 +505,12 @@ const fieldPairs = {
 // Główna funkcja przetwarzająca sekcję
 export function processSection<T extends Record<string, DocumentField>>(
   section: DocumentSection,
-  data: T
+  data: T,
+  context?: ProcessingContext
 ): T {
   console.log(`[processSection] Processing section ${section}:`, {
-    inputFields: Object.keys(data)
+    inputFields: Object.keys(data),
+    context
   });
 
   let result = { ...data } as T;
@@ -577,7 +584,7 @@ export function processSection<T extends Record<string, DocumentField>>(
           confidence: field.confidence
         });
 
-        const processedValue = rule(field.content);
+        const processedValue = rule(field.content, context);
         if (processedValue !== field.content) {
           const processedField: DocumentField = {
             ...field,

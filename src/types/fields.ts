@@ -29,6 +29,8 @@ export interface PPEData extends DocumentFieldKeys<
   | 'TariffGroup'
   | 'ContractNumber'
   | 'ContractType'
+  | 'dpFirstName'
+  | 'dpLastName'
   | 'dpStreet'
   | 'dpBuilding'
   | 'dpUnit'

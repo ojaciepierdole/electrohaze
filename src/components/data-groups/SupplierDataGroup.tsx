@@ -1,19 +1,24 @@
 import React from 'react';
 import { DataGroup } from '@/components/data-groups/DataGroup';
-import type { DocumentField } from '@/types/document-processing';
+import type { DocumentField, ProcessSectionContext } from '@/types/document-processing';
 import { processSection } from '@/utils/data-processing';
-import type { ProcessSectionInput } from '@/utils/data-processing';
 import type { SupplierData, PPEData, CustomerData, CorrespondenceData } from '@/types/fields';
 import { getOSDInfoByPostalCode } from '@/utils/osd-mapping';
 import { SupplierLogo } from '@/components/ui/supplier-logo';
-import { ConfidenceDot } from '@/components/ui/confidence-dot';
 import { Eraser } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 
 interface SupplierDataGroupProps {
   data: SupplierData;
   ppeData?: PPEData;
   customerData?: CustomerData;
   correspondenceData?: CorrespondenceData;
+}
+
+interface ProcessingContext {
+  ppe: Partial<PPEData>;
+  customer: Partial<CustomerData>;
+  correspondence: Partial<CorrespondenceData>;
 }
 
 export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({ 
@@ -24,18 +29,15 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
 }) => {
   console.log('SupplierDataGroup input:', { data, ppeData, customerData, correspondenceData });
 
-  // Przygotuj dane wejściowe z kontekstem
-  const inputData: ProcessSectionInput = {
-    ...data,
-    _context: {
-      ppe: ppeData || {},
-      customer: customerData || {},
-      correspondence: correspondenceData || {}
-    }
+  // Przygotuj kontekst przetwarzania
+  const context: ProcessingContext = {
+    ppe: ppeData || {},
+    customer: customerData || {},
+    correspondence: correspondenceData || {}
   };
 
   // Przetwórz dane dostawcy z uwzględnieniem kontekstu
-  const processedData = processSection<SupplierData>('supplier', inputData);
+  const processedData = processSection<SupplierData>('supplier', data, context);
   console.log('SupplierDataGroup processedData:', processedData);
 
   // Jeśli mamy dane OSD z faktury, zachowujemy je, tylko normalizując nazewnictwo
@@ -45,17 +47,14 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
     console.log('Normalized OSD info:', normalizedInfo);
     
     if (normalizedInfo && normalizedInfo.name.toUpperCase().includes(data.OSD_name.content.toUpperCase())) {
-      // Zachowujemy oryginalną pewność, tylko oznaczamy jako wzbogacone
       processedData.OSD_name = {
         ...data.OSD_name,
         content: normalizedInfo.name,
         isEnriched: true
       };
-      // Jeśli mamy region w fakturze, zachowujemy go bez zmian
       if (data.OSD_region) {
         processedData.OSD_region = data.OSD_region;
       } 
-      // Jeśli nie mamy regionu w fakturze, ale znaleźliśmy go w mapowaniu
       else if (normalizedInfo.region) {
         processedData.OSD_region = {
           content: normalizedInfo.region,
@@ -65,9 +64,7 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
       }
     }
   } 
-  // Jeśli nie mamy danych OSD z faktury, próbujemy znaleźć na podstawie kodów pocztowych
   else {
-    // Sprawdź kod pocztowy z PPE
     if (ppeData?.dpPostalCode?.content) {
       console.log('Looking up OSD by PPE postal code:', ppeData.dpPostalCode.content);
       const info = getOSDInfoByPostalCode(ppeData.dpPostalCode.content);
@@ -86,7 +83,6 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
         };
       }
     }
-    // Jeśli nie znaleziono w PPE, sprawdź adres korespondencyjny
     else if (correspondenceData?.paPostalCode?.content) {
       console.log('Looking up OSD by correspondence postal code:', correspondenceData.paPostalCode.content);
       const info = getOSDInfoByPostalCode(correspondenceData.paPostalCode.content);
@@ -105,7 +101,6 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
         };
       }
     }
-    // Jeśli nie znaleziono w adresie korespondencyjnym, sprawdź adres zamieszkania
     else if (customerData?.PostalCode?.content) {
       console.log('Looking up OSD by customer postal code:', customerData.PostalCode.content);
       const info = getOSDInfoByPostalCode(customerData.PostalCode.content);
@@ -128,43 +123,89 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
 
   console.log('Final processedData:', processedData);
 
+  // Wydzielamy dane nagłówkowe (dostawca i OSD)
+  const headerData: Partial<SupplierData> = {
+    supplierName: processedData.supplierName,
+    OSD_name: processedData.OSD_name,
+    OSD_region: processedData.OSD_region
+  };
+
+  // Pozostałe dane dostawcy
+  const tempData: Record<keyof SupplierData, DocumentField | undefined> = { ...processedData };
+  delete tempData.supplierName;
+  delete tempData.OSD_name;
+  delete tempData.OSD_region;
+
+  // Filtrujemy undefined i tworzymy obiekt tylko z istniejącymi polami
+  const remainingData: Record<string, DocumentField> = Object.entries(tempData)
+    .filter((entry): entry is [string, DocumentField] => entry[1] !== undefined)
+    .reduce((acc, [key, value]) => ({
+      ...acc,
+      [key]: value
+    }), {});
+
   return (
-    <DataGroup
-      title="Dane dostawcy"
-      data={processedData}
-      fieldLabels={{
-        supplierName: '',
-        OSD_name: 'Nazwa OSD',
-        OSD_region: 'Region OSD',
-        supplierTaxID: 'NIP',
-        supplierStreet: 'Ulica',
-        supplierBuilding: 'Numer budynku',
-        supplierUnit: 'Numer lokalu',
-        supplierPostalCode: 'Kod pocztowy',
-        supplierCity: 'Miejscowość',
-        supplierBankAccount: 'Numer konta',
-        supplierBankName: 'Nazwa banku',
-        supplierEmail: 'Email',
-        supplierPhone: 'Telefon',
-        supplierWebsite: 'Strona WWW'
-      }}
-      renderField={(key, field) => {
-        if (key === 'supplierName' && field.content) {
-          return (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-4">
-                <SupplierLogo supplierName={field.content} className="w-24 h-24 flex-shrink-0" />
-                <h2 className="text-xl font-medium whitespace-nowrap">{field.content}</h2>
-                {field.isEnriched && (
+    <div className="space-y-4">
+      <Card className="p-6">
+        <div className="grid grid-cols-[2fr_1.5fr_1fr] gap-12 items-center min-h-[96px]">
+          {processedData.supplierName?.content && (
+            <div className="flex items-center gap-4">
+              <SupplierLogo 
+                supplierName={processedData.supplierName.content} 
+                className="w-24 h-24 flex-shrink-0" 
+              />
+              <h2 className="text-xl font-medium whitespace-nowrap">
+                {processedData.supplierName.content}
+              </h2>
+              {processedData.supplierName.isEnriched && (
+                <Eraser className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              )}
+            </div>
+          )}
+          {processedData.OSD_name?.content && (
+            <div className="space-y-1 self-center">
+              <div className="text-sm text-gray-500">Nazwa OSD</div>
+              <div className="flex items-center gap-2">
+                <span className="whitespace-nowrap">{processedData.OSD_name.content}</span>
+                {processedData.OSD_name.isEnriched && (
                   <Eraser className="w-4 h-4 text-gray-400 flex-shrink-0" />
                 )}
               </div>
             </div>
-          );
-        }
-        return field.content;
-      }}
-      className="grid grid-cols-[auto_1fr_1fr] gap-4 items-center"
-    />
+          )}
+          {processedData.OSD_region?.content && (
+            <div className="space-y-1 self-center">
+              <div className="text-sm text-gray-500">Region OSD</div>
+              <div className="flex items-center gap-2">
+                <span className="whitespace-nowrap">{processedData.OSD_region.content}</span>
+                {processedData.OSD_region.isEnriched && (
+                  <Eraser className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {Object.keys(remainingData).length > 0 && (
+        <DataGroup
+          title="Dane dostawcy"
+          data={remainingData}
+          fieldLabels={{
+            supplierTaxID: 'NIP',
+            supplierStreet: 'Ulica',
+            supplierBuilding: 'Numer budynku',
+            supplierUnit: 'Numer lokalu',
+            supplierPostalCode: 'Kod pocztowy',
+            supplierCity: 'Miejscowość',
+            supplierBankAccount: 'Numer konta',
+            supplierBankName: 'Nazwa banku',
+            supplierEmail: 'Email',
+            supplierPhone: 'Telefon',
+            supplierWebsite: 'Strona WWW'
+          }}
+        />
+      )}
+    </div>
   );
 }; 
