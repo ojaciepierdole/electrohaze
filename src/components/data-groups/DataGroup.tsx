@@ -109,16 +109,13 @@ export const DataGroup: React.FC<DataGroupProps> = ({ title, data, fieldLabels }
               return (
                 <div key={key} className="space-y-1">
                   <dt className="text-sm text-gray-500">{label}</dt>
-                  <dd className="text-sm font-medium">
-                    {fieldData.content}
+                  <dd className="text-sm font-medium flex items-center gap-2">
+                    <span>{fieldData.content}</span>
+                    <ConfidenceDot confidence={fieldData.confidence ?? 0} />
+                    {fieldData.isEnriched && (
+                      <Eraser className="w-4 h-4 text-gray-400" />
+                    )}
                   </dd>
-                  {fieldData.isEnriched ? (
-                    <div className="flex items-center text-gray-400">
-                      <Eraser className="w-4 h-4" />
-                    </div>
-                  ) : (
-                    <ConfidenceDot confidence={fieldData?.confidence ?? 0} />
-                  )}
                 </div>
               );
             })}
