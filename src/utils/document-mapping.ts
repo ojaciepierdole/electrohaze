@@ -1,9 +1,12 @@
 // Funkcja mapująca surowe dane do naszej struktury
 import type { DocumentAnalysisResult, FieldWithConfidence, CustomerData, PPEData, CorrespondenceData, SupplierData, BillingData } from '@/types/processing';
-import type { DocumentField } from '@azure/ai-form-recognizer';
+import type { DocumentField } from '@/types/processing';
 import { DateHelpers } from '@/types/common';
 import { safeValidateMappedResult } from '@/types/validation';
 import { Logger } from '@/lib/logger';
+import { formatDate, formatConsumption } from './text-formatting';
+import type { DocumentAnalysisResult } from '@/types/azure';
+import { normalizeAddress } from './data-processing/normalizers/address';
 
 const logger = Logger.getInstance();
 
@@ -287,5 +290,39 @@ export function mapAzureResponse(response: DocumentAnalysisResult): DocumentAnal
     return {};
   }
 
-  return mapDocumentAnalysisResult(firstDocument.fields);
+  // Normalizuj dane adresowe
+  const dpFields = firstDocument.fields;
+  const dpAddress = normalizeAddress(
+    {
+      content: dpFields.dpStreet?.content || '',
+      confidence: dpFields.dpStreet?.confidence || 0
+    },
+    {},
+    'dp'
+  );
+
+  // Zachowaj oryginalne wartości dla pól adresowych
+  const mappedFields = {
+    ...firstDocument.fields,
+    dpStreet: dpFields.dpStreet ? {
+      ...dpFields.dpStreet,
+      content: dpAddress.dpStreet || dpFields.dpStreet.content
+    } : undefined,
+    dpBuilding: dpFields.dpBuilding ? {
+      ...dpFields.dpBuilding,
+      content: dpAddress.dpBuilding || dpFields.dpBuilding.content
+    } : undefined,
+    dpUnit: dpFields.dpUnit ? {
+      ...dpFields.dpUnit,
+      content: dpAddress.dpUnit || dpFields.dpUnit.content
+    } : undefined
+  };
+
+  return {
+    ...response,
+    documents: [{
+      ...firstDocument,
+      fields: mappedFields
+    }]
+  };
 } 

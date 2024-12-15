@@ -1,5 +1,6 @@
 import type { FieldWithConfidence } from './types';
 import { mergeFieldsWithConfidence } from './person';
+import { normalizeAddress } from '../data-processing/normalizers/address';
 
 // Funkcja do rozdzielania połączonego adresu
 export function splitAddressLine(addressLine: string | null): {
@@ -117,24 +118,42 @@ export function enrichAddressFields(
     confidenceThreshold = 0.3
   } = options;
 
+  // Normalizuj dane adresowe
+  const normalizedMain = mainFields?.street ? 
+    normalizeAddress({ content: mainFields.street.content, confidence: mainFields.street.confidence }, {}, '') :
+    null;
+
+  const normalizedCorrespondence = correspondenceFields?.street ?
+    normalizeAddress({ content: correspondenceFields.street.content, confidence: correspondenceFields.street.confidence }, {}, 'pa') :
+    null;
+
+  const normalizedDelivery = deliveryFields?.street ?
+    normalizeAddress({ content: deliveryFields.street.content, confidence: deliveryFields.street.confidence }, {}, 'dp') :
+    null;
+
   // Jeśli mamy pełny adres w jednym polu, rozdziel go
   let splitDeliveryAddress = undefined;
   if (deliveryFields?.fullAddress?.content) {
-    const { street, building, unit } = splitAddressLine(deliveryFields.fullAddress.content);
-    if (street) {
+    const normalized = normalizeAddress(
+      { content: deliveryFields.fullAddress.content, confidence: deliveryFields.fullAddress.confidence },
+      {},
+      'dp'
+    );
+    
+    if (normalized.dpStreet) {
       splitDeliveryAddress = {
-        street: { content: street, confidence: deliveryFields.fullAddress.confidence },
-        building: building ? { content: building, confidence: deliveryFields.fullAddress.confidence } : undefined,
-        unit: unit ? { content: unit, confidence: deliveryFields.fullAddress.confidence } : undefined
+        street: { content: normalized.dpStreet, confidence: deliveryFields.fullAddress.confidence },
+        building: normalized.dpBuilding ? { content: normalized.dpBuilding, confidence: deliveryFields.fullAddress.confidence } : undefined,
+        unit: normalized.dpUnit ? { content: normalized.dpUnit, confidence: deliveryFields.fullAddress.confidence } : undefined
       };
     }
   }
 
   // Wzbogać ulicę
   const enrichedStreet = mergeFieldsWithConfidence([
-    { field: mainFields?.street, weight: mainWeight },
-    { field: correspondenceFields?.street, weight: correspondenceWeight },
-    { field: deliveryFields?.street || splitDeliveryAddress?.street, weight: deliveryWeight }
+    { field: normalizedMain?.Street ? { content: normalizedMain.Street, confidence: mainFields?.street?.confidence || 0 } : undefined, weight: mainWeight },
+    { field: normalizedCorrespondence?.paStreet ? { content: normalizedCorrespondence.paStreet, confidence: correspondenceFields?.street?.confidence || 0 } : undefined, weight: correspondenceWeight },
+    { field: normalizedDelivery?.dpStreet ? { content: normalizedDelivery.dpStreet, confidence: deliveryFields?.street?.confidence || 0 } : undefined || splitDeliveryAddress?.street, weight: deliveryWeight }
   ], { confidenceThreshold });
 
   // Wzbogać numer budynku

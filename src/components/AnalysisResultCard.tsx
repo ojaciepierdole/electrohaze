@@ -18,6 +18,7 @@ import { enrichAddressData } from '@/utils/address-enrichment';
 import { processNames } from '@/utils/name-helpers';
 import { calculateDocumentConfidence } from '@/utils/text-formatting';
 import { SupplierLogo } from '@/components/ui/supplier-logo';
+import { normalizeAddress } from '@/utils/data-processing/normalizers/address';
 
 interface AnalysisResultCardProps {
   result: ProcessingResult | GroupedResult;
@@ -32,8 +33,22 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
 
   // Konwertuj pola do odpowiednich struktur danych
   const data = React.useMemo(() => {
-    const fields = modelResults[0]?.fields || {};
-    
+    if (!modelResults?.[0]?.fields) {
+      return null;
+    }
+
+    const fields = modelResults[0].fields;
+
+    // Normalizuj dane adresowe
+    const dpAddress = normalizeAddress(
+      {
+        content: `${fields.dpStreet?.content || ''} ${fields.dpBuilding?.content || ''}`,
+        confidence: fields.dpStreet?.confidence || 0
+      },
+      {},
+      'dp'
+    );
+
     // Przygotuj dane do wzbogacenia
     const addressData: AddressSet = {
       // Podstawowe pola adresowe
@@ -74,9 +89,9 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
       dpBusinessName: fields.dpBusinessName?.content || undefined,
       dpTaxID: fields.dpTaxID?.content || undefined,
       dpMeterID: fields.dpMeterID?.content || undefined,
-      dpStreet: fields.dpStreet?.content || undefined,
-      dpBuilding: fields.dpBuilding?.content || undefined,
-      dpUnit: fields.dpUnit?.content || undefined,
+      dpStreet: dpAddress.dpStreet,
+      dpBuilding: dpAddress.dpBuilding,
+      dpUnit: dpAddress.dpUnit,
       dpPostalCode: fields.dpPostalCode?.content || undefined,
       dpCity: fields.dpCity?.content || undefined,
       dpTitle: fields.dpTitle?.content || undefined,
@@ -192,18 +207,18 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
           content: fields.OSD_region.content || null,
           confidence: fields.OSD_region.confidence || 1
         } : undefined,
-        dpStreet: fields.dpStreet ? {
-          content: fields.dpStreet.content || null,
-          confidence: fields.dpStreet.confidence || 1
-        } : undefined,
-        dpBuilding: fields.dpBuilding ? {
-          content: fields.dpBuilding.content || null,
-          confidence: fields.dpBuilding.confidence || 1
-        } : undefined,
-        dpUnit: fields.dpUnit ? {
-          content: fields.dpUnit.content || null,
-          confidence: fields.dpUnit.confidence || 1
-        } : undefined,
+        dpStreet: {
+          content: dpAddress.dpStreet,
+          confidence: fields.dpStreet?.confidence || 1
+        },
+        dpBuilding: {
+          content: dpAddress.dpBuilding,
+          confidence: fields.dpBuilding?.confidence || 1
+        },
+        dpUnit: {
+          content: dpAddress.dpUnit,
+          confidence: fields.dpUnit?.confidence || 1
+        },
         dpPostalCode: fields.dpPostalCode ? {
           content: fields.dpPostalCode.content || null,
           confidence: fields.dpPostalCode.confidence || 1

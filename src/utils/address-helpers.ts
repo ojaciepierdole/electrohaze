@@ -46,7 +46,16 @@ export function copyFields(data: AddressSet): AddressSet {
   const enriched = { ...data };
   const prefixes = ['pa', 'dp'] as const;
   
-  // 1. Najpierw rozdzielamy numery budynków (przed jakimkolwiek formatowaniem)
+  // 1. Najpierw przetwarzamy ulice - usuwamy prefiksy
+  for (const prefix of ['', ...prefixes]) {
+    const streetField = `${prefix}Street` as keyof AddressSet;
+    if (enriched[streetField]) {
+      console.log(`[copyFields] Przetwarzanie ulicy ${streetField}:`, enriched[streetField]);
+      enriched[streetField] = removeStreetPrefix(formatAddress(enriched[streetField]));
+    }
+  }
+
+  // 2. Rozdzielamy numery budynków
   for (const prefix of ['', ...prefixes]) {
     const buildingField = `${prefix}Building` as keyof AddressSet;
     const unitField = `${prefix}Unit` as keyof AddressSet;
@@ -63,7 +72,7 @@ export function copyFields(data: AddressSet): AddressSet {
     }
   }
   
-  // 2. Potem formatujemy wszystkie pola na wielkie litery
+  // 3. Potem formatujemy wszystkie pola na wielkie litery
   const fieldsToUpperCase = [
     'Street', 'Building', 'Unit', 'City', 'PostalCode', 'Province', 'District', 'Municipality'
   ];
@@ -75,15 +84,6 @@ export function copyFields(data: AddressSet): AddressSet {
         console.log(`[copyFields] Konwersja na wielkie litery ${fieldName}:`, enriched[fieldName]);
         enriched[fieldName] = toUpperCase(enriched[fieldName] as string);
       }
-    }
-  }
-  
-  // 3. Potem przetwarzamy ulice - usuwamy prefiksy
-  for (const prefix of ['', ...prefixes]) {
-    const streetField = `${prefix}Street` as keyof AddressSet;
-    if (enriched[streetField]) {
-      console.log(`[copyFields] Przetwarzanie ulicy ${streetField}:`, enriched[streetField]);
-      enriched[streetField] = removeStreetPrefix(formatAddress(enriched[streetField]));
     }
   }
 
@@ -226,8 +226,20 @@ function toUpperCase(value: string): string {
 export function normalizeAndSplitAddressNumbers(data: AddressSet): AddressSet {
   const result = { ...data };
   const prefixes = ['', 'pa', 'dp'] as const;
-  
-  // 1. Najpierw rozdzielamy numery budynków (przed jakimkolwiek formatowaniem)
+  const fieldsToUpperCase = [
+    'Street', 'Building', 'Unit', 'City', 'PostalCode', 'Province', 'District', 'Municipality'
+  ];
+
+  // 1. Najpierw przetwarzamy ulice - usuwamy prefiksy
+  for (const prefix of prefixes) {
+    const streetField = `${prefix}Street` as keyof AddressSet;
+    if (result[streetField]) {
+      console.log(`[normalizeAndSplitAddressNumbers] Przetwarzanie ulicy ${streetField}:`, result[streetField]);
+      result[streetField] = removeStreetPrefix(formatAddress(result[streetField]));
+    }
+  }
+
+  // 2. Rozdzielamy numery budynków
   for (const prefix of prefixes) {
     const buildingField = `${prefix}Building` as keyof AddressSet;
     const unitField = `${prefix}Unit` as keyof AddressSet;
@@ -244,11 +256,7 @@ export function normalizeAndSplitAddressNumbers(data: AddressSet): AddressSet {
     }
   }
 
-  // 2. Potem formatujemy wszystkie pola na wielkie litery
-  const fieldsToUpperCase = [
-    'Street', 'Building', 'Unit', 'City', 'PostalCode', 'Province', 'District', 'Municipality'
-  ];
-
+  // 3. Potem formatujemy wszystkie pola na wielkie litery
   for (const prefix of prefixes) {
     for (const field of fieldsToUpperCase) {
       const fieldName = `${prefix}${field}` as keyof AddressSet;
@@ -256,15 +264,6 @@ export function normalizeAndSplitAddressNumbers(data: AddressSet): AddressSet {
         console.log(`[normalizeAndSplitAddressNumbers] Konwersja na wielkie litery ${fieldName}:`, result[fieldName]);
         result[fieldName] = toUpperCase(result[fieldName] as string);
       }
-    }
-  }
-
-  // 3. Na końcu przetwarzamy ulice - usuwamy prefiksy
-  for (const prefix of prefixes) {
-    const streetField = `${prefix}Street` as keyof AddressSet;
-    if (result[streetField]) {
-      console.log(`[normalizeAndSplitAddressNumbers] Przetwarzanie ulicy ${streetField}:`, result[streetField]);
-      result[streetField] = removeStreetPrefix(formatAddress(result[streetField]));
     }
   }
 
