@@ -1,5 +1,5 @@
 import type { TransformationRule, TransformationContext, TransformationResult } from '@/types/document-processing';
-import { cleanSpecialCharacters } from '../core/text';
+import { normalizeText } from '../core/normalization';
 
 export const addressRules: TransformationRule[] = [
   {
@@ -8,7 +8,12 @@ export const addressRules: TransformationRule[] = [
     priority: 100,
     transform: (value: string, context: TransformationContext): TransformationResult => {
       const originalValue = value;
-      const parts = value.split(/[,\s]+/);
+      const normalizedValue = normalizeText(value, {
+        toUpper: false,
+        removeSpecial: false,
+        normalizePolish: false
+      }) || '';
+      const parts = normalizedValue.split(/[,\s]+/);
       
       if (parts.length < 2) {
         return {
@@ -23,7 +28,7 @@ export const addressRules: TransformationRule[] = [
       }
 
       // Próbuj znaleźć numer budynku i mieszkania
-      const buildingMatch = value.match(/(\d+[A-Za-z]?)(\/(\d+[A-Za-z]?))?/);
+      const buildingMatch = normalizedValue.match(/(\d+[A-Za-z]?)(\/(\d+[A-Za-z]?))?/);
       if (!buildingMatch) {
         return {
           value: value || '',
@@ -38,7 +43,7 @@ export const addressRules: TransformationRule[] = [
 
       const buildingNumber = buildingMatch[1];
       const unitNumber = buildingMatch[3];
-      const street = value.replace(buildingMatch[0], '').trim();
+      const street = normalizedValue.replace(buildingMatch[0], '').trim();
 
       const result: TransformationResult = {
         value: street || '',
@@ -92,8 +97,15 @@ export const addressRules: TransformationRule[] = [
         }
       }
 
+      // Normalizuj tekst po usunięciu prefiksów
+      cleanedValue = normalizeText(cleanedValue, {
+        toUpper: true,
+        removeSpecial: true,
+        normalizePolish: false
+      }) || '';
+
       return {
-        value: cleanedValue || '',
+        value: cleanedValue,
         confidence: removedPrefix ? 0.9 : 1.0,
         metadata: {
           originalValue,
@@ -135,10 +147,14 @@ export const addressRules: TransformationRule[] = [
     priority: 70,
     transform: (value: string): TransformationResult => {
       const originalValue = value;
-      const cleaned = cleanSpecialCharacters(value);
+      const cleaned = normalizeText(value, {
+        toUpper: true,
+        removeSpecial: true,
+        normalizePolish: false
+      }) || '';
       
       return {
-        value: cleaned || '',
+        value: cleaned,
         confidence: 1.0,
         metadata: {
           originalValue,

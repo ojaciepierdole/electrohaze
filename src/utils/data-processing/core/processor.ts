@@ -2,6 +2,7 @@ import type { DocumentData } from '@/types/document-processing';
 import { DocumentTransformer } from './transform';
 import { personNameRules } from '../rules/person';
 import { addressRules } from '../rules/address';
+import { tariffRules } from '../rules/tariff';
 
 /**
  * Klasa odpowiedzialna za przetwarzanie dokumentów
@@ -15,7 +16,8 @@ export class DocumentProcessor {
     // Dodaj wszystkie reguły transformacji
     this.transformer.addRules([
       ...personNameRules,
-      ...addressRules
+      ...addressRules,
+      ...tariffRules
     ]);
   }
 
@@ -69,11 +71,16 @@ export class DocumentProcessor {
   /**
    * Przetwarza pojedyncze pole dokumentu
    */
-  processField(section: string, field: string, value: string): string | null {
+  processField(section: string, field: string, value: string | null | undefined): string | null | undefined {
     console.group(`DocumentProcessor - przetwarzanie pola: ${section}.${field}`);
     console.log('Wartość wejściowa:', value);
 
     try {
+      // Jeśli wartość jest undefined lub null, zwróć ją bez przetwarzania
+      if (value === undefined || value === null) {
+        return value;
+      }
+
       // Utwórz tymczasowy dokument z jednym polem
       const tempDocument = {
         [section]: {

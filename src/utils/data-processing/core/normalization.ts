@@ -66,3 +66,16 @@ export function normalizeText(text: string | null, options: {
 
   return normalized;
 } 
+
+/**
+ * Czyści tekst ze znaków specjalnych, normalizuje spacje i konwertuje na wielkie litery
+ */
+export function cleanSpecialCharacters(value: string | null): string {
+  if (!value) return '';
+  
+  return value
+    .replace(/[^\w\sąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, ' ') // usuń wszystkie znaki specjalne (w tym przecinki) zamieniając je na spacje
+    .replace(/\s+/g, ' ')                         // zamień wielokrotne spacje na pojedynczą
+    .trim()                                       // usuń białe znaki z początku i końca
+    .toUpperCase();                               // konwertuj na wielkie litery
+} 

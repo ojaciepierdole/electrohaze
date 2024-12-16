@@ -12,6 +12,13 @@ export interface DocumentField {
   metadata?: Record<string, unknown>;
 }
 
+// Typ reprezentujący strukturę dokumentu z sekcjami i polami
+export type DocumentData = {
+  [section: string]: {
+    [field: string]: DocumentField;
+  };
+};
+
 export interface TransformationContext {
   value: string;
   confidence: number;

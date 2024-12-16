@@ -1,5 +1,5 @@
 import { TransformationContext, TransformationResult, TransformationRule } from '@/types/document-processing';
-import { normalizeOSDName } from '@/utils/data-processing';
+import { normalizeOSDName } from '@/utils/data-processing/rules/tariff';
 
 export const osdRules: TransformationRule[] = [
   {
