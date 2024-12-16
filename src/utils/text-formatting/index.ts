@@ -97,6 +97,21 @@ export function aggregateDocumentsConfidence(documents: Array<{ fields: Record<s
   return stats;
 }
 
+/**
+ * Formatuje wartość procentową
+ * @param value Wartość do sformatowania (0-1)
+ * @returns Sformatowany tekst procentowy
+ */
+export function formatPercentage(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '0%';
+  
+  return new Intl.NumberFormat('pl-PL', {
+    style: 'percent',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(value);
+}
+
 export function getMissingFields(
   data: Record<string, unknown>,
   fieldMapping: Record<string, string>

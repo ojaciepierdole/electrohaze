@@ -80,12 +80,12 @@ export function formatAmount(value: number | null): string {
 }
 
 // Funkcja do formatowania procentów
-export function formatPercentage(value: number | null): string {
-  if (value === null) return '';
+export function formatPercentage(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '0%';
   return value.toLocaleString('pl-PL', {
     style: 'percent',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
   });
 }
 

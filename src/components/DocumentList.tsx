@@ -1,13 +1,11 @@
-'use client';
-
-import * as React from 'react';
-import { VirtualizedResultsList } from '@/components/VirtualizedResultsList';
-import { AnalysisResultCard } from '@/components/AnalysisResultCard';
+import { AnalysisResultCard } from './AnalysisResultCard';
+import { AnalysisSummary } from './AnalysisSummary';
 import type { ProcessingResult } from '@/types/processing';
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
 
-interface BatchProcessingResultsProps {
-  results: ProcessingResult[];
+interface DocumentListProps {
+  documents: ProcessingResult[];
+  totalTime?: number;
   onExport?: () => void;
 }
 
@@ -69,23 +67,28 @@ function mapFields(fields: Record<string, any>): {
   return result;
 }
 
-export function BatchProcessingResults({ results, onExport }: BatchProcessingResultsProps) {
+export function DocumentList({ documents, totalTime, onExport }: DocumentListProps) {
   return (
     <div className="space-y-4">
-      <VirtualizedResultsList
-        results={results}
-        CardComponent={({ result }) => {
-          const fields = result.modelResults[0]?.fields || {};
+      <AnalysisSummary 
+        documents={documents}
+        totalTime={totalTime}
+        onExport={onExport}
+      />
+      <div className="space-y-2">
+        {documents.map((doc, index) => {
+          const fields = doc.modelResults[0]?.fields || {};
           const mappedFields = mapFields(fields);
           return (
             <AnalysisResultCard
-              fileName={result.fileName}
-              confidence={result.modelResults[0]?.confidence || 0}
+              key={index}
+              fileName={doc.fileName}
+              confidence={doc.modelResults[0]?.confidence || 0}
               {...mappedFields}
             />
           );
-        }}
-      />
+        })}
+      </div>
     </div>
   );
 } 

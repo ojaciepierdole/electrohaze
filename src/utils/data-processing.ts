@@ -39,416 +39,79 @@ function cleanSpecialCharacters(value: string): string {
     .toUpperCase();                               // konwertuj na wielkie litery
 }
 
-// Funkcja do przetwarzania imienia i nazwiska
-function normalizePersonName(value: string, isReversed = false) {
-  // Sprawdź czy wartość istnieje
-  if (!value) return { firstName: '', lastName: '' };
-  
-  // Wyczyść tekst ze znaków specjalnych
-  const cleaned = cleanSpecialCharacters(value);
-  const parts = cleaned.split(/\s+/);
-  
-  // Jeśli mamy tylko jedną część, traktujemy ją jako nazwisko
-  if (parts.length === 1) {
-    return {
-      firstName: '',
-      lastName: parts[0]
-    };
-  }
-  
-  // Jeśli kolejność jest odwrócona (nazwisko, imię)
-  if (isReversed) {
-    return {
-      firstName: parts[parts.length - 1],
-      lastName: parts.slice(0, -1).join(' ')
-    };
-  }
-  
-  // Standardowa kolejność (imię, nazwisko)
-  return {
-    firstName: parts[0],
-    lastName: parts.slice(1).join(' ')
-  };
-}
-
-// Funkcja do rozdzielania numeru budynku i lokalu
-function splitBuildingNumber(value: string, isUnit = false): { building: string; unit: string | null } {
-  if (!value) return { building: '', unit: null };
-  
-  console.log('[splitBuildingNumber] Wejście:', value, 'isUnit:', isUnit);
-  
-  // Usuń białe znaki
-  const cleaned = value.trim();
-  
-  // Jeśli to pole typu "unit", traktuj wartość jako numer lokalu
-  if (isUnit) {
-    console.log('[splitBuildingNumber] Traktuję jako numer lokalu:', cleaned);
-    return { building: '', unit: cleaned };
-  }
-  
-  // Sprawdź czy mamy ukośnik
-  if (cleaned.includes('/')) {
-    const [buildingPart, unitPart] = cleaned.split('/');
-    const buildingMatch = buildingPart.match(/^(\d+)([A-Za-z])?$/);
-    if (buildingMatch) {
-      const building = buildingMatch[2] ? `${buildingMatch[1]}${buildingMatch[2]}` : buildingMatch[1];
-      console.log('[splitBuildingNumber] Wynik z ukośnikiem:', { building, unit: unitPart });
-      return { building, unit: unitPart };
-    }
-  }
-  
-  // Sprawdź czy to sam numer budynku z literą
-  const buildingMatch = cleaned.match(/^(\d+)([A-Za-z])?$/);
-  if (buildingMatch) {
-    const building = buildingMatch[2] ? `${buildingMatch[1]}${buildingMatch[2]}` : buildingMatch[1];
-    console.log('[splitBuildingNumber] Wynik bez ukośnika:', { building, unit: null });
-    return { building, unit: null };
-  }
-  
-  // Jeśli nie pasuje do żadnego formatu, zwróć całość jako numer budynku
-  console.log('[splitBuildingNumber] Wynik domyślny:', { building: cleaned, unit: null });
-  return { building: cleaned, unit: null };
-}
-
-// Funkcja do normalizacji nazw ulic
-function normalizeStreetName(value: string): string {
-  if (!value) return '';
-  
-  // Wyczyść i znormalizuj tekst
-  const cleaned = cleanSpecialCharacters(value);
-  
-  // Lista prefiksów do usunięcia
-  const streetPrefixes = ['UL', 'ULICA', 'AL', 'ALEJA', 'PL', 'PLAC', 'OS', 'OSIEDLE'];
-  
-  // Usuń wszystkie prefiksy ze początku tekstu
-  let words = cleaned.split(/\s+/);
-  while (words.length > 0 && streetPrefixes.includes(words[0])) {
-    words = words.slice(1);
-  }
-  
-  // Jeśli nie zostały żadne słowa, zwróć oryginalny tekst bez prefiksów
-  if (words.length === 0) {
-    return cleaned;
-  }
-  
-  // Usuń duplikaty słów
-  const uniqueWords = [...new Set(words)];
-  
-  // Sprawdź czy słowa są podobne (mogą być duplikatami z drobnymi różnicami)
-  const similarWords = uniqueWords.filter((word, index) => {
-    for (let i = index + 1; i < uniqueWords.length; i++) {
-      const similarity = calculateSimilarity(word, uniqueWords[i]);
-      if (similarity > 0.8) { // 80% podobieństwa
-        return false;
-      }
-    }
-    return true;
-  });
-  
-  return similarWords.join(' ');
-}
-
-// Funkcja do przetwarzania adresu
-function normalizeAddress(value: string) {
-  if (!value) return { street: '', building: null, unit: null };
-  
-  // Wyczyść tekst ze znaków specjalnych
-  const cleaned = cleanSpecialCharacters(value);
-  
-  // Najpierw spróbuj rozdzielić ulicę od numeru
-  const addressParts = cleaned.split(/\s+(?=\d)/);
-  
-  if (addressParts.length > 1) {
-    // Mamy ulicę i numer
-    const street = addressParts[0];
-    const numberPart = addressParts.slice(1).join(' ');
-    const { building, unit } = splitBuildingNumber(numberPart);
-    
-    return {
-      street: normalizeStreetName(street),
-      building,
-      unit
-    };
-  } else {
-    // Sprawdź czy to sam numer budynku
-    const { building, unit } = splitBuildingNumber(cleaned);
-    
-    return {
-      street: '',
-      building,
-      unit
-    };
-  }
-}
-
-// Słownik poprawnych nazw OSD
-const OSD_NAMES = {
-  'RWE': 'RWE Stoen Operator Sp. z o.o.',
-  'STOEN': 'RWE Stoen Operator Sp. z o.o.',
-  'RWE STOEN': 'RWE Stoen Operator Sp. z o.o.',
-  'PGE': 'PGE Dystrybucja SA',
-  'ENEA': 'Enea Operator Sp. z o.o.',
-  'TAURON': 'Tauron Dystrybucja SA',
-  'ENERGA': 'Energa-Operator SA',
-  // Warianty z błędami
-  'RWE STOEN OPERATOR': 'RWE Stoen Operator Sp. z o.o.',
-  'RWE SP Z O O': 'RWE Stoen Operator Sp. z o.o.',
-  'PGE DYSTRYBUCJA': 'PGE Dystrybucja SA',
-  'PGE DYSTRYBUCJA S A': 'PGE Dystrybucja SA',
-  'ENEA OPERATOR': 'Enea Operator Sp. z o.o.',
-  'ENEA SP Z O O': 'Enea Operator Sp. z o.o.',
-  'TAURON DYSTRYBUCJA': 'Tauron Dystrybucja SA',
-  'TAURON DYSTRYBUCJA S A': 'Tauron Dystrybucja SA',
-  'ENERGA OPERATOR': 'Energa-Operator SA',
-  'ENERGA OPERATOR S A': 'Energa-Operator SA'
-} as const;
-
 // Funkcja do normalizacji nazwy OSD
-export function normalizeOSDName(value: string): string {
+function normalizeOSDName(value: string): string {
   if (!value) return '';
   
-  // Normalizuj tekst do porównania
-  const normalized = value
-    .toUpperCase()
-    .replace(/[^\w\s]/g, '') // usuń wszystkie znaki specjalne
-    .replace(/\s+/g, ' ')    // zamień wielokrotne spacje na pojedynczą
-    .trim();
+  const normalized = cleanSpecialCharacters(value);
   
-  // Szukaj dokładnego dopasowania
-  for (const [key, properName] of Object.entries(OSD_NAMES)) {
-    if (normalized === key.toUpperCase()) {
-      console.log('[normalizeOSDName] Znaleziono dokładne dopasowanie:', { input: value, output: properName });
-      return properName;
+  // Mapowanie typowych wariantów nazw OSD
+  const osdMappings: Record<string, string> = {
+    'ENERGA OPERATOR': 'ENERGA-OPERATOR',
+    'PGE DYSTRYBUCJA': 'PGE DYSTRYBUCJA',
+    'TAURON DYSTRYBUCJA': 'TAURON DYSTRYBUCJA',
+    'ENEA OPERATOR': 'ENEA OPERATOR',
+    'STOEN OPERATOR': 'STOEN OPERATOR',
+    'INNOGY STOEN OPERATOR': 'STOEN OPERATOR'
+  };
+  
+  for (const [variant, normalized] of Object.entries(osdMappings)) {
+    if (value.toUpperCase().includes(variant)) {
+      return normalized;
     }
   }
   
-  // Szukaj częściowego dopasowania
-  for (const [key, properName] of Object.entries(OSD_NAMES)) {
-    if (normalized.includes(key.toUpperCase())) {
-      console.log('[normalizeOSDName] Znaleziono częściowe dopasowanie:', { input: value, output: properName });
-      return properName;
-    }
-  }
-  
-  // Jeśli nie znaleziono dopasowania, zwróć oryginalną wartość
-  console.log('[normalizeOSDName] Nie znaleziono dopasowania:', value);
   return value;
 }
 
-// Lista popularnych polskich nazwisk (które mogą być mylone z imionami)
-const commonLastNames = new Set([
-  'KOZAK', 'URBAŃCZYK', 'PROKOP', 'NOWAK', 'KOWALSKI', 'WIŚNIEWSKI', 'WÓJCIK', 'KOWALCZYK',
-  'KAMIŃSKI', 'LEWANDOWSKI', 'ZIELIŃSKI', 'WOŹNIAK', 'SZYMAŃSKI', 'DĄBROWSKI', 'KOZŁOWSKI'
-]);
-
-// Funkcja do wykrywania prawidłowej kolejności imienia i nazwiska
-function detectNameOrder(firstName: string, lastName: string): boolean {
-  // Sprawdź czy wartości istnieją
-  if (!firstName || !lastName) return false;
-
-  const cleanedFirst = cleanSpecialCharacters(firstName);
-  const cleanedLast = cleanSpecialCharacters(lastName);
-
-  console.log('[detectNameOrder] Analiza:', {
-    firstName: cleanedFirst,
-    lastName: cleanedLast
-  });
-
-  // Sprawdź czy któraś z wartości jest popularnym imieniem lub nazwiskiem
-  const firstIsCommonName = commonFirstNames.has(cleanedFirst);
-  const lastIsCommonName = commonFirstNames.has(cleanedLast);
-  const firstIsCommonLastName = commonLastNames.has(cleanedFirst);
-  const lastIsCommonLastName = commonLastNames.has(cleanedLast);
-
-  console.log('[detectNameOrder] Wynik:', {
-    firstIsCommonName,
-    lastIsCommonName,
-    firstIsCommonLastName,
-    lastIsCommonLastName
-  });
-
-  // Jeśli pierwsza wartość to imię, a druga to nazwisko
-  if (firstIsCommonName && !lastIsCommonName) return true;
+// Funkcja do przetwarzania imienia i nazwiska
+function processPersonName(firstName: string | null, lastName: string | null): { firstName: string | null; lastName: string | null } {
+  if (!firstName && !lastName) return { firstName: null, lastName: null };
   
-  // Jeśli pierwsza wartość to nazwisko, a druga to imię
-  if (!firstIsCommonName && lastIsCommonName) return false;
-  
-  // Jeśli pierwsza wartość to nazwisko z listy nazwisk
-  if (firstIsCommonLastName && !lastIsCommonLastName) return false;
-  
-  // Jeśli druga wartość to nazwisko z listy nazwisk
-  if (!firstIsCommonLastName && lastIsCommonLastName) return true;
-
-  // Jeśli nie możemy określić na podstawie list,
-  // zakładamy że kolejność jest prawidłowa
-  return true;
-}
-
-// Funkcja do przetwarzania pary imię-nazwisko
-function processPersonName(firstName: string | null, lastName: string | null): { firstName: string, lastName: string } {
-  console.log('[processPersonName] Wejście:', { firstName, lastName });
-
-  // Wyczyść dane wejściowe
-  const cleanedFirst = firstName ? cleanSpecialCharacters(firstName) : '';
-  const cleanedLast = lastName ? cleanSpecialCharacters(lastName) : '';
-
-  // Jeśli mamy tylko jedną wartość
-  if (!cleanedFirst || !cleanedLast) {
-    // Jeśli mamy tylko pierwszą wartość
-    if (cleanedFirst && !cleanedLast) {
-      // Sprawdź czy to może być nazwisko
-      const isFirstName = commonFirstNames.has(cleanedFirst);
-      const isLastName = commonLastNames.has(cleanedFirst);
-      
-      if (!isFirstName && isLastName) {
-        // To prawdopodobnie nazwisko
-        return { firstName: '', lastName: cleanedFirst };
+  // Jeśli mamy tylko jedno pole wypełnione
+  if (!firstName || !lastName) {
+    const singleName = (firstName || lastName || '').trim();
+    const parts = singleName.split(/\s+/);
+    
+    // Jeśli mamy jedno słowo
+    if (parts.length === 1) {
+      // Sprawdź czy to imię czy nazwisko
+      if (commonFirstNames.includes(parts[0].toUpperCase())) {
+        return { firstName: parts[0], lastName: null };
+      } else {
+        return { firstName: null, lastName: parts[0] };
       }
     }
-    // W innych przypadkach zwróć wartości jak są
-    return { firstName: cleanedFirst, lastName: cleanedLast };
+    
+    // Jeśli mamy więcej słów
+    const potentialFirstName = parts[0];
+    const potentialLastName = parts.slice(1).join(' ');
+    
+    if (commonFirstNames.includes(potentialFirstName.toUpperCase())) {
+      return { firstName: potentialFirstName, lastName: potentialLastName };
+    } else {
+      return { firstName: null, lastName: singleName };
+    }
   }
-
-  // Sprawdź czy kolejność jest prawidłowa
-  const isCorrectOrder = detectNameOrder(cleanedFirst, cleanedLast);
-  console.log('[processPersonName] Wynik analizy kolejności:', {
-    cleanedFirst,
-    cleanedLast,
-    isCorrectOrder
-  });
-
-  if (!isCorrectOrder) {
-    // Zamień wartości miejscami
-    console.log('[processPersonName] Zamieniam kolejność');
-    return {
-      firstName: cleanedLast,
-      lastName: cleanedFirst
-    };
-  }
-
-  return { 
-    firstName: cleanedFirst, 
-    lastName: cleanedLast 
+  
+  // Jeśli mamy oba pola
+  return {
+    firstName: firstName.trim(),
+    lastName: lastName.trim()
   };
 }
 
-// Funkcja do normalizacji nazw miejscowości
-function normalizeLocationName(value: string): string {
-  if (!value) return '';
-  
-  // Wyczyść i znormalizuj tekst
-  const cleaned = cleanSpecialCharacters(value);
-  
-  // Usuń duplikaty słów
-  const words = cleaned.split(/\s+/);
-  const uniqueWords = [...new Set(words)];
-  
-  // Jeśli mamy tylko jedno słowo, zwróć je
-  if (uniqueWords.length === 1) {
-    return uniqueWords[0];
-  }
-  
-  // Sprawdź czy słowa są podobne (mogą być duplikatami z drobnymi różnicami)
-  const similarWords = uniqueWords.filter((word, index) => {
-    for (let i = index + 1; i < uniqueWords.length; i++) {
-      const similarity = calculateSimilarity(word, uniqueWords[i]);
-      if (similarity > 0.8) { // 80% podobieństwa
-        return false;
-      }
-    }
-    return true;
-  });
-  
-  return similarWords.join(' ');
-}
-
-// Funkcja pomocnicza do obliczania podobieństwa tekstu (algorytm Levenshtein)
-function calculateSimilarity(str1: string, str2: string): number {
-  const len1 = str1.length;
-  const len2 = str2.length;
-  const matrix: number[][] = Array(len1 + 1).fill(null).map(() => Array(len2 + 1).fill(null));
-
-  for (let i = 0; i <= len1; i++) matrix[i][0] = i;
-  for (let j = 0; j <= len2; j++) matrix[0][j] = j;
-
-  for (let i = 1; i <= len1; i++) {
-    for (let j = 1; j <= len2; j++) {
-      const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
-      matrix[i][j] = Math.min(
-        matrix[i - 1][j] + 1,        // deletion
-        matrix[i][j - 1] + 1,        // insertion
-        matrix[i - 1][j - 1] + cost  // substitution
-      );
-    }
-  }
-
-  const distance = matrix[len1][len2];
-  const maxLength = Math.max(len1, len2);
-  return 1 - distance / maxLength;
-}
-
-// Reguły przetwarzania dla pól
-const fieldRules: Record<string, (value: string, context?: ProcessingContext) => string> = {
+// Reguły przetwarzania dla poszczególnych pól
+const fieldRules: ProcessingRules = {
   // Reguły dla adresów
-  Street: (value) => {
-    console.log('[Street] Przetwarzanie:', value);
-    const cleaned = cleanSpecialCharacters(value);
-    const result = normalizeAddress(cleaned);
-    console.log('[Street] Wynik:', result);
-    return result.street || cleaned;
-  },
-  Building: (value) => {
-    console.log('[Building] Przetwarzanie:', value);
-    const cleaned = cleanSpecialCharacters(value);
-    const result = splitBuildingNumber(cleaned, false);
-    console.log('[Building] Wynik:', result);
-    return result.building || cleaned;
-  },
-  Unit: (value) => {
-    console.log('[Unit] Przetwarzanie:', value);
-    const cleaned = cleanSpecialCharacters(value);
-    const result = splitBuildingNumber(cleaned, true);
-    console.log('[Unit] Wynik:', result);
-    return result.unit || cleaned;
-  },
-  PostalCode: (value) => {
-    const cleaned = value?.replace(/\s+/g, '');
-    return cleaned?.match(/\d{2}-\d{3}/) ? cleaned : cleaned?.replace(/(\d{2})(\d{3})/, '$1-$2');
-  },
-  City: (value) => normalizeLocationName(cleanSpecialCharacters(value)),
-  Municipality: (value) => normalizeLocationName(cleanSpecialCharacters(value)),
-  District: (value) => normalizeLocationName(cleanSpecialCharacters(value)),
-  Province: (value) => normalizeLocationName(cleanSpecialCharacters(value)),
-  
-  // Reguły dla danych osobowych
-  FirstName: (value, context) => {
-    if (!context) return cleanSpecialCharacters(value);
-    
-    // Znajdź odpowiadające pole nazwiska
-    let lastName = null;
-    if (context.customer?.LastName?.content) lastName = context.customer.LastName.content;
-    else if (context.ppe?.dpLastName?.content) lastName = context.ppe.dpLastName.content;
-    else if (context.correspondence?.paLastName?.content) lastName = context.correspondence.paLastName.content;
-    
-    console.log('[FirstName] Znalezione pola:', { value, lastName });
-    
-    const result = processPersonName(value, lastName);
-    return result.firstName;
-  },
-  LastName: (value, context) => {
-    if (!context) return cleanSpecialCharacters(value);
-    
-    // Znajdź odpowiadające pole imienia
-    let firstName = null;
-    if (context.customer?.FirstName?.content) firstName = context.customer.FirstName.content;
-    else if (context.ppe?.dpFirstName?.content) firstName = context.ppe.dpFirstName.content;
-    else if (context.correspondence?.paFirstName?.content) firstName = context.correspondence.paFirstName.content;
-    
-    console.log('[LastName] Znalezione pola:', { firstName, value });
-    
-    const result = processPersonName(firstName, value);
-    return result.lastName;
-  },
+  Street: (value) => formatStreet(value),
+  Building: (value) => cleanSpecialCharacters(value),
+  Unit: (value) => cleanSpecialCharacters(value),
+  PostalCode: (value) => value?.replace(/[^\d-]/g, ''),
+  City: (value) => cleanSpecialCharacters(value),
+  Municipality: (value) => cleanSpecialCharacters(value),
+  District: (value) => cleanSpecialCharacters(value),
+  Province: (value) => cleanSpecialCharacters(value),
   
   // Reguły dla numerów i identyfikatorów
   MeterNumber: (value) => cleanSpecialCharacters(value),
@@ -487,12 +150,12 @@ const fieldMappings: Record<string, string> = {
   paLastName: 'LastName',
   
   // Supplier
-  supplierStreet: 'Street',
-  supplierBuilding: 'Building',
-  supplierUnit: 'Unit',
-  supplierPostalCode: 'PostalCode',
-  supplierCity: 'City',
-  supplierBusinessName: 'BusinessName'
+  spStreet: 'Street',
+  spBuilding: 'Building',
+  spUnit: 'Unit',
+  spPostalCode: 'PostalCode',
+  spCity: 'City',
+  spBusinessName: 'BusinessName'
 };
 
 // Pary pól, które powinny być przetwarzane razem
@@ -508,11 +171,6 @@ export function processSection<T extends Record<string, DocumentField>>(
   data: T,
   context?: ProcessingContext
 ): T {
-  console.log(`[processSection] Processing section ${section}:`, {
-    inputFields: Object.keys(data),
-    context
-  });
-
   const result = { ...data } as T;
 
   // Zbiór przetworzonych pól
@@ -526,11 +184,6 @@ export function processSection<T extends Record<string, DocumentField>>(
       const lastName = data[lastNameField]?.content;
 
       if (firstName || lastName) {
-        console.log(`[processSection] Processing name pair ${firstNameField}-${lastNameField}:`, {
-          firstName,
-          lastName
-        });
-
         const processedName = processPersonName(
           firstName === undefined ? null : firstName,
           lastName === undefined ? null : lastName
@@ -572,7 +225,6 @@ export function processSection<T extends Record<string, DocumentField>>(
 
     // Jeśli pole nie istnieje lub nie ma wartości, pomijamy je
     if (!field?.content) {
-      console.log(`[processSection] Skipping empty field ${key}`);
       continue;
     }
 
@@ -582,12 +234,7 @@ export function processSection<T extends Record<string, DocumentField>>(
 
     if (rule) {
       try {
-        console.log(`[processSection] Processing field ${key} (${standardFieldName}):`, {
-          originalValue: field.content,
-          confidence: field.confidence
-        });
-
-        const processedValue = rule(field.content, context);
+        const processedValue = rule(field.content);
         if (processedValue !== field.content) {
           const processedField: DocumentField = {
             ...field,
@@ -596,21 +243,12 @@ export function processSection<T extends Record<string, DocumentField>>(
             isEnriched: true
           };
           result[key as keyof T] = processedField as T[keyof T];
-
-          console.log(`[processSection] Field ${key} processed:`, {
-            newValue: processedValue,
-            newConfidence: processedField.confidence,
-            isEnriched: true
-          });
         }
       } catch (error) {
         console.error(`[processSection] Error processing field ${key}:`, error);
       }
-    } else {
-      console.log(`[processSection] No rule found for field ${standardFieldName}`);
     }
   }
 
-  console.log(`[processSection] Final result for section ${section}:`, result);
   return result;
 } 

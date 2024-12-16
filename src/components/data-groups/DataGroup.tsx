@@ -11,62 +11,88 @@ interface DataGroupProps {
   title: string;
   data: Record<string, DocumentField>;
   fieldLabels: Record<string, string>;
+  optionalFields?: string[];
   renderField?: (key: string, field: DocumentField) => React.ReactNode;
 }
 
-export const DataGroup: React.FC<DataGroupProps> = ({ title, data, fieldLabels, renderField }) => {
-  console.log('DataGroup input:', { title, data, fieldLabels });
+interface GroupStats {
+  completeness: number;
+  confidence: number;
+  filledFields: number;
+  totalFields: number;
+}
 
-  // Oblicz statystyki grupy
-  const stats = React.useMemo(() => {
-    const fields = Object.entries(data);
-    const filledFields = fields.filter(([_, field]) => field?.content !== null && field?.content !== undefined);
-    const totalConfidence = filledFields.reduce((sum, [_, field]) => sum + (field?.confidence ?? 0), 0);
-    
-    const result = {
-      total: fields.length,
-      filled: filledFields.length,
-      completeness: filledFields.length / fields.length,
-      confidence: filledFields.length > 0 ? totalConfidence / filledFields.length : 0
-    };
-    console.log('Calculated stats:', result);
-    return result;
-  }, [data]);
+function calculateGroupStats(
+  data: Record<string, DocumentField>, 
+  fieldLabels: Record<string, string>,
+  optionalFields: string[] = []
+): GroupStats {
+  // Oblicz liczbę wymaganych pól (wszystkie pola minus opcjonalne)
+  const requiredFields = Object.keys(fieldLabels).filter(key => !optionalFields.includes(key));
+  const totalFields = requiredFields.length;
 
-  // Znajdź brakujące pola
-  const missingFields = Object.entries(fieldLabels)
-    .filter(([key]) => !data[key]?.content)
-    .map(([_, label]) => label);
+  // Oblicz liczbę wypełnionych wymaganych pól
+  const filledFields = requiredFields.filter(key => {
+    const field = data[key];
+    return field?.content !== undefined && field?.content !== null && field?.content !== '';
+  }).length;
 
-  // Sprawdź czy grupa jest pusta
-  if (stats.filled === 0) {
-    console.log('Group is empty');
+  // Oblicz kompletność na podstawie wymaganych pól
+  const completeness = totalFields > 0 ? filledFields / totalFields : 1;
+
+  // Oblicz średnią pewność dla wszystkich wypełnionych pól (wymaganych i opcjonalnych)
+  const filledFieldsWithConfidence = Object.entries(data)
+    .filter(([key, field]) => {
+      return key in fieldLabels && field?.content && field?.confidence !== undefined;
+    });
+
+  const confidence = filledFieldsWithConfidence.length > 0
+    ? filledFieldsWithConfidence.reduce((acc, [_, field]) => acc + (field.confidence || 0), 0) / filledFieldsWithConfidence.length
+    : 1;
+
+  return {
+    completeness,
+    confidence,
+    filledFields,
+    totalFields
+  };
+}
+
+export const DataGroup: React.FC<DataGroupProps> = ({ 
+  title, 
+  data, 
+  fieldLabels, 
+  optionalFields = [], 
+  renderField 
+}) => {
+  const stats = calculateGroupStats(data, fieldLabels, optionalFields);
+
+  const renderDefaultField = (key: string, field: DocumentField) => {
+    const label = fieldLabels[key];
+    if (!label) return null;
+
     return (
-      <Card className="bg-gray-50 border-gray-200 opacity-75">
-        <CardHeader className="border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg font-medium text-gray-500">{title}</CardTitle>
-            <Badge variant="outline" className="text-gray-500">
-              Brak danych
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <AlertCircle className="w-4 h-4" />
-            <p>Brak danych w tej sekcji.</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div key={key} className="flex items-center justify-between py-2">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">{label}</span>
+          {field.confidence && (
+            <ConfidenceDot confidence={field.confidence} />
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">
+            {field.content || 'Brak danych'}
+          </span>
+          {field.isEnriched && (
+            <Eraser className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          )}
+        </div>
+      </div>
     );
-  }
+  };
 
   const completionPercentage = Math.round(stats.completeness * 100);
   const confidencePercentage = Math.round(stats.confidence * 100);
-
-  console.log('Rendering filled fields:', Object.entries(fieldLabels)
-    .filter(([key]) => data[key]?.content)
-    .map(([key]) => ({ key, content: data[key]?.content })));
 
   return (
     <Card className="bg-white shadow-sm">
@@ -84,43 +110,20 @@ export const DataGroup: React.FC<DataGroupProps> = ({ title, data, fieldLabels, 
         </div>
       </CardHeader>
       <CardContent className="p-4">
-        <div className="space-y-6">
-          {/* Wypełnione pola */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.entries(fieldLabels).map(([key, label]) => {
-              const fieldData = data[key];
-              if (!fieldData?.content) return null;
-
-              return (
-                <div key={key} className="space-y-1">
-                  <dt className="text-sm text-gray-500">{label}</dt>
-                  <dd className="text-sm font-medium flex items-center gap-2">
-                    <span>
-                      {renderField ? renderField(key, fieldData) : fieldData.content}
-                    </span>
-                    <ConfidenceDot confidence={fieldData.confidence ?? 0} />
-                    {fieldData.isEnriched && (
-                      <Eraser className="w-4 h-4 text-gray-400" />
-                    )}
-                  </dd>
-                </div>
-              );
-            })}
+        {stats.filledFields === 0 ? (
+          <div className="flex items-center justify-center gap-2 text-sm text-gray-500 py-4">
+            <AlertCircle className="w-4 h-4" />
+            <span>Brak danych w tej sekcji</span>
           </div>
-
-          {/* Brakujące pola */}
-          {missingFields.length > 0 && (
-            <>
-              <div className="border-t border-gray-200 my-4" />
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium text-gray-500">Brakujące dane:</h4>
-                <p className="text-sm text-gray-400">
-                  {missingFields.join(' • ')}
-                </p>
-              </div>
-            </>
-          )}
-        </div>
+        ) : (
+          <div className="space-y-2">
+            {Object.entries(data)
+              .filter(([key]) => key in fieldLabels)
+              .map(([key, field]) => (
+                renderField ? renderField(key, field) : renderDefaultField(key, field)
+              ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

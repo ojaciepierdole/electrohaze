@@ -12,7 +12,7 @@ export const CorrespondenceDataGroup: React.FC<CorrespondenceDataGroupProps> = (
   console.log('CorrespondenceDataGroup input:', data);
 
   // Przetwórz dane adresu korespondencyjnego
-  const processedData = processSection('correspondence', data);
+  const processedData = processSection<CorrespondenceData>('correspondence', data);
   console.log('CorrespondenceDataGroup processedData:', processedData);
 
   return (
@@ -28,8 +28,19 @@ export const CorrespondenceDataGroup: React.FC<CorrespondenceDataGroupProps> = (
         paBuilding: 'Numer budynku',
         paUnit: 'Numer lokalu',
         paPostalCode: 'Kod pocztowy',
-        paCity: 'Miejscowość'
+        paCity: 'Miejscowość',
+        paProvince: 'Województwo',
+        paMunicipality: 'Gmina',
+        paDistrict: 'Powiat'
       }}
+      optionalFields={[
+        'paBusinessName',
+        'paTitle',
+        'paUnit',
+        'paProvince',
+        'paMunicipality',
+        'paDistrict'
+      ]}
     />
   );
 }; 

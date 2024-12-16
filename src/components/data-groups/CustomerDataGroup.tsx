@@ -12,7 +12,7 @@ export const CustomerDataGroup: React.FC<CustomerDataGroupProps> = ({ data }) =>
   console.log('CustomerDataGroup input:', data);
 
   // Przetwórz dane klienta
-  const processedData = processSection('customer', data);
+  const processedData = processSection<CustomerData>('customer', data);
   console.log('CustomerDataGroup processedData:', processedData);
 
   return (
@@ -28,8 +28,19 @@ export const CustomerDataGroup: React.FC<CustomerDataGroupProps> = ({ data }) =>
         Building: 'Numer budynku',
         Unit: 'Numer lokalu',
         PostalCode: 'Kod pocztowy',
-        City: 'Miejscowość'
+        City: 'Miejscowość',
+        Municipality: 'Gmina',
+        District: 'Powiat',
+        Province: 'Województwo'
       }}
+      optionalFields={[
+        'BusinessName',
+        'taxID',
+        'Unit',
+        'Municipality',
+        'District',
+        'Province'
+      ]}
     />
   );
 }; 

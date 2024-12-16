@@ -1,6 +1,6 @@
 import React from 'react';
 import { DataGroup } from '@/components/data-groups/DataGroup';
-import type { DocumentField, ProcessSectionContext } from '@/types/document-processing';
+import type { DocumentField } from '@/types/document-processing';
 import { processSection } from '@/utils/data-processing';
 import type { SupplierData, PPEData, CustomerData, CorrespondenceData } from '@/types/fields';
 import { getOSDInfoByPostalCode } from '@/utils/osd-mapping';
@@ -26,8 +26,6 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
   customerData,
   correspondenceData
 }) => {
-  console.log('SupplierDataGroup input:', { data, ppeData, customerData, correspondenceData });
-
   // Przygotuj kontekst przetwarzania
   const context: ProcessingContext = {
     ppe: ppeData || {},
@@ -37,13 +35,10 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
 
   // Przetwórz dane dostawcy z uwzględnieniem kontekstu
   const processedData = processSection<SupplierData>('supplier', data, context);
-  console.log('SupplierDataGroup processedData:', processedData);
 
   // Jeśli mamy dane OSD z faktury, zachowujemy je, tylko normalizując nazewnictwo
   if (data.OSD_name?.content) {
-    console.log('Found OSD in invoice:', data.OSD_name);
-    const normalizedInfo = getOSDInfoByPostalCode(data.supplierPostalCode?.content || '');
-    console.log('Normalized OSD info:', normalizedInfo);
+    const normalizedInfo = getOSDInfoByPostalCode(data.spPostalCode?.content || '');
     
     if (normalizedInfo && normalizedInfo.name.toUpperCase().includes(data.OSD_name.content.toUpperCase())) {
       processedData.OSD_name = {
@@ -62,12 +57,10 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
         };
       }
     }
-  } 
+  }
   else {
     if (ppeData?.dpPostalCode?.content) {
-      console.log('Looking up OSD by PPE postal code:', ppeData.dpPostalCode.content);
       const info = getOSDInfoByPostalCode(ppeData.dpPostalCode.content);
-      console.log('Found OSD info from PPE:', info);
       
       if (info) {
         processedData.OSD_name = {
@@ -83,9 +76,7 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
       }
     }
     else if (correspondenceData?.paPostalCode?.content) {
-      console.log('Looking up OSD by correspondence postal code:', correspondenceData.paPostalCode.content);
       const info = getOSDInfoByPostalCode(correspondenceData.paPostalCode.content);
-      console.log('Found OSD info from correspondence:', info);
       
       if (info) {
         processedData.OSD_name = {
@@ -101,9 +92,7 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
       }
     }
     else if (customerData?.PostalCode?.content) {
-      console.log('Looking up OSD by customer postal code:', customerData.PostalCode.content);
       const info = getOSDInfoByPostalCode(customerData.PostalCode.content);
-      console.log('Found OSD info from customer:', info);
       
       if (info) {
         processedData.OSD_name = {
@@ -119,8 +108,6 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
       }
     }
   }
-
-  console.log('Final processedData:', processedData);
 
   // Wydzielamy dane nagłówkowe (dostawca i OSD)
   const headerData: Partial<SupplierData> = {
@@ -238,17 +225,15 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
           title="Dane dostawcy"
           data={remainingData}
           fieldLabels={{
-            supplierTaxID: 'NIP',
-            supplierStreet: 'Ulica',
-            supplierBuilding: 'Numer budynku',
-            supplierUnit: 'Numer lokalu',
-            supplierPostalCode: 'Kod pocztowy',
-            supplierCity: 'Miejscowość',
-            supplierBankAccount: 'Numer konta',
-            supplierBankName: 'Nazwa banku',
-            supplierEmail: 'Email',
-            supplierPhone: 'Telefon',
-            supplierWebsite: 'Strona WWW'
+            spTaxID: 'NIP',
+            spStreet: 'Ulica',
+            spBuilding: 'Numer budynku',
+            spUnit: 'Numer lokalu',
+            spPostalCode: 'Kod pocztowy',
+            spCity: 'Miejscowość',
+            spIBAN: 'Numer konta',
+            spPhoneNum: 'Telefon',
+            spWebUrl: 'Strona WWW'
           }}
         />
       )}
