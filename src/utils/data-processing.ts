@@ -40,7 +40,7 @@ function cleanSpecialCharacters(value: string): string {
 }
 
 // Funkcja do normalizacji nazwy OSD
-function normalizeOSDName(value: string): string {
+export function normalizeOSDName(value: string): string {
   if (!value) return '';
   
   const normalized = cleanSpecialCharacters(value);
@@ -76,7 +76,7 @@ function processPersonName(firstName: string | null, lastName: string | null): {
     // Jeśli mamy jedno słowo
     if (parts.length === 1) {
       // Sprawdź czy to imię czy nazwisko
-      if (commonFirstNames.includes(parts[0].toUpperCase())) {
+      if (Array.from(commonFirstNames).some(name => name === parts[0].toUpperCase())) {
         return { firstName: parts[0], lastName: null };
       } else {
         return { firstName: null, lastName: parts[0] };
@@ -87,7 +87,7 @@ function processPersonName(firstName: string | null, lastName: string | null): {
     const potentialFirstName = parts[0];
     const potentialLastName = parts.slice(1).join(' ');
     
-    if (commonFirstNames.includes(potentialFirstName.toUpperCase())) {
+    if (Array.from(commonFirstNames).some(name => name === potentialFirstName.toUpperCase())) {
       return { firstName: potentialFirstName, lastName: potentialLastName };
     } else {
       return { firstName: null, lastName: singleName };
@@ -101,13 +101,49 @@ function processPersonName(firstName: string | null, lastName: string | null): {
   };
 }
 
+// Funkcja do normalizacji nazwy taryfy
+function normalizeTariffGroup(value: string): string {
+  if (!value) return '';
+  
+  const normalized = cleanSpecialCharacters(value);
+  
+  // Mapowanie typowych wariantów nazw taryf
+  const tariffMappings: Record<string, string> = {
+    'G 11': 'G11',
+    'G 12': 'G12',
+    'G 12W': 'G12W',
+    'G 12R': 'G12R',
+    'C 11': 'C11',
+    'C 12A': 'C12A',
+    'C 12B': 'C12B',
+    'C 21': 'C21',
+    'C 22A': 'C22A',
+    'C 22B': 'C22B',
+    'B 11': 'B11',
+    'B 21': 'B21',
+    'B 22': 'B22',
+    'B 23': 'B23',
+    'A 21': 'A21',
+    'A 22': 'A22',
+    'A 23': 'A23'
+  };
+  
+  for (const [variant, standardized] of Object.entries(tariffMappings)) {
+    if (normalized.includes(variant) || normalized.includes(variant.replace(' ', ''))) {
+      return standardized;
+    }
+  }
+  
+  return value;
+}
+
 // Reguły przetwarzania dla poszczególnych pól
 const fieldRules: ProcessingRules = {
   // Reguły dla adresów
-  Street: (value) => formatStreet(value),
+  Street: (value) => formatStreet(value) || '',
   Building: (value) => cleanSpecialCharacters(value),
   Unit: (value) => cleanSpecialCharacters(value),
-  PostalCode: (value) => value?.replace(/[^\d-]/g, ''),
+  PostalCode: (value) => value?.replace(/[^\d-]/g, '') || '',
   City: (value) => cleanSpecialCharacters(value),
   Municipality: (value) => cleanSpecialCharacters(value),
   District: (value) => cleanSpecialCharacters(value),
@@ -121,9 +157,12 @@ const fieldRules: ProcessingRules = {
   
   // Reguły dla pozostałych pól
   BusinessName: (value) => cleanSpecialCharacters(value),
-  Tariff: (value) => cleanSpecialCharacters(value),
+  Tariff: (value) => normalizeTariffGroup(value),
   ContractType: (value) => cleanSpecialCharacters(value),
-  OSD_name: (value) => normalizeOSDName(cleanSpecialCharacters(value))
+  OSD_name: (value) => normalizeOSDName(cleanSpecialCharacters(value)),
+  
+  // Reguły dla taryf
+  TariffGroup: (value) => normalizeTariffGroup(value)
 };
 
 // Mapowanie nazw pól z różnych sekcji na standardowe nazwy
@@ -168,10 +207,16 @@ const fieldPairs = {
 // Główna funkcja przetwarzająca sekcję
 export function processSection<T extends Record<string, DocumentField>>(
   section: DocumentSection,
-  data: T,
+  data: Partial<T>,
   context?: ProcessingContext
-): T {
-  const result = { ...data } as T;
+): Partial<T> {
+  const result = { ...data } as Partial<T>;
+
+  // Mapowanie starych nazw pól na nowe
+  if (section === 'ppe' && 'Tariff' in data) {
+    result['TariffGroup' as keyof T] = data['Tariff' as keyof T];
+    delete result['Tariff' as keyof T];
+  }
 
   // Zbiór przetworzonych pól
   const processedFields = new Set<string>();

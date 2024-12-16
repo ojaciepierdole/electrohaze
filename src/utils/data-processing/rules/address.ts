@@ -1,143 +1,150 @@
-import type { TransformationRule } from '@/types/document-processing';
-import { normalizeText } from '@/utils/text-formatting/core/normalization';
+import type { TransformationRule, TransformationContext, TransformationResult } from '@/types/document-processing';
+import { cleanSpecialCharacters } from '../core/text';
 
-/**
- * Normalizuje numery adresowe
- */
-function normalizeAddressNumbers(value: string): {
-  building: string;
-  unit: string | null;
-} {
-  // Usuń białe znaki i podziel po ukośniku
-  const parts = value.trim().split('/');
-  
-  if (parts.length === 1) {
-    return {
-      building: parts[0],
-      unit: null
-    };
-  }
-
-  return {
-    building: parts[0],
-    unit: parts.slice(1).join('/')
-  };
-}
-
-/**
- * Usuwa prefiksy ulicy
- */
-function removeStreetPrefix(value: string): string {
-  return value.replace(
-    /^(?:UL|UL\.|ULICA|AL|AL\.|ALEJA|PL|PL\.|PLAC|RONDO|OS|OS\.|OSIEDLE)\b\s*/i,
-    ''
-  );
-}
-
-/**
- * Formatuje kod pocztowy
- */
-function formatPostalCode(value: string): string {
-  // Usuń wszystkie białe znaki i formatuj jako XX-XXX
-  const cleaned = value.replace(/\s+/g, '');
-  if (cleaned.length === 5) {
-    return `${cleaned.slice(0, 2)}-${cleaned.slice(2)}`;
-  }
-  return value;
-}
-
-/**
- * Reguły transformacji dla adresów
- */
 export const addressRules: TransformationRule[] = [
-  // Reguła dla numeru budynku z mieszkaniem
   {
-    name: 'split_building_number',
+    name: 'splitAddressLine',
+    description: 'Dzieli linię adresu na ulicę, numer budynku i mieszkania',
     priority: 100,
-    condition: (value, context) => {
-      return context.field.endsWith('Building') && value.includes('/');
-    },
-    transform: (value, context) => {
-      const { building, unit } = normalizeAddressNumbers(value);
+    transform: (value: string, context: TransformationContext): TransformationResult => {
+      const originalValue = value;
+      const parts = value.split(/[,\s]+/);
       
-      // Określ prefiks pola na podstawie sekcji
-      const fieldPrefix = context.field.replace(/Building$/, '');
-      
-      return {
-        value: normalizeText(building, { toUpper: true }),
-        additionalFields: unit ? {
-          [`${fieldPrefix}Unit`]: {
-            value: normalizeText(unit, { toUpper: true }) || '',
-            confidence: context.document[context.section][context.field].confidence
+      if (parts.length < 2) {
+        return {
+          value: value || '',
+          confidence: 1.0,
+          metadata: {
+            originalValue,
+            transformationType: 'splitAddressLine',
+            splitType: 'none'
           }
-        } : undefined,
-        metadata: {
-          originalValue: value,
-          transformationType: 'address_split',
-          splitType: 'building_unit'
-        }
-      };
-    }
-  },
-
-  // Reguła dla ulicy
-  {
-    name: 'normalize_street',
-    priority: 90,
-    condition: (value, context) => context.field.endsWith('Street'),
-    transform: (value) => {
-      const withoutPrefix = removeStreetPrefix(value);
-      return {
-        value: normalizeText(withoutPrefix, { toUpper: true }),
-        metadata: {
-          originalValue: value,
-          transformationType: 'street_normalization',
-          removedPrefix: value !== withoutPrefix
-        }
-      };
-    }
-  },
-
-  // Reguła dla kodu pocztowego
-  {
-    name: 'normalize_postal_code',
-    priority: 90,
-    condition: (value, context) => context.field.endsWith('PostalCode'),
-    transform: (value) => {
-      const formatted = formatPostalCode(value);
-      return {
-        value: formatted,
-        metadata: {
-          originalValue: value,
-          transformationType: 'postal_code_normalization'
-        }
-      };
-    }
-  },
-
-  // Reguła dla miasta
-  {
-    name: 'normalize_city',
-    priority: 90,
-    condition: (value, context) => context.field.endsWith('City'),
-    transform: (value) => ({
-      value: normalizeText(value, { toUpper: true }),
-      metadata: {
-        transformationType: 'city_normalization'
+        };
       }
-    })
-  },
 
-  // Reguła dla numeru mieszkania
-  {
-    name: 'normalize_unit',
-    priority: 90,
-    condition: (value, context) => context.field.endsWith('Unit'),
-    transform: (value) => ({
-      value: normalizeText(value, { toUpper: true }),
-      metadata: {
-        transformationType: 'unit_normalization'
+      // Próbuj znaleźć numer budynku i mieszkania
+      const buildingMatch = value.match(/(\d+[A-Za-z]?)(\/(\d+[A-Za-z]?))?/);
+      if (!buildingMatch) {
+        return {
+          value: value || '',
+          confidence: 1.0,
+          metadata: {
+            originalValue,
+            transformationType: 'splitAddressLine',
+            splitType: 'noMatch'
+          }
+        };
       }
-    })
+
+      const buildingNumber = buildingMatch[1];
+      const unitNumber = buildingMatch[3];
+      const street = value.replace(buildingMatch[0], '').trim();
+
+      const result: TransformationResult = {
+        value: street || '',
+        confidence: 1.0,
+        metadata: {
+          originalValue,
+          transformationType: 'splitAddressLine',
+          splitType: unitNumber ? 'full' : 'building'
+        }
+      };
+
+      if (context.document?.[context.section || '']) {
+        const additionalFields: Record<string, { value: string; confidence: number }> = {};
+        
+        if (buildingNumber) {
+          additionalFields[`${context.section}Building`] = {
+            value: buildingNumber,
+            confidence: 0.9
+          };
+        }
+        
+        if (unitNumber) {
+          additionalFields[`${context.section}Unit`] = {
+            value: unitNumber,
+            confidence: 0.9
+          };
+        }
+
+        result.additionalFields = additionalFields;
+      }
+
+      return result;
+    }
+  },
+  {
+    name: 'cleanStreetName',
+    description: 'Czyści nazwę ulicy z niepotrzebnych znaków i prefiksów',
+    priority: 90,
+    transform: (value: string): TransformationResult => {
+      const originalValue = value;
+      let cleanedValue = value;
+      let removedPrefix = false;
+
+      // Usuń typowe prefiksy
+      const prefixes = ['ul.', 'ulica', 'al.', 'aleja', 'pl.', 'plac'];
+      for (const prefix of prefixes) {
+        if (cleanedValue.toLowerCase().startsWith(prefix.toLowerCase())) {
+          cleanedValue = cleanedValue.substring(prefix.length).trim();
+          removedPrefix = true;
+          break;
+        }
+      }
+
+      return {
+        value: cleanedValue || '',
+        confidence: removedPrefix ? 0.9 : 1.0,
+        metadata: {
+          originalValue,
+          transformationType: 'cleanStreetName',
+          removedPrefix
+        }
+      };
+    }
+  },
+  {
+    name: 'normalizePostalCode',
+    description: 'Normalizuje format kodu pocztowego',
+    priority: 80,
+    transform: (value: string): TransformationResult => {
+      const originalValue = value;
+      const cleaned = value.replace(/[^\d-]/g, '');
+      
+      // Sprawdź czy mamy dokładnie 5 cyfr lub format XX-XXX
+      const isValid = /^\d{5}$|^\d{2}-\d{3}$/.test(cleaned);
+      
+      // Jeśli mamy 5 cyfr bez myślnika, dodaj go
+      const formatted = cleaned.length === 5 && !cleaned.includes('-') 
+        ? `${cleaned.slice(0, 2)}-${cleaned.slice(2)}`
+        : cleaned;
+
+      return {
+        value: formatted || '',
+        confidence: isValid ? 1.0 : 0.8,
+        metadata: {
+          originalValue,
+          transformationType: 'normalizePostalCode'
+        }
+      };
+    }
+  },
+  {
+    name: 'normalizeCity',
+    description: 'Normalizuje nazwę miasta',
+    priority: 70,
+    transform: (value: string): TransformationResult => {
+      const originalValue = value;
+      const cleaned = cleanSpecialCharacters(value);
+      
+      return {
+        value: cleaned || '',
+        confidence: 1.0,
+        metadata: {
+          originalValue,
+          transformationType: 'normalizeCity'
+        }
+      };
+    }
   }
 ]; 

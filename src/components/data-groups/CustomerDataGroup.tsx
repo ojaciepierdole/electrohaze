@@ -9,11 +9,8 @@ interface CustomerDataGroupProps {
 }
 
 export const CustomerDataGroup: React.FC<CustomerDataGroupProps> = ({ data }) => {
-  console.log('CustomerDataGroup input:', data);
-
   // Przetwórz dane klienta
   const processedData = processSection<CustomerData>('customer', data);
-  console.log('CustomerDataGroup processedData:', processedData);
 
   return (
     <DataGroup

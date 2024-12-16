@@ -32,7 +32,7 @@ export function calculateUsability(sections: DocumentSections): boolean {
   const hasPPENumber = sections.ppe?.ppeNum?.content;
   
   // Sprawdź czy mamy taryfę
-  const hasTariff = sections.ppe?.Tariff?.content;
+  const hasTariff = sections.ppe?.TariffGroup?.content;
   
   // Sprawdź czy mamy kompletny adres klienta lub korespondencyjny
   const hasCustomerAddress = isAddressComplete(sections.customer as Record<string, DocumentField>);
@@ -76,10 +76,10 @@ function calculateSectionCompleteness(data: Record<string, DocumentField | undef
 
 // Wymagane pola dla każdej sekcji
 const requiredFields = {
-  ppe: ['ppeNum', 'MeterNumber', 'Tariff', 'dpStreet', 'dpBuilding', 'dpPostalCode', 'dpCity'],
+  ppe: ['ppeNum', 'MeterNumber', 'TariffGroup', 'dpStreet', 'dpBuilding', 'dpPostalCode', 'dpCity'],
   customer: ['FirstName', 'LastName', 'Street', 'Building', 'PostalCode', 'City'],
   correspondence: ['paFirstName', 'paLastName', 'paStreet', 'paBuilding', 'paPostalCode', 'paCity'],
-  supplier: ['supplierName', 'spTaxID', 'spStreet', 'spBuilding', 'spPostalCode', 'spCity', 'OSD_name', 'OSD_region'],
+  supplier: ['supplierName', 'supplierTaxID', 'supplierStreet', 'supplierBuilding', 'supplierPostalCode', 'supplierCity', 'OSD_name', 'OSD_region'],
   billing: ['billingStartDate', 'billingEndDate', 'billedUsage']
 };
 

@@ -19,7 +19,7 @@ export const PPEDataGroup: React.FC<PPEDataGroupProps> = ({ data }) => {
       fieldLabels={{
         ppeNum: 'Numer PPE',
         MeterNumber: 'Numer licznika',
-        Tariff: 'Grupa taryfowa',
+        TariffGroup: 'Grupa taryfowa',
         ContractNumber: 'Numer umowy',
         ContractType: 'Typ umowy',
         dpStreet: 'Ulica',

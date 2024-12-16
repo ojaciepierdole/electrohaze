@@ -38,7 +38,7 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
 
   // Jeśli mamy dane OSD z faktury, zachowujemy je, tylko normalizując nazewnictwo
   if (data.OSD_name?.content) {
-    const normalizedInfo = getOSDInfoByPostalCode(data.spPostalCode?.content || '');
+    const normalizedInfo = getOSDInfoByPostalCode(data.supplierPostalCode?.content || '');
     
     if (normalizedInfo && normalizedInfo.name.toUpperCase().includes(data.OSD_name.content.toUpperCase())) {
       processedData.OSD_name = {
@@ -117,7 +117,7 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
   };
 
   // Pozostałe dane dostawcy
-  const tempData: Record<keyof SupplierData, DocumentField | undefined> = { ...processedData };
+  const tempData = { ...processedData } as Partial<SupplierData>;
   delete tempData.supplierName;
   delete tempData.OSD_name;
   delete tempData.OSD_region;
@@ -225,16 +225,26 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
           title="Dane dostawcy"
           data={remainingData}
           fieldLabels={{
-            spTaxID: 'NIP',
-            spStreet: 'Ulica',
-            spBuilding: 'Numer budynku',
-            spUnit: 'Numer lokalu',
-            spPostalCode: 'Kod pocztowy',
-            spCity: 'Miejscowość',
-            spIBAN: 'Numer konta',
-            spPhoneNum: 'Telefon',
-            spWebUrl: 'Strona WWW'
+            supplierTaxID: 'NIP',
+            supplierStreet: 'Ulica',
+            supplierBuilding: 'Numer budynku',
+            supplierUnit: 'Numer lokalu',
+            supplierPostalCode: 'Kod pocztowy',
+            supplierCity: 'Miejscowość',
+            supplierBankAccount: 'Numer konta',
+            supplierBankName: 'Nazwa banku',
+            supplierEmail: 'Email',
+            supplierPhone: 'Telefon',
+            supplierWebsite: 'Strona WWW'
           }}
+          optionalFields={[
+            'supplierUnit',
+            'supplierBankAccount',
+            'supplierBankName',
+            'supplierEmail',
+            'supplierPhone',
+            'supplierWebsite'
+          ]}
         />
       )}
     </div>
