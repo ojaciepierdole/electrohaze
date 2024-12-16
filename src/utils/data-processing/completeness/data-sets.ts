@@ -1,4 +1,5 @@
-import { NormalizedAddress, NormalizedPerson, DataSection } from '../types';
+import { NormalizedAddress, NormalizedPerson } from '../types';
+import { DataSection } from '../../../types/common';
 
 interface DataSetCompleteness {
   completeness: number;

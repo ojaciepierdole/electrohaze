@@ -76,4 +76,110 @@ export interface BillingData extends DocumentFieldKeys<
   | 'billedUsage'
   | 'usage12m'
 > {}
+
+// Komponenty adresowe
+export interface AddressComponents {
+  dpFirstName: string | null;
+  dpLastName: string | null;
+  dpStreet: string | null;
+  dpBuilding: string | null;
+  dpUnit: string | null;
+  dpPostalCode: string | null;
+  dpCity: string | null;
+  paFirstName: string | null;
+  paLastName: string | null;
+  paStreet: string | null;
+  paBuilding: string | null;
+  paUnit: string | null;
+  paPostalCode: string | null;
+  paCity: string | null;
+  supplierFirstName: string | null;
+  supplierLastName: string | null;
+  supplierStreet: string | null;
+  supplierBuilding: string | null;
+  supplierUnit: string | null;
+  supplierPostalCode: string | null;
+  supplierCity: string | null;
+}
+
+// Komponenty osobowe
+export interface PersonComponents {
+  firstName: string | null;
+  lastName: string | null;
+  title: string | null;
+}
+
+// Znormalizowane komponenty
+export interface NormalizedAddress extends AddressComponents {
+  confidence: number;
+}
+
+export interface NormalizedPerson extends PersonComponents {
+  originalName: string | null;
+  confidence: number;
+}
+
+// Definicje pól Azure
+export const AZURE_FIELDS = {
+  delivery_point: [
+    'dpFirstName',
+    'dpLastName',
+    'dpStreet',
+    'dpBuilding',
+    'dpUnit',
+    'dpPostalCode',
+    'dpCity'
+  ],
+  ppe: [
+    'ppeNum',
+    'MeterNumber',
+    'TariffGroup',
+    'ContractNumber',
+    'ContractType',
+    'Street',
+    'Building',
+    'Unit',
+    'PostalCode',
+    'City',
+    'Municipality',
+    'District',
+    'Province'
+  ],
+  postal_address: [
+    'paFirstName',
+    'paLastName',
+    'paBusinessName',
+    'paTitle',
+    'paStreet',
+    'paBuilding',
+    'paUnit',
+    'paPostalCode',
+    'paCity'
+  ],
+  buyer_data: [
+    'FirstName',
+    'LastName',
+    'BusinessName',
+    'taxID'
+  ],
+  supplier: [
+    'supplierName',
+    'OSD_name',
+    'OSD_region'
+  ],
+  billing: [
+    'BillingStartDate',
+    'BillingEndDate',
+    'ProductName',
+    'Tariff',
+    'BilledUsage',
+    'ReadingType',
+    '12mUsage',
+    'InvoiceType',
+    'BillBreakdown',
+    'EnergySaleBreakdown'
+  ]
+} as const;
+
+export type FieldGroupKey = keyof typeof AZURE_FIELDS;
  

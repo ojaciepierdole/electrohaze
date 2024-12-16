@@ -1,62 +1,23 @@
-import { NormalizedAddress, ProcessingOptions, FieldWithConfidence } from '../types';
+import { NormalizedAddress, ProcessingOptions } from '../types';
+import { FieldWithConfidence } from '../../../types/common';
+import {
+  AddressPrefix,
+  AddressStreetKey,
+  AddressBuildingKey,
+  AddressUnitKey,
+  AddressComponents,
+  AddressNormalizationOptions,
+  AddressNormalizationResult,
+  ADDRESS_CONSTANTS
+} from '../../../types/address';
 
-// Prefiksy do usunięcia
-const REMOVABLE_PREFIXES = [
-  'UL', 'UL.', 'ULICA',
-  'OS', 'OS.'
-] as const;
-
-// Prefiksy do zachowania i ich pełne formy
-const PREFIX_MAPPINGS: Record<string, string> = {
-  'ALEJA': 'ALEJA',
-  'AL.': 'ALEJA',
-  'AL': 'ALEJA',
-  'PLAC': 'PLAC',
-  'PL.': 'PLAC',
-  'PL': 'PLAC',
-  'OSIEDLE': 'OSIEDLE',
-  'RONDO': 'RONDO'
-} as const;
+const {
+  REMOVABLE_PREFIXES,
+  PREFIX_MAPPINGS,
+  BUILDING_UNIT_SEPARATORS
+} = ADDRESS_CONSTANTS;
 
 const PRESERVED_PREFIXES = Object.values(PREFIX_MAPPINGS);
-
-const BUILDING_UNIT_SEPARATORS = [
-  'm.', 'm', 'lok.', 'lok', 'mieszk.', 'mieszk', '/'
-] as const;
-
-// Na początku pliku, dodaj typ dla kluczy adresowych
-export type AddressPrefix = 'dp' | 'pa' | 'supplier';
-export type AddressStreetKey = `${AddressPrefix}Street`;
-export type AddressBuildingKey = `${AddressPrefix}Building`;
-export type AddressUnitKey = `${AddressPrefix}Unit`;
-export type AddressCityKey = `${AddressPrefix}City`;
-export type AddressPostalCodeKey = `${AddressPrefix}PostalCode`;
-export type AddressFirstNameKey = `${AddressPrefix}FirstName`;
-export type AddressLastNameKey = `${AddressPrefix}LastName`;
-
-export interface AddressComponents {
-  dpStreet: string | null;
-  dpBuilding: string | null;
-  dpUnit: string | null;
-  dpCity: string | null;
-  dpPostalCode: string | null;
-  dpFirstName: string | null;
-  dpLastName: string | null;
-  paStreet: string | null;
-  paBuilding: string | null;
-  paUnit: string | null;
-  paCity: string | null;
-  paPostalCode: string | null;
-  paFirstName: string | null;
-  paLastName: string | null;
-  supplierStreet: string | null;
-  supplierBuilding: string | null;
-  supplierUnit: string | null;
-  supplierCity: string | null;
-  supplierPostalCode: string | null;
-  supplierFirstName: string | null;
-  supplierLastName: string | null;
-}
 
 export function getEmptyAddressComponents(): AddressComponents {
   return {
@@ -123,19 +84,6 @@ export function normalizeStreet(street: string | null): string | null {
 
   // Usuń podwójne spacje
   result = result.replace(/\s+/g, ' ').trim();
-
-  // Sprawdź czy pierwszy wyraz jest skrótem i zamień go na pełną formę
-  const words = result.split(' ');
-  if (words.length > 0) {
-    const firstWord = words[0].replace(/\.$/, '');
-    for (const [key, value] of Object.entries(PREFIX_MAPPINGS)) {
-      if (firstWord === key.replace(/\.$/, '')) {
-        words[0] = value;
-        result = words.join(' ');
-        break;
-      }
-    }
-  }
 
   console.log('[normalizeStreet] Wynik końcowy:', result);
   return result;
@@ -243,7 +191,7 @@ export function normalizeCity(value: string | null): string | null {
 
 export function normalizeAddress(
   field: FieldWithConfidence | undefined | null,
-  options: ProcessingOptions = {},
+  options: AddressNormalizationOptions = {},
   prefix: AddressPrefix = 'dp'
 ): NormalizedAddress {
   const { confidenceThreshold = 0.3 } = options;
