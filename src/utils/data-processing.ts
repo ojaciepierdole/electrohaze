@@ -513,7 +513,7 @@ export function processSection<T extends Record<string, DocumentField>>(
     context
   });
 
-  let result = { ...data } as T;
+  const result = { ...data } as T;
 
   // Zbiór przetworzonych pól
   const processedFields = new Set<string>();
