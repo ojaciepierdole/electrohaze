@@ -204,7 +204,7 @@ const OSD_NAMES = {
 } as const;
 
 // Funkcja do normalizacji nazwy OSD
-function normalizeOSDName(value: string): string {
+export function normalizeOSDName(value: string): string {
   if (!value) return '';
   
   // Normalizuj tekst do porównania
@@ -531,7 +531,10 @@ export function processSection<T extends Record<string, DocumentField>>(
           lastName
         });
 
-        const processedName = processPersonName(firstName, lastName);
+        const processedName = processPersonName(
+          firstName === undefined ? null : firstName,
+          lastName === undefined ? null : lastName
+        );
         
         // Aktualizuj pole imienia
         if (firstName !== processedName.firstName) {
