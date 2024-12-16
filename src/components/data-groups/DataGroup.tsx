@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Eraser } from 'lucide-react';
 import { ConfidenceDot } from '@/components/ui/confidence-dot';
 import type { DocumentField } from '@/types/document-processing';
+import { Separator } from '@/components/ui/separator';
 
 interface DataGroupProps {
   title: string;
@@ -15,116 +16,92 @@ interface DataGroupProps {
   renderField?: (key: string, field: DocumentField) => React.ReactNode;
 }
 
-interface GroupStats {
-  completeness: number;
-  confidence: number;
-  filledFields: number;
-  totalFields: number;
-}
-
-function calculateGroupStats(
-  data: Record<string, DocumentField>, 
-  fieldLabels: Record<string, string>,
-  optionalFields: string[] = []
-): GroupStats {
-  // Oblicz liczbę wymaganych pól (wszystkie pola minus opcjonalne)
-  const requiredFields = Object.keys(fieldLabels).filter(key => !optionalFields.includes(key));
-  const totalFields = requiredFields.length;
-
-  // Oblicz liczbę wypełnionych wymaganych pól
-  const filledFields = requiredFields.filter(key => {
-    const field = data[key];
-    return field?.content !== undefined && field?.content !== null && field?.content !== '';
-  }).length;
-
-  // Oblicz kompletność na podstawie wymaganych pól
-  const completeness = totalFields > 0 ? filledFields / totalFields : 1;
-
-  // Oblicz średnią pewność dla wszystkich wypełnionych pól (wymaganych i opcjonalnych)
-  const filledFieldsWithConfidence = Object.entries(data)
-    .filter(([key, field]) => {
-      return key in fieldLabels && field?.content && field?.confidence !== undefined;
-    });
-
-  const confidence = filledFieldsWithConfidence.length > 0
-    ? filledFieldsWithConfidence.reduce((acc, [_, field]) => acc + (field.confidence || 0), 0) / filledFieldsWithConfidence.length
-    : 1;
-
-  return {
-    completeness,
-    confidence,
-    filledFields,
-    totalFields
-  };
-}
-
 export const DataGroup: React.FC<DataGroupProps> = ({ 
   title, 
   data, 
-  fieldLabels, 
-  optionalFields = [], 
-  renderField 
+  fieldLabels,
+  optionalFields = [],
+  renderField
 }) => {
-  const stats = calculateGroupStats(data, fieldLabels, optionalFields);
+  // Podziel pola na te z danymi i bez danych
+  const fieldsWithData: [string, DocumentField][] = [];
+  const fieldsWithoutData: string[] = [];
 
-  const renderDefaultField = (key: string, field: DocumentField) => {
-    const label = fieldLabels[key];
-    if (!label) return null;
+  Object.entries(fieldLabels).forEach(([key, label]) => {
+    if (data[key]?.content) {
+      fieldsWithData.push([key, data[key]]);
+    } else if (!optionalFields.includes(key)) {
+      fieldsWithoutData.push(key);
+    }
+  });
 
-    return (
-      <div key={key} className="flex items-center justify-between py-2">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500">{label}</span>
-          {field.confidence && (
-            <ConfidenceDot confidence={field.confidence} />
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">
-            {field.content || 'Brak danych'}
-          </span>
-          {field.isEnriched && (
-            <Eraser className="w-4 h-4 text-gray-400 flex-shrink-0" />
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const completionPercentage = Math.round(stats.completeness * 100);
-  const confidencePercentage = Math.round(stats.confidence * 100);
+  if (fieldsWithData.length === 0 && fieldsWithoutData.length === 0) {
+    return null;
+  }
 
   return (
-    <Card className="bg-white shadow-sm">
-      <CardHeader className="border-b">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-medium">{title}</CardTitle>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline">
-              {completionPercentage}% kompletności
-            </Badge>
-            <Badge variant={confidencePercentage > 80 ? "success" : confidencePercentage > 60 ? "warning" : "destructive"}>
-              {confidencePercentage}% pewności
-            </Badge>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-medium">{title}</h3>
+        <div className="flex items-center gap-2">
+          <div className="text-sm text-gray-500">
+            Kompletność {Math.round((fieldsWithData.length / (fieldsWithData.length + fieldsWithoutData.length)) * 100)}%
+          </div>
+          <div className="text-sm text-gray-500">
+            Pewność {Math.round(fieldsWithData.reduce((acc, [_, field]) => acc + (field.confidence || 0), 0) / fieldsWithData.length * 100)}%
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="p-4">
-        {stats.filledFields === 0 ? (
-          <div className="flex items-center justify-center gap-2 text-sm text-gray-500 py-4">
-            <AlertCircle className="w-4 h-4" />
-            <span>Brak danych w tej sekcji</span>
-          </div>
-        ) : (
+      </div>
+
+      <div className="space-y-2">
+        {fieldsWithData.map(([key, field]) => (
+          renderField ? (
+            renderField(key, field)
+          ) : (
+            <div key={key} className="flex items-center justify-between py-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500">{fieldLabels[key]}</span>
+                {field.confidence && (
+                  <div className="flex items-center gap-1">
+                    <span className={`w-2 h-2 rounded-full ${
+                      field.confidence > 0.8 ? 'bg-green-500' : 
+                      field.confidence > 0.6 ? 'bg-yellow-500' : 
+                      'bg-red-500'
+                    }`} />
+                    <span className="text-xs">
+                      {Math.round(field.confidence * 100)}%
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">
+                  {field.content}
+                </span>
+                {field.isEnriched && (
+                  <span className="text-xs text-gray-400">(wzbogacone)</span>
+                )}
+              </div>
+            </div>
+          )
+        ))}
+      </div>
+
+      {fieldsWithoutData.length > 0 && (
+        <>
+          <Separator className="my-4" />
           <div className="space-y-2">
-            {Object.entries(data)
-              .filter(([key]) => key in fieldLabels)
-              .map(([key, field]) => (
-                renderField ? renderField(key, field) : renderDefaultField(key, field)
+            <h4 className="text-sm font-medium text-gray-500">Brakujące dane</h4>
+            <div className="grid grid-cols-2 gap-2">
+              {fieldsWithoutData.map(key => (
+                <div key={key} className="text-sm text-gray-400">
+                  {fieldLabels[key]}
+                </div>
               ))}
+            </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </>
+      )}
+    </div>
   );
 }; 

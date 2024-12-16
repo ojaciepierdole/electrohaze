@@ -106,4 +106,31 @@ export function calculateDocumentCompleteness(sections: DocumentSections, weight
 
   // Zwróć średnią ważoną
   return weightedCompleteness / totalWeight;
+}
+
+// Funkcja do obliczania średniej pewności ze wszystkich pól
+export function calculateAverageConfidence(sections: DocumentSections): number {
+  let totalConfidence = 0;
+  let totalFields = 0;
+
+  // Funkcja pomocnicza do przetwarzania sekcji
+  const processSection = (data: Record<string, DocumentField | undefined> | undefined) => {
+    if (!data) return;
+    
+    Object.values(data).forEach(field => {
+      if (field?.confidence !== undefined) {
+        totalConfidence += field.confidence;
+        totalFields++;
+      }
+    });
+  };
+
+  // Przetwórz wszystkie sekcje
+  processSection(sections.ppe);
+  processSection(sections.customer);
+  processSection(sections.correspondence);
+  processSection(sections.supplier);
+  processSection(sections.billing);
+
+  return totalFields > 0 ? totalConfidence / totalFields : 0;
 } 

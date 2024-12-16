@@ -6,7 +6,7 @@ import { ChevronDown, ChevronUp, CheckCircle2, XCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatPercentage } from '@/utils/text-formatting';
-import { calculateDocumentCompleteness, calculateUsability } from '@/utils/data-processing/completeness/confidence';
+import { calculateDocumentCompleteness, calculateUsability, calculateAverageConfidence } from '@/utils/data-processing/completeness/confidence';
 import { PPEDataGroup } from './data-groups/PPEDataGroup';
 import { CustomerDataGroup } from './data-groups/CustomerDataGroup';
 import { CorrespondenceDataGroup } from './data-groups/CorrespondenceDataGroup';
@@ -26,7 +26,7 @@ interface AnalysisResultCardProps {
 
 export function AnalysisResultCard({ 
   fileName,
-  confidence,
+  confidence: rawConfidence,
   ppeData,
   customerData,
   correspondenceData,
@@ -34,6 +34,15 @@ export function AnalysisResultCard({
   billingData
 }: AnalysisResultCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Oblicz średnią pewność ze wszystkich pól
+  const confidence = calculateAverageConfidence({
+    ppe: ppeData,
+    customer: customerData,
+    correspondence: correspondenceData,
+    supplier: supplierData,
+    billing: billingData
+  });
 
   // Oblicz kompletność dokumentu
   const completeness = calculateDocumentCompleteness({
@@ -62,14 +71,14 @@ export function AnalysisResultCard({
         <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
           {supplierData?.supplierName?.content || 'Nieznany dostawca'}
         </td>
-        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-center">
           {formatPercentage(confidence)}
         </td>
-        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-center">
           {formatPercentage(completeness)}
         </td>
         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-          <div className="flex items-center">
+          <div className="flex items-center justify-center">
             {isUsable ? (
               <CheckCircle2 className="w-5 h-5 text-green-500" />
             ) : (
