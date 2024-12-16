@@ -1,7 +1,7 @@
-import type { TransformationRule, TransformationContext, ProcessSectionContext } from '@/types/document-processing';
+import type { TransformationRule, TransformationContext, ProcessSectionContext, DocumentField } from '@/types/document-processing';
 import { normalizeText } from '@/utils/data-processing/core/normalization';
 import { getOSDInfoByPostalCode } from '@/utils/osd-mapping';
-import type { PPEData, CustomerData, CorrespondenceData } from '@/types/fields';
+import type { PPEData, CustomerData, CorrespondenceData, SupplierData } from '@/types/fields';
 
 // Słownik poprawnych nazw OSD
 const OSD_NAMES = {
@@ -96,18 +96,18 @@ function normalizeOSDName(value: string): string {
 function findOSDByPostalCode(context?: ProcessSectionContext): { name: string; region: string } | null {
   if (!context) return null;
 
-  // Najpierw sprawdź czy mamy dane OSD z PPE
-  const ppeData = context.ppe as PPEData;
-  if (ppeData?.OSD_name?.content) {
+  // Najpierw sprawdź czy mamy dane OSD z dostawcy
+  const supplierData = context.supplier as SupplierData | undefined;
+  if (supplierData?.OSD_name?.content) {
     return {
-      name: ppeData.OSD_name.content,
-      region: ppeData.OSD_region?.content || ''
+      name: supplierData.OSD_name.content,
+      region: supplierData.OSD_region?.content || ''
     };
   }
 
-  // Sprawdź kod pocztowy z PPE
-  if (ppeData?.dpPostalCode?.content) {
-    const info = getOSDInfoByPostalCode(ppeData.dpPostalCode.content);
+  // Sprawdź kod pocztowy dostawcy
+  if (supplierData?.supplierPostalCode?.content) {
+    const info = getOSDInfoByPostalCode(supplierData.supplierPostalCode.content);
     if (info) {
       return {
         name: info.name,
@@ -117,7 +117,7 @@ function findOSDByPostalCode(context?: ProcessSectionContext): { name: string; r
   }
 
   // Sprawdź kod pocztowy z adresu korespondencyjnego
-  const correspondenceData = context.correspondence as CorrespondenceData;
+  const correspondenceData = context.correspondence as CorrespondenceData | undefined;
   if (correspondenceData?.paPostalCode?.content) {
     const info = getOSDInfoByPostalCode(correspondenceData.paPostalCode.content);
     if (info) {
@@ -129,7 +129,7 @@ function findOSDByPostalCode(context?: ProcessSectionContext): { name: string; r
   }
 
   // Sprawdź kod pocztowy z danych klienta
-  const customerData = context.customer as CustomerData;
+  const customerData = context.customer as CustomerData | undefined;
   if (customerData?.PostalCode?.content) {
     const info = getOSDInfoByPostalCode(customerData.PostalCode.content);
     if (info) {
@@ -147,6 +147,7 @@ function findOSDByPostalCode(context?: ProcessSectionContext): { name: string; r
 export const osdRules: TransformationRule[] = [
   {
     name: 'normalize_osd_name',
+    description: 'Normalizacja nazwy OSD na podstawie danych dostawcy lub kodu pocztowego',
     priority: 100,
     condition: (value, context) => {
       console.log('[OSD Rule] Checking condition for OSD_name:', { value, context });
@@ -155,37 +156,43 @@ export const osdRules: TransformationRule[] = [
     transform: (value, context: TransformationContext) => {
       console.log('[OSD Rule] Starting OSD_name transformation:', { value, context });
       
-      // Najpierw sprawdź czy mamy dane OSD z PPE
-      const ppeData = context.document._context?.ppe as PPEData;
-      if (ppeData?.OSD_name?.content) {
-        console.log('[OSD Rule] Found OSD name in PPE context:', ppeData.OSD_name);
+      // Najpierw sprawdź czy mamy dane OSD od dostawcy
+      const supplierData = context.document?.supplier as SupplierData | undefined;
+      if (supplierData?.OSD_name?.content) {
+        console.log('[OSD Rule] Found OSD name in supplier context:', supplierData.OSD_name);
         return {
-          value: ppeData.OSD_name.content,
-          additionalFields: ppeData.OSD_region?.content ? {
+          value: supplierData.OSD_name.content,
+          confidence: supplierData.OSD_name.confidence || 0.8,
+          additionalFields: supplierData.OSD_region?.content ? {
             OSD_region: {
-              value: ppeData.OSD_region.content,
-              confidence: ppeData.OSD_region.confidence || 0.8
+              value: supplierData.OSD_region.content,
+              confidence: supplierData.OSD_region.confidence || 0.8
             }
           } : undefined,
           metadata: {
             transformationType: 'osd_normalization',
             fieldType: 'osd_name',
-            source: 'ppe'
+            source: 'supplier'
           }
         };
       }
 
-      // Jeśli nie mamy danych z PPE, spróbuj znormalizować nazwę OSD
-      const normalizedName = normalizeOSDName(value);
+      // Jeśli nie mamy danych od dostawcy, spróbuj znormalizować nazwę OSD
+      const normalizedName = normalizeOSDName(value || '');
       console.log('[OSD Rule] Normalized OSD name:', { input: value, normalized: normalizedName });
       
       // Jeśli nie udało się znormalizować nazwy, spróbuj znaleźć OSD na podstawie kodu pocztowego
-      if (normalizedName === value) {
-        const osdInfo = findOSDByPostalCode(context.document._context);
+      if (normalizedName === value && context.document) {
+        const supplierFields = Object.entries(context.document.supplier || {}).reduce(
+          (acc, [key, value]) => ({ ...acc, [key]: value }),
+          {} as Record<string, DocumentField>
+        );
+        const osdInfo = findOSDByPostalCode({ supplier: supplierFields });
         console.log('[OSD Rule] Found OSD by postal code:', osdInfo);
         if (osdInfo) {
           return {
             value: osdInfo.name,
+            confidence: 0.8,
             additionalFields: {
               OSD_region: {
                 value: osdInfo.region,
@@ -202,7 +209,8 @@ export const osdRules: TransformationRule[] = [
       }
       
       return {
-        value: normalizedName,
+        value: normalizedName || '',
+        confidence: normalizedName !== value ? 0.9 : 0.7,
         metadata: {
           transformationType: 'osd_normalization',
           fieldType: 'osd_name',
@@ -214,18 +222,20 @@ export const osdRules: TransformationRule[] = [
   
   {
     name: 'normalize_osd_region',
+    description: 'Normalizacja regionu OSD na podstawie danych dostawcy lub kodu pocztowego',
     priority: 90,
     condition: (value, context) => context.field === 'OSD_region',
     transform: (value, context: TransformationContext) => {
-      // Najpierw sprawdź czy mamy region z PPE
-      const ppeData = context.document._context?.ppe as PPEData;
-      if (ppeData?.OSD_region?.content) {
+      // Najpierw sprawdź czy mamy region od dostawcy
+      const supplierData = context.document?.supplier as SupplierData | undefined;
+      if (supplierData?.OSD_region?.content) {
         return {
-          value: ppeData.OSD_region.content,
+          value: supplierData.OSD_region.content,
+          confidence: supplierData.OSD_region.confidence || 0.8,
           metadata: {
             transformationType: 'osd_normalization',
             fieldType: 'osd_region',
-            source: 'ppe'
+            source: 'supplier'
           }
         };
       }
@@ -234,6 +244,7 @@ export const osdRules: TransformationRule[] = [
       if (value) {
         return {
           value,
+          confidence: 0.7,
           metadata: {
             transformationType: 'osd_normalization',
             fieldType: 'osd_region',
@@ -243,20 +254,28 @@ export const osdRules: TransformationRule[] = [
       }
       
       // Jeśli nie mamy regionu, spróbuj znaleźć na podstawie kodu pocztowego
-      const osdInfo = findOSDByPostalCode(context.document._context);
-      if (osdInfo) {
-        return {
-          value: osdInfo.region,
-          metadata: {
-            transformationType: 'osd_normalization',
-            fieldType: 'osd_region',
-            source: 'postal_code'
-          }
-        };
+      if (context.document) {
+        const supplierFields = Object.entries(context.document.supplier || {}).reduce(
+          (acc, [key, value]) => ({ ...acc, [key]: value }),
+          {} as Record<string, DocumentField>
+        );
+        const osdInfo = findOSDByPostalCode({ supplier: supplierFields });
+        if (osdInfo) {
+          return {
+            value: osdInfo.region,
+            confidence: 0.8,
+            metadata: {
+              transformationType: 'osd_normalization',
+              fieldType: 'osd_region',
+              source: 'postal_code'
+            }
+          };
+        }
       }
       
       return {
-        value: null,
+        value: '',
+        confidence: 0.5,
         metadata: {
           transformationType: 'osd_normalization',
           fieldType: 'osd_region',

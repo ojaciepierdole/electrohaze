@@ -1,3 +1,5 @@
+import type { FieldWithConfidence } from '@/types/document-processing';
+
 interface ConfidenceField {
   confidence: number;
 }
