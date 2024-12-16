@@ -89,9 +89,9 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
       dpBusinessName: fields.dpBusinessName?.content || undefined,
       dpTaxID: fields.dpTaxID?.content || undefined,
       dpMeterID: fields.dpMeterID?.content || undefined,
-      dpStreet: dpAddress.dpStreet,
-      dpBuilding: dpAddress.dpBuilding,
-      dpUnit: dpAddress.dpUnit,
+      dpStreet: dpAddress.dpStreet || undefined,
+      dpBuilding: dpAddress.dpBuilding || undefined,
+      dpUnit: dpAddress.dpUnit || undefined,
       dpPostalCode: fields.dpPostalCode?.content || undefined,
       dpCity: fields.dpCity?.content || undefined,
       dpTitle: fields.dpTitle?.content || undefined,
@@ -129,74 +129,74 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
     return {
       customer: {
         FirstName: fields.FirstName ? {
-          content: fields.FirstName.content || null,
+          content: fields.FirstName.content || undefined,
           confidence: fields.FirstName.confidence || 1
         } : undefined,
         LastName: fields.LastName ? {
-          content: fields.LastName.content || null,
+          content: fields.LastName.content || undefined,
           confidence: fields.LastName.confidence || 1
         } : undefined,
         BusinessName: fields.BusinessName ? {
-          content: fields.BusinessName.content || null,
+          content: fields.BusinessName.content || undefined,
           confidence: fields.BusinessName.confidence || 1
         } : undefined,
         taxID: fields.taxID ? {
-          content: fields.taxID.content || null,
+          content: fields.taxID.content || undefined,
           confidence: fields.taxID.confidence || 1
         } : undefined,
         Street: fields.Street ? {
-          content: fields.Street.content || null,
+          content: fields.Street.content || undefined,
           confidence: fields.Street.confidence || 1
         } : undefined,
         Building: fields.Building ? {
-          content: fields.Building.content || null,
+          content: fields.Building.content || undefined,
           confidence: fields.Building.confidence || 1
         } : undefined,
         Unit: fields.Unit ? {
-          content: fields.Unit.content || null,
+          content: fields.Unit.content || undefined,
           confidence: fields.Unit.confidence || 1
         } : undefined,
         PostalCode: fields.PostalCode ? {
-          content: fields.PostalCode.content || null,
+          content: fields.PostalCode.content || undefined,
           confidence: fields.PostalCode.confidence || 1
         } : undefined,
         City: fields.City ? {
-          content: fields.City.content || null,
+          content: fields.City.content || undefined,
           confidence: fields.City.confidence || 1
         } : undefined,
         Municipality: fields.Municipality ? {
-          content: fields.Municipality.content || null,
+          content: fields.Municipality.content || undefined,
           confidence: fields.Municipality.confidence || 1
         } : undefined,
         District: fields.District ? {
-          content: fields.District.content || null,
+          content: fields.District.content || undefined,
           confidence: fields.District.confidence || 1
         } : undefined,
         Province: fields.Province ? {
-          content: fields.Province.content || null,
+          content: fields.Province.content || undefined,
           confidence: fields.Province.confidence || 1
         } : undefined,
       } as CustomerData,
       
       ppe: {
         ppeNum: fields.ppeNum ? {
-          content: fields.ppeNum.content || null,
+          content: fields.ppeNum.content || undefined,
           confidence: fields.ppeNum.confidence || 1
         } : undefined,
         MeterNumber: fields.MeterNumber ? {
-          content: fields.MeterNumber.content || null,
+          content: fields.MeterNumber.content || undefined,
           confidence: fields.MeterNumber.confidence || 1
         } : undefined,
         TariffGroup: fields.Tariff ? {
-          content: fields.Tariff.content || null,
+          content: fields.Tariff.content || undefined,
           confidence: fields.Tariff.confidence || 1
         } : undefined,
         ContractNumber: fields.ContractNumber ? {
-          content: fields.ContractNumber.content || null,
+          content: fields.ContractNumber.content || undefined,
           confidence: fields.ContractNumber.confidence || 1
         } : undefined,
         ContractType: fields.ContractType ? {
-          content: fields.ContractType.content || null,
+          content: fields.ContractType.content || undefined,
           confidence: fields.ContractType.confidence || 1
         } : undefined,
         dpStreet: {
@@ -212,140 +212,140 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
           confidence: fields.dpUnit?.confidence || 1
         },
         dpPostalCode: fields.dpPostalCode ? {
-          content: fields.dpPostalCode.content || null,
+          content: fields.dpPostalCode.content || undefined,
           confidence: fields.dpPostalCode.confidence || 1
         } : undefined,
         dpCity: fields.dpCity ? {
-          content: fields.dpCity.content || null,
+          content: fields.dpCity.content || undefined,
           confidence: fields.dpCity.confidence || 1
         } : undefined,
         dpMunicipality: fields.dpMunicipality ? {
-          content: fields.dpMunicipality.content || null,
+          content: fields.dpMunicipality.content || undefined,
           confidence: fields.dpMunicipality.confidence || 1
         } : undefined,
         dpDistrict: fields.dpDistrict ? {
-          content: fields.dpDistrict.content || null,
+          content: fields.dpDistrict.content || undefined,
           confidence: fields.dpDistrict.confidence || 1
         } : undefined,
         dpProvince: fields.dpProvince ? {
-          content: fields.dpProvince.content || null,
+          content: fields.dpProvince.content || undefined,
           confidence: fields.dpProvince.confidence || 1
         } : undefined
       } as PPEData,
       
       correspondence: {
         paFirstName: fields.paFirstName ? {
-          content: fields.paFirstName.content || null,
+          content: fields.paFirstName.content || undefined,
           confidence: fields.paFirstName.confidence || 1
         } : undefined,
         paLastName: fields.paLastName ? {
-          content: fields.paLastName.content || null,
+          content: fields.paLastName.content || undefined,
           confidence: fields.paLastName.confidence || 1
         } : undefined,
         paBusinessName: fields.paBusinessName ? {
-          content: fields.paBusinessName.content || null,
+          content: fields.paBusinessName.content || undefined,
           confidence: fields.paBusinessName.confidence || 1
         } : undefined,
         paTitle: fields.paTitle ? {
-          content: fields.paTitle.content || null,
+          content: fields.paTitle.content || undefined,
           confidence: fields.paTitle.confidence || 1
         } : undefined,
         paStreet: fields.paStreet ? {
-          content: fields.paStreet.content || null,
+          content: fields.paStreet.content || undefined,
           confidence: fields.paStreet.confidence || 1
         } : undefined,
         paBuilding: fields.paBuilding ? {
-          content: fields.paBuilding.content || null,
+          content: fields.paBuilding.content || undefined,
           confidence: fields.paBuilding.confidence || 1
         } : undefined,
         paUnit: fields.paUnit ? {
-          content: fields.paUnit.content || null,
+          content: fields.paUnit.content || undefined,
           confidence: fields.paUnit.confidence || 1
         } : undefined,
         paPostalCode: fields.paPostalCode ? {
-          content: fields.paPostalCode.content || null,
+          content: fields.paPostalCode.content || undefined,
           confidence: fields.paPostalCode.confidence || 1
         } : undefined,
         paCity: fields.paCity ? {
-          content: fields.paCity.content || null,
+          content: fields.paCity.content || undefined,
           confidence: fields.paCity.confidence || 1
         } : undefined,
       } as CorrespondenceData,
       
       supplier: {
         supplierName: fields.supplierName ? {
-          content: fields.supplierName.content || null,
+          content: fields.supplierName.content || undefined,
           confidence: fields.supplierName.confidence || 1
         } : undefined,
         supplierTaxID: fields.supplierTaxID ? {
-          content: fields.supplierTaxID.content || null,
+          content: fields.supplierTaxID.content || undefined,
           confidence: fields.supplierTaxID.confidence || 1
         } : undefined,
         supplierStreet: fields.supplierStreet ? {
-          content: fields.supplierStreet.content || null,
+          content: fields.supplierStreet.content || undefined,
           confidence: fields.supplierStreet.confidence || 1
         } : undefined,
         supplierBuilding: fields.supplierBuilding ? {
-          content: fields.supplierBuilding.content || null,
+          content: fields.supplierBuilding.content || undefined,
           confidence: fields.supplierBuilding.confidence || 1
         } : undefined,
         supplierUnit: fields.supplierUnit ? {
-          content: fields.supplierUnit.content || null,
+          content: fields.supplierUnit.content || undefined,
           confidence: fields.supplierUnit.confidence || 1
         } : undefined,
         supplierPostalCode: fields.supplierPostalCode ? {
-          content: fields.supplierPostalCode.content || null,
+          content: fields.supplierPostalCode.content || undefined,
           confidence: fields.supplierPostalCode.confidence || 1
         } : undefined,
         supplierCity: fields.supplierCity ? {
-          content: fields.supplierCity.content || null,
+          content: fields.supplierCity.content || undefined,
           confidence: fields.supplierCity.confidence || 1
         } : undefined,
         supplierBankAccount: fields.supplierBankAccount ? {
-          content: fields.supplierBankAccount.content || null,
+          content: fields.supplierBankAccount.content || undefined,
           confidence: fields.supplierBankAccount.confidence || 1
         } : undefined,
         supplierBankName: fields.supplierBankName ? {
-          content: fields.supplierBankName.content || null,
+          content: fields.supplierBankName.content || undefined,
           confidence: fields.supplierBankName.confidence || 1
         } : undefined,
         supplierEmail: fields.supplierEmail ? {
-          content: fields.supplierEmail.content || null,
+          content: fields.supplierEmail.content || undefined,
           confidence: fields.supplierEmail.confidence || 1
         } : undefined,
         supplierPhone: fields.supplierPhone ? {
-          content: fields.supplierPhone.content || null,
+          content: fields.supplierPhone.content || undefined,
           confidence: fields.supplierPhone.confidence || 1
         } : undefined,
         supplierWebsite: fields.supplierWebsite ? {
-          content: fields.supplierWebsite.content || null,
+          content: fields.supplierWebsite.content || undefined,
           confidence: fields.supplierWebsite.confidence || 1
         } : undefined,
         OSD_name: fields.OSD_name ? {
-          content: fields.OSD_name.content || null,
+          content: fields.OSD_name.content || undefined,
           confidence: fields.OSD_name.confidence || 1
         } : undefined,
         OSD_region: fields.OSD_region ? {
-          content: fields.OSD_region.content || null,
+          content: fields.OSD_region.content || undefined,
           confidence: fields.OSD_region.confidence || 1
         } : undefined,
       } as SupplierData,
       
       billing: {
         billingStartDate: fields.BillingStartDate ? {
-          content: fields.BillingStartDate.content || null,
+          content: fields.BillingStartDate.content || undefined,
           confidence: fields.BillingStartDate.confidence || 1
         } : undefined,
         billingEndDate: fields.BillingEndDate ? {
-          content: fields.BillingEndDate.content || null,
+          content: fields.BillingEndDate.content || undefined,
           confidence: fields.BillingEndDate.confidence || 1
         } : undefined,
         billedUsage: fields.BilledUsage ? {
-          content: fields.BilledUsage.content || null,
+          content: fields.BilledUsage.content || undefined,
           confidence: fields.BilledUsage.confidence || 1
         } : undefined,
         usage12m: fields.usage12m ? {
-          content: fields.usage12m.content || null,
+          content: fields.usage12m.content || undefined,
           confidence: fields.usage12m.confidence || 1
         } : undefined,
       } as BillingData,
@@ -401,15 +401,117 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
         {renderDocumentHeader()}
         <div className="p-4 space-y-6">
           <SupplierDataGroup 
-            data={data?.supplier || {}} 
-            ppeData={data?.ppe || {}}
-            customerData={data?.customer || {}}
-            correspondenceData={data?.correspondence || {}}
+            data={data?.supplier || {
+              supplierName: { content: undefined, confidence: 0 },
+              supplierTaxID: { content: undefined, confidence: 0 },
+              supplierStreet: { content: undefined, confidence: 0 },
+              supplierBuilding: { content: undefined, confidence: 0 },
+              supplierUnit: { content: undefined, confidence: 0 },
+              supplierPostalCode: { content: undefined, confidence: 0 },
+              supplierCity: { content: undefined, confidence: 0 },
+              supplierBankAccount: { content: undefined, confidence: 0 },
+              supplierBankName: { content: undefined, confidence: 0 },
+              supplierEmail: { content: undefined, confidence: 0 },
+              supplierPhone: { content: undefined, confidence: 0 },
+              supplierWebsite: { content: undefined, confidence: 0 },
+              OSD_name: { content: undefined, confidence: 0 },
+              OSD_region: { content: undefined, confidence: 0 }
+            }} 
+            ppeData={data?.ppe || {
+              ppeNum: { content: undefined, confidence: 0 },
+              MeterNumber: { content: undefined, confidence: 0 },
+              TariffGroup: { content: undefined, confidence: 0 },
+              ContractNumber: { content: undefined, confidence: 0 },
+              ContractType: { content: undefined, confidence: 0 },
+              dpFirstName: { content: undefined, confidence: 0 },
+              dpLastName: { content: undefined, confidence: 0 },
+              dpStreet: { content: undefined, confidence: 0 },
+              dpBuilding: { content: undefined, confidence: 0 },
+              dpUnit: { content: undefined, confidence: 0 },
+              dpPostalCode: { content: undefined, confidence: 0 },
+              dpCity: { content: undefined, confidence: 0 },
+              dpMunicipality: { content: undefined, confidence: 0 },
+              dpDistrict: { content: undefined, confidence: 0 },
+              dpProvince: { content: undefined, confidence: 0 },
+              OSD_name: { content: undefined, confidence: 0 },
+              OSD_region: { content: undefined, confidence: 0 }
+            }}
+            customerData={data?.customer || {
+              FirstName: { content: undefined, confidence: 0 },
+              LastName: { content: undefined, confidence: 0 },
+              BusinessName: { content: undefined, confidence: 0 },
+              taxID: { content: undefined, confidence: 0 },
+              Street: { content: undefined, confidence: 0 },
+              Building: { content: undefined, confidence: 0 },
+              Unit: { content: undefined, confidence: 0 },
+              PostalCode: { content: undefined, confidence: 0 },
+              City: { content: undefined, confidence: 0 },
+              Municipality: { content: undefined, confidence: 0 },
+              District: { content: undefined, confidence: 0 },
+              Province: { content: undefined, confidence: 0 }
+            }}
+            correspondenceData={data?.correspondence || {
+              paFirstName: { content: undefined, confidence: 0 },
+              paLastName: { content: undefined, confidence: 0 },
+              paBusinessName: { content: undefined, confidence: 0 },
+              paTitle: { content: undefined, confidence: 0 },
+              paStreet: { content: undefined, confidence: 0 },
+              paBuilding: { content: undefined, confidence: 0 },
+              paUnit: { content: undefined, confidence: 0 },
+              paPostalCode: { content: undefined, confidence: 0 },
+              paCity: { content: undefined, confidence: 0 }
+            }}
           />
-          <PPEDataGroup data={data?.ppe || {}} />
-          <CustomerDataGroup data={data?.customer || {}} />
-          <CorrespondenceDataGroup data={data?.correspondence || {}} />
-          <BillingDataGroup data={data?.billing || {}} />
+          <PPEDataGroup data={data?.ppe || {
+            ppeNum: { content: undefined, confidence: 0 },
+            MeterNumber: { content: undefined, confidence: 0 },
+            TariffGroup: { content: undefined, confidence: 0 },
+            ContractNumber: { content: undefined, confidence: 0 },
+            ContractType: { content: undefined, confidence: 0 },
+            dpFirstName: { content: undefined, confidence: 0 },
+            dpLastName: { content: undefined, confidence: 0 },
+            dpStreet: { content: undefined, confidence: 0 },
+            dpBuilding: { content: undefined, confidence: 0 },
+            dpUnit: { content: undefined, confidence: 0 },
+            dpPostalCode: { content: undefined, confidence: 0 },
+            dpCity: { content: undefined, confidence: 0 },
+            dpMunicipality: { content: undefined, confidence: 0 },
+            dpDistrict: { content: undefined, confidence: 0 },
+            dpProvince: { content: undefined, confidence: 0 },
+            OSD_name: { content: undefined, confidence: 0 },
+            OSD_region: { content: undefined, confidence: 0 }
+          }} />
+          <CustomerDataGroup data={data?.customer || {
+            FirstName: { content: undefined, confidence: 0 },
+            LastName: { content: undefined, confidence: 0 },
+            BusinessName: { content: undefined, confidence: 0 },
+            taxID: { content: undefined, confidence: 0 },
+            Street: { content: undefined, confidence: 0 },
+            Building: { content: undefined, confidence: 0 },
+            Unit: { content: undefined, confidence: 0 },
+            PostalCode: { content: undefined, confidence: 0 },
+            City: { content: undefined, confidence: 0 },
+            Municipality: { content: undefined, confidence: 0 },
+            District: { content: undefined, confidence: 0 },
+            Province: { content: undefined, confidence: 0 }
+          }} />
+          <CorrespondenceDataGroup data={data?.correspondence || {
+            paFirstName: { content: undefined, confidence: 0 },
+            paLastName: { content: undefined, confidence: 0 },
+            paBusinessName: { content: undefined, confidence: 0 },
+            paTitle: { content: undefined, confidence: 0 },
+            paStreet: { content: undefined, confidence: 0 },
+            paBuilding: { content: undefined, confidence: 0 },
+            paUnit: { content: undefined, confidence: 0 },
+            paPostalCode: { content: undefined, confidence: 0 },
+            paCity: { content: undefined, confidence: 0 }
+          }} />
+          <BillingDataGroup data={data?.billing || {
+            billingStartDate: { content: undefined, confidence: 0 },
+            billingEndDate: { content: undefined, confidence: 0 },
+            billedUsage: { content: undefined, confidence: 0 },
+            usage12m: { content: undefined, confidence: 0 }
+          }} />
         </div>
       </Card>
     </div>
