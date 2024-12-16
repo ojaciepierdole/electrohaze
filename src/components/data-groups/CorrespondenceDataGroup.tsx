@@ -5,7 +5,7 @@ import { processSection } from '@/utils/data-processing';
 import type { CorrespondenceData } from '@/types/fields';
 
 interface CorrespondenceDataGroupProps {
-  data: CorrespondenceData;
+  data: Partial<CorrespondenceData>;
 }
 
 export const CorrespondenceDataGroup: React.FC<CorrespondenceDataGroupProps> = ({ data }) => {

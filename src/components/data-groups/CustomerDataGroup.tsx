@@ -5,7 +5,7 @@ import { processSection } from '@/utils/data-processing';
 import type { CustomerData } from '@/types/fields';
 
 interface CustomerDataGroupProps {
-  data: CustomerData;
+  data: Partial<CustomerData>;
 }
 
 export const CustomerDataGroup: React.FC<CustomerDataGroupProps> = ({ data }) => {

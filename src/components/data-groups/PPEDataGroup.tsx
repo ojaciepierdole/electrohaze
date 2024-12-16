@@ -5,7 +5,7 @@ import { processSection } from '@/utils/data-processing';
 import type { PPEData } from '@/types/fields';
 
 interface PPEDataGroupProps {
-  data: PPEData;
+  data: Partial<PPEData>;
 }
 
 export const PPEDataGroup: React.FC<PPEDataGroupProps> = ({ data }) => {

@@ -8,10 +8,10 @@ import { Eraser } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
 interface SupplierDataGroupProps {
-  data: SupplierData;
-  ppeData?: PPEData;
-  customerData?: CustomerData;
-  correspondenceData?: CorrespondenceData;
+  data: Partial<SupplierData>;
+  ppeData?: Partial<PPEData>;
+  customerData?: Partial<CustomerData>;
+  correspondenceData?: Partial<CorrespondenceData>;
 }
 
 interface ProcessingContext {

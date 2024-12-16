@@ -69,25 +69,61 @@ function mapFields(fields: Record<string, any>): {
 
 export function DocumentList({ documents, totalTime, onExport }: DocumentListProps) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <AnalysisSummary 
         documents={documents}
         totalTime={totalTime}
         onExport={onExport}
       />
-      <div className="space-y-2">
-        {documents.map((doc, index) => {
-          const fields = doc.modelResults[0]?.fields || {};
-          const mappedFields = mapFields(fields);
-          return (
-            <AnalysisResultCard
-              key={index}
-              fileName={doc.fileName}
-              confidence={doc.modelResults[0]?.confidence || 0}
-              {...mappedFields}
-            />
-          );
-        })}
+      <div className="bg-white border rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-300">
+            <thead>
+              <tr>
+                <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6 w-[40%]">
+                  Dostawca
+                </th>
+                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-[20%]">
+                  Pewność
+                </th>
+                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-[20%]">
+                  Kompletność
+                </th>
+                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-[15%]">
+                  Przydatność
+                </th>
+                <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6 w-[5%]">
+                  <span className="sr-only">Akcje</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 bg-white">
+              {documents.map((doc, index) => {
+                // Preferuj zmapowane dane, jeśli są dostępne
+                const mappedData = doc.mappedData || {};
+                const fields = doc.modelResults[0]?.fields || {};
+                
+                // Użyj zmapowanych danych lub mapuj surowe pola
+                const data = {
+                  ppeData: mappedData.ppeData || mapFields(fields).ppeData,
+                  customerData: mappedData.customerData || mapFields(fields).customerData,
+                  correspondenceData: mappedData.correspondenceData || mapFields(fields).correspondenceData,
+                  supplierData: mappedData.supplierData || mapFields(fields).supplierData,
+                  billingData: mappedData.billingData || mapFields(fields).billingData,
+                };
+
+                return (
+                  <AnalysisResultCard
+                    key={index}
+                    fileName={doc.fileName}
+                    confidence={doc.modelResults[0]?.confidence || 0}
+                    {...data}
+                  />
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

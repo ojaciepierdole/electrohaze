@@ -54,32 +54,34 @@ export function AnalysisResultCard({
   });
 
   return (
-    <Card className="overflow-hidden">
-      <div className="p-4 bg-gray-50 border-b">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="text-sm font-medium">{fileName}</div>
-            <div className="flex items-center gap-2">
-              <div className="text-sm text-gray-500">Pewność</div>
-              <div className="text-sm font-medium">{formatPercentage(confidence)}</div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="text-sm text-gray-500">Kompletność</div>
-              <div className="text-sm font-medium">{formatPercentage(completeness)}</div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="text-sm text-gray-500">Przydatność</div>
-              {isUsable ? (
-                <CheckCircle2 className="w-5 h-5 text-green-500" />
-              ) : (
-                <XCircle className="w-5 h-5 text-red-500" />
-              )}
-            </div>
+    <>
+      <tr 
+        className={`${isExpanded ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
+          {supplierData?.supplierName?.content || 'Nieznany dostawca'}
+        </td>
+        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+          {formatPercentage(confidence)}
+        </td>
+        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+          {formatPercentage(completeness)}
+        </td>
+        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+          <div className="flex items-center">
+            {isUsable ? (
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
+            ) : (
+              <XCircle className="w-5 h-5 text-red-500" />
+            )}
           </div>
+        </td>
+        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setIsExpanded(!isExpanded)}
+            className="ml-auto"
           >
             {isExpanded ? (
               <ChevronUp className="w-4 h-4" />
@@ -87,32 +89,36 @@ export function AnalysisResultCard({
               <ChevronDown className="w-4 h-4" />
             )}
           </Button>
-        </div>
-      </div>
+        </td>
+      </tr>
       {isExpanded && (
-        <div className="p-4 space-y-4">
-          {supplierData && (
-            <SupplierDataGroup
-              data={supplierData}
-              ppeData={ppeData}
-              customerData={customerData}
-              correspondenceData={correspondenceData}
-            />
-          )}
-          {ppeData && (
-            <PPEDataGroup data={ppeData} />
-          )}
-          {customerData && (
-            <CustomerDataGroup data={customerData} />
-          )}
-          {correspondenceData && (
-            <CorrespondenceDataGroup data={correspondenceData} />
-          )}
-          {billingData && (
-            <BillingDataGroup data={billingData} />
-          )}
-        </div>
+        <tr>
+          <td colSpan={5} className="px-4 py-4 bg-gray-50 border-t border-gray-200">
+            <div className="space-y-6">
+              {supplierData && (
+                <SupplierDataGroup
+                  data={supplierData}
+                  ppeData={ppeData}
+                  customerData={customerData}
+                  correspondenceData={correspondenceData}
+                />
+              )}
+              {ppeData && (
+                <PPEDataGroup data={ppeData} />
+              )}
+              {customerData && (
+                <CustomerDataGroup data={customerData} />
+              )}
+              {correspondenceData && (
+                <CorrespondenceDataGroup data={correspondenceData} />
+              )}
+              {billingData && (
+                <BillingDataGroup data={billingData} />
+              )}
+            </div>
+          </td>
+        </tr>
       )}
-    </Card>
+    </>
   );
 } 

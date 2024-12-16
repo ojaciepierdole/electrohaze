@@ -8,7 +8,7 @@ import type { BillingData } from '@/types/fields';
 import { formatDate, formatConsumption } from '@/utils/text-formatting';
 
 interface BillingDataGroupProps {
-  data: BillingData;
+  data: Partial<BillingData>;
 }
 
 export const BillingDataGroup: React.FC<BillingDataGroupProps> = ({ data }) => {
