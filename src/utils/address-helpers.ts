@@ -101,7 +101,7 @@ export function copyFields(data: AddressSet): AddressSet {
 }
 
 function normalizeFieldName(field: string): string {
-  return field.replace(/^(pa|ppe)/, '');
+  return field.replace(/^(pa|dp)/, '');
 }
 
 function parseAddressNumbers(

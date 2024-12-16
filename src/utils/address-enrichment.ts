@@ -63,7 +63,7 @@ export function enrichAddressData(data: AddressSet): AddressSet {
   let enriched = normalizeNameFields(data);
   enriched = normalizeAndSplitAddressNumbers(enriched);
 
-  const prefixes = ['', 'pa', 'ppe'] as const;
+  const prefixes = ['', 'pa', 'dp'] as const;
   const fields: AddressField[] = [
     'Title', 'FirstName', 'LastName',
     'Street', 'Building', 'Unit', 'City', 'PostalCode'
