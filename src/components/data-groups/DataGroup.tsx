@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Eraser } from 'lucide-react';
 import { ConfidenceDot } from '@/components/ui/confidence-dot';
-import { calculateOptimalColumns } from '@/utils/text-formatting';
 import type { DocumentField } from '@/types/document-processing';
 
 interface DataGroupProps {
@@ -13,16 +12,6 @@ interface DataGroupProps {
   data: Record<string, DocumentField>;
   fieldLabels: Record<string, string>;
   renderField?: (key: string, field: DocumentField) => React.ReactNode;
-}
-
-interface FieldInfo {
-  key: string;
-  label: string;
-}
-
-interface OptimalColumnsResult {
-  columns: FieldInfo[][];
-  gridClass: string;
 }
 
 export const DataGroup: React.FC<DataGroupProps> = ({ title, data, fieldLabels, renderField }) => {
@@ -44,15 +33,10 @@ export const DataGroup: React.FC<DataGroupProps> = ({ title, data, fieldLabels, 
     return result;
   }, [data]);
 
-  // Oblicz optymalny układ kolumn dla brakujących pól
+  // Znajdź brakujące pola
   const missingFields = Object.entries(fieldLabels)
     .filter(([key]) => !data[key]?.content)
-    .map(([key, label]) => ({ key, label }));
-
-  const { columns: missingColumns, gridClass: missingGridClass } = React.useMemo(
-    () => calculateOptimalColumns(missingFields) as OptimalColumnsResult,
-    [missingFields]
-  );
+    .map(([_, label]) => label);
 
   // Sprawdź czy grupa jest pusta
   if (stats.filled === 0) {
@@ -130,18 +114,9 @@ export const DataGroup: React.FC<DataGroupProps> = ({ title, data, fieldLabels, 
               <div className="border-t border-gray-200 my-4" />
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-500">Brakujące dane:</h4>
-                <div className={`grid ${missingGridClass} gap-4`}>
-                  {missingColumns.map((column: FieldInfo[], columnIndex: number) => (
-                    <div key={columnIndex} className="space-y-2">
-                      {column.map(({ key, label }: FieldInfo) => (
-                        <div key={key} className="flex items-center gap-2">
-                          <span className="text-sm text-gray-400">{label}</span>
-                          <span className="text-sm text-gray-300">—</span>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
+                <p className="text-sm text-gray-400">
+                  {missingFields.join(' • ')}
+                </p>
               </div>
             </>
           )}

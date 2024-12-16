@@ -1,61 +1,31 @@
 import * as React from 'react';
 import Image from 'next/image';
+import { getDomain } from '@/lib/logo-helpers';
 
 interface SupplierLogoProps {
   supplierName: string;
+  size?: number;
   className?: string;
 }
 
-export function SupplierLogo({ supplierName, className = '' }: SupplierLogoProps) {
-  const [logoUrl, setLogoUrl] = React.useState<string | null>(null);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    async function fetchLogo() {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const response = await fetch(`/api/logo?name=${encodeURIComponent(supplierName)}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch logo');
-        }
-        const data = await response.json();
-        setLogoUrl(data.url);
-      } catch (error) {
-        console.error('Error fetching logo:', error);
-        setError(error instanceof Error ? error.message : 'Unknown error');
-        setLogoUrl(null);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    if (supplierName) {
-      fetchLogo();
-    }
-  }, [supplierName]);
-
-  if (isLoading) {
-    return (
-      <div className={`relative flex items-center justify-center ${className} aspect-square rounded-lg border border-gray-100/50`}>
-        <div className="w-20 h-20 animate-pulse bg-gray-200/50 rounded" />
-      </div>
-    );
-  }
-
-  if (error || !logoUrl) {
-    return null;
-  }
+export function SupplierLogo({ supplierName, size = 32, className = '' }: SupplierLogoProps) {
+  const logoUrl = React.useMemo(() => {
+    const domain = getDomain(supplierName);
+    return `/api/logo?domain=${encodeURIComponent(domain)}&size=${size}`;
+  }, [supplierName, size]);
 
   return (
-    <div className={`relative flex items-center justify-center ${className} aspect-square rounded-lg border border-gray-100/50 p-1.5 shadow-[0_2px_8px_rgba(0,0,0,0.05)] backdrop-blur-[2px]`}>
+    <div 
+      className={`relative flex items-center justify-center ${className}`}
+      style={{ width: size, height: size }}
+    >
       <Image
         src={logoUrl}
         alt={`Logo ${supplierName}`}
-        width={80}
-        height={80}
-        className="object-contain w-20 h-20 drop-shadow-sm"
+        width={size}
+        height={size}
+        className="object-contain"
+        loading="lazy"
         unoptimized
       />
     </div>

@@ -199,14 +199,6 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
           content: fields.ContractType.content || null,
           confidence: fields.ContractType.confidence || 1
         } : undefined,
-        OSD_name: fields.OSD_name ? {
-          content: fields.OSD_name.content || null,
-          confidence: fields.OSD_name.confidence || 1
-        } : undefined,
-        OSD_region: fields.OSD_region ? {
-          content: fields.OSD_region.content || null,
-          confidence: fields.OSD_region.confidence || 1
-        } : undefined,
         dpStreet: {
           content: dpAddress.dpStreet,
           confidence: fields.dpStreet?.confidence || 1
@@ -375,65 +367,25 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
   const confidencePercentage = Math.round(documentStats.averageConfidence * 100);
 
   const renderDocumentHeader = () => (
-    <div className="p-4 border-b">
+    <CardHeader className="border-b">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <FileText className="w-5 h-5 text-muted-foreground" />
-          <div className="flex flex-col">
-            <h3 className="font-medium truncate max-w-[300px]" title={result.fileName}>
-              {result.fileName}
-            </h3>
-            <span className="text-sm text-gray-500 truncate">
-              {data.supplier.supplierName?.content}
-            </span>
-          </div>
-        </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1">
-            <span className="text-sm text-gray-500">Kompletność</span>
-            <Badge variant="outline">
-              {completionPercentage}%
-            </Badge>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-sm text-gray-500">Pewność</span>
-            <Badge variant={confidencePercentage > 80 ? "success" : confidencePercentage > 60 ? "warning" : "destructive"}>
-              {confidencePercentage}%
-            </Badge>
-          </div>
+          <FileText className="w-5 h-5 text-muted-foreground" />
+          <h3 className="font-medium truncate max-w-[300px]" title={result.fileName}>
+            {result.fileName}
+          </h3>
+        </div>
+        <div className="flex items-center gap-4">
+          <Badge variant="outline" className="font-normal">
+            {completionPercentage}% kompletności
+          </Badge>
+          <Badge variant="outline" className="font-normal">
+            {confidencePercentage}% pewności
+          </Badge>
         </div>
       </div>
-    </div>
+    </CardHeader>
   );
-
-  // Jeśli mamy wiele dokumentów, pokaż podsumowanie
-  if ('results' in result && totalTime !== undefined) {
-    return (
-      <div className="space-y-6">
-        <AnalysisSummary 
-          documents={[{ modelResults }]} 
-          totalTime={totalTime}
-          onExport={onExport}
-        />
-
-        <Card className="bg-white shadow-sm">
-          {renderDocumentHeader()}
-          <div className="p-4 space-y-6">
-            <SupplierDataGroup 
-              data={data.supplier} 
-              ppeData={data.ppe}
-              customerData={data.customer}
-              correspondenceData={data.correspondence}
-            />
-            <PPEDataGroup data={data.ppe} />
-            <CustomerDataGroup data={data.customer} />
-            <CorrespondenceDataGroup data={data.correspondence} />
-            <BillingDataGroup data={data.billing} />
-          </div>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -449,15 +401,15 @@ export function AnalysisResultCard({ result, totalTime, onExport }: AnalysisResu
         {renderDocumentHeader()}
         <div className="p-4 space-y-6">
           <SupplierDataGroup 
-            data={data.supplier} 
-            ppeData={data.ppe}
-            customerData={data.customer}
-            correspondenceData={data.correspondence}
+            data={data?.supplier || {}} 
+            ppeData={data?.ppe || {}}
+            customerData={data?.customer || {}}
+            correspondenceData={data?.correspondence || {}}
           />
-          <PPEDataGroup data={data.ppe} />
-          <CustomerDataGroup data={data.customer} />
-          <CorrespondenceDataGroup data={data.correspondence} />
-          <BillingDataGroup data={data.billing} />
+          <PPEDataGroup data={data?.ppe || {}} />
+          <CustomerDataGroup data={data?.customer || {}} />
+          <CorrespondenceDataGroup data={data?.correspondence || {}} />
+          <BillingDataGroup data={data?.billing || {}} />
         </div>
       </Card>
     </div>

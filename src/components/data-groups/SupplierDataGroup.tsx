@@ -4,7 +4,6 @@ import type { DocumentField, ProcessSectionContext } from '@/types/document-proc
 import { processSection } from '@/utils/data-processing';
 import type { SupplierData, PPEData, CustomerData, CorrespondenceData } from '@/types/fields';
 import { getOSDInfoByPostalCode } from '@/utils/osd-mapping';
-import { SupplierLogo } from '@/components/ui/supplier-logo';
 import { Eraser } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
@@ -146,44 +145,91 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
 
   return (
     <div className="space-y-4">
-      <Card className="p-6">
-        <div className="grid grid-cols-[2fr_1.5fr_1fr] gap-12 items-center min-h-[96px]">
-          {processedData.supplierName?.content && (
-            <div className="flex items-center gap-4">
-              <SupplierLogo 
-                supplierName={processedData.supplierName.content} 
-                className="w-24 h-24 flex-shrink-0" 
-              />
-              <h2 className="text-xl font-medium whitespace-nowrap">
-                {processedData.supplierName.content}
-              </h2>
-              {processedData.supplierName.isEnriched && (
-                <Eraser className="w-4 h-4 text-gray-400 flex-shrink-0" />
+      <Card>
+        <div className="grid grid-cols-[2fr_1.5fr_1fr] gap-12 p-6">
+          <div>
+            <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+              <span>Sprzedawca</span>
+              {processedData.supplierName?.confidence && (
+                <div className="flex items-center gap-1">
+                  <span className={`w-2 h-2 rounded-full ${
+                    processedData.supplierName.confidence > 0.8 ? 'bg-green-500' : 
+                    processedData.supplierName.confidence > 0.6 ? 'bg-yellow-500' : 
+                    'bg-red-500'
+                  }`} />
+                  <span className="text-xs">
+                    {Math.round(processedData.supplierName.confidence * 100)}%
+                  </span>
+                </div>
               )}
             </div>
-          )}
-          {processedData.OSD_name?.content && (
-            <div className="space-y-1 self-center">
-              <div className="text-sm text-gray-500">Nazwa OSD</div>
-              <div className="flex items-center gap-2">
-                <span className="whitespace-nowrap">{processedData.OSD_name.content}</span>
+            {processedData.supplierName?.content && (
+              <div className="flex items-center">
+                <span className="font-medium">
+                  {processedData.supplierName.content}
+                </span>
+                {processedData.supplierName.isEnriched && (
+                  <Eraser className="w-4 h-4 text-gray-400 flex-shrink-0 ml-2" />
+                )}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+              <span>Nazwa OSD</span>
+              {processedData.OSD_name?.confidence && (
+                <div className="flex items-center gap-1">
+                  <span className={`w-2 h-2 rounded-full ${
+                    processedData.OSD_name.confidence > 0.8 ? 'bg-green-500' : 
+                    processedData.OSD_name.confidence > 0.6 ? 'bg-yellow-500' : 
+                    'bg-red-500'
+                  }`} />
+                  <span className="text-xs">
+                    {Math.round(processedData.OSD_name.confidence * 100)}%
+                  </span>
+                </div>
+              )}
+            </div>
+            {processedData.OSD_name?.content && (
+              <div className="flex items-center">
+                <span className="font-medium">
+                  {processedData.OSD_name.content}
+                </span>
                 {processedData.OSD_name.isEnriched && (
-                  <Eraser className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <Eraser className="w-4 h-4 text-gray-400 flex-shrink-0 ml-2" />
                 )}
               </div>
+            )}
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+              <span>Region OSD</span>
+              {processedData.OSD_region?.confidence && (
+                <div className="flex items-center gap-1">
+                  <span className={`w-2 h-2 rounded-full ${
+                    processedData.OSD_region.confidence > 0.8 ? 'bg-green-500' : 
+                    processedData.OSD_region.confidence > 0.6 ? 'bg-yellow-500' : 
+                    'bg-red-500'
+                  }`} />
+                  <span className="text-xs">
+                    {Math.round(processedData.OSD_region.confidence * 100)}%
+                  </span>
+                </div>
+              )}
             </div>
-          )}
-          {processedData.OSD_region?.content && (
-            <div className="space-y-1 self-center">
-              <div className="text-sm text-gray-500">Region OSD</div>
-              <div className="flex items-center gap-2">
-                <span className="whitespace-nowrap">{processedData.OSD_region.content}</span>
+            {processedData.OSD_region?.content && (
+              <div className="flex items-center">
+                <span className="font-medium">
+                  {processedData.OSD_region.content}
+                </span>
                 {processedData.OSD_region.isEnriched && (
-                  <Eraser className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <Eraser className="w-4 h-4 text-gray-400 flex-shrink-0 ml-2" />
                 )}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </Card>
 

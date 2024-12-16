@@ -1,19 +1,25 @@
 const SUPPLIER_MAPPINGS: Record<string, string> = {
-  'PGE': 'gkpge.pl',
+  'PGE': 'pge.pl',
   'TAURON': 'tauron.pl',
   'ENEA': 'enea.pl',
   'ENERGA': 'energa.pl',
   'INNOGY': 'eon.pl',
   'E.ON': 'eon.pl',
-  'FORTUM': 'fortum.com',
+  'FORTUM': 'fortum.pl',
   'ORANGE': 'orange.pl',
+  'ORANGE ENERGIA': 'orange.pl',
+  'RWE STOEN': 'rwe.pl',
   'POLENERGIA': 'polenergia.pl',
-  'POLKOMTEL': 'grupapolsatplus.pl',
+  'POLKOMTEL': 'plus.pl',
   'GREEN': 'greensa.pl',
-  // Dodaj więcej mapowań według potrzeb
 };
 
-export function getSupplierDomain(supplierName: string): string {
+/**
+ * Znajduje domenę dostawcy na podstawie jego nazwy
+ * @param supplierName Nazwa dostawcy
+ * @returns Domena dostawcy
+ */
+export function getDomain(supplierName: string): string {
   // Normalizujemy nazwę dostawcy
   const normalizedName = supplierName
     .toUpperCase()
@@ -27,20 +33,6 @@ export function getSupplierDomain(supplierName: string): string {
     }
   }
 
-  // Jeśli nie znaleziono mapowania, czyścimy nazwę i używamy jako domeny
-  return supplierName
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '')
-    .replace(/spolkazoo|spolkaakcyjna|sa|spzoo|grupa/g, '')
-    .trim() + '.pl';
-}
-
-export function getLogoUrl(supplierName: string): string {
-  const domain = getSupplierDomain(supplierName);
-  const params = new URLSearchParams({
-    domain: domain,
-    size: '200'
-  });
-
-  return `/api/logo?${params.toString()}`;
+  // Jeśli nie znaleziono mapowania, zwracamy domyślną domenę
+  return 'orange.pl';
 } 

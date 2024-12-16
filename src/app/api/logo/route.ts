@@ -1,55 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const LOGO_TOKEN = process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN;
-
-// Mapowanie nazw dostawców na domeny
-const SUPPLIER_MAPPINGS: Array<{ pattern: RegExp; domain: string }> = [
-  { pattern: /ORANGE/i, domain: 'orange.fr' },
-  { pattern: /TAURON/i, domain: 'tauron.pl' },
-  { pattern: /PGE/i, domain: 'gkpge.pl' },
-  { pattern: /ENEA/i, domain: 'enea.pl' },
-  { pattern: /ENERGA/i, domain: 'energa.pl' },
-  { pattern: /POLKOMTEL|PLUS/i, domain: 'plus.pl' },
-  { pattern: /E\.?ON|EON/i, domain: 'eon.com' },
-  { pattern: /ENERGIA\s+POLSKA/i, domain: 'energiapolska.com.pl' },
-  { pattern: /LUMI/i, domain: 'lumipge.pl' },
-  { pattern: /FORTUM/i, domain: 'fortum.pl' },
-  { pattern: /GREEN\s*S\.?A\.?|GREEN\s+ENERGIA/i, domain: 'green-sa.pl' }
-];
+const LOGO_DEV_API_KEY = process.env.LOGO_DEV_API_KEY;
+const LOGO_DEV_API_URL = 'https://logo.dev/api/v1/logo';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const name = searchParams.get('name');
+    const domain = searchParams.get('domain');
+    const size = searchParams.get('size') || '200';
 
-    if (!name) {
-      return NextResponse.json({ error: 'Name parameter is required' }, { status: 400 });
+    if (!domain) {
+      return NextResponse.json(
+        { error: 'Domain parameter is required' },
+        { status: 400 }
+      );
     }
 
-    if (!LOGO_TOKEN) {
-      return NextResponse.json({ error: 'Logo token not configured' }, { status: 500 });
+    if (!LOGO_DEV_API_KEY) {
+      return NextResponse.json(
+        { error: 'Logo.dev API key is not configured' },
+        { status: 500 }
+      );
     }
 
-    // Znajdź mapowanie dla dostawcy na podstawie wzorca
-    const mapping = SUPPLIER_MAPPINGS.find(m => m.pattern.test(name));
+    const params = new URLSearchParams({
+      domain,
+      size,
+      format: 'png',
+      type: 'square'
+    });
+
+    const response = await fetch(`${LOGO_DEV_API_URL}?${params.toString()}`, {
+      headers: {
+        'Authorization': `Bearer ${LOGO_DEV_API_KEY}`
+      }
+    });
+
+    if (!response.ok) {
+      return NextResponse.json(
+        { error: 'Failed to fetch logo from logo.dev' },
+        { status: response.status }
+      );
+    }
+
+    const buffer = await response.arrayBuffer();
     
-    // Jeśli nie ma mapowania, generuj domenę z nazwy
-    const domain = mapping?.domain || name.toLowerCase()
-      .replace(/[^a-z0-9]/g, '')
-      .replace(/spzoo|spolkazo{1,2}|saz?o{0,2}|sp\.?z\.?o\.?o\.?/g, '')
-      .replace(/spolka|akcyjna|sa|s\.?a\.?/g, '')
-      .replace(/energia|energetyka|energetyczny/g, '')
-      .trim();
-
-    const logoUrl = `https://img.logo.dev/${domain}?format=png&size=120&token=${LOGO_TOKEN}`;
-
-    // Zwróć URL do logo
-    return NextResponse.json({ url: logoUrl });
+    return new NextResponse(buffer, {
+      headers: {
+        'Content-Type': 'image/png',
+        'Cache-Control': 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800'
+      }
+    });
 
   } catch (error) {
-    console.error('Error generating logo URL:', error);
+    console.error('Error fetching logo:', error);
     return NextResponse.json(
-      { error: 'Failed to generate logo URL' }, 
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

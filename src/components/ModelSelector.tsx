@@ -18,6 +18,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useSelectedModels } from '@/hooks/useSelectedModels';
 
 const getModelCountText = (count: number) => {
   if (count === 0) return "Wyszukaj model";
@@ -44,18 +45,35 @@ export function ModelSelector({
   isDisabled = false
 }: ModelSelectorProps) {
   const [open, setOpen] = React.useState(false);
+  const { selectedModels: persistedModels, setSelectedModels } = useSelectedModels();
+
+  // Synchronizuj stan z localStorage przy pierwszym renderowaniu
+  React.useEffect(() => {
+    if (persistedModels.length > 0 && selectedModels.length === 0) {
+      onSelectionChange(persistedModels);
+    }
+  }, []);
 
   const handleModelSelect = (modelId: string) => {
+    let newSelection: string[];
+    
     if (selectedModels.includes(modelId)) {
-      onSelectionChange(selectedModels.filter(id => id !== modelId));
+      newSelection = selectedModels.filter(id => id !== modelId);
     } else if (selectedModels.length < 3) {
-      onSelectionChange([...selectedModels, modelId]);
+      newSelection = [...selectedModels, modelId];
+    } else {
+      return;
     }
+
+    onSelectionChange(newSelection);
+    setSelectedModels(newSelection);
     setOpen(false);
   };
 
   const handleModelRemove = (modelId: string) => {
-    onSelectionChange(selectedModels.filter(id => id !== modelId));
+    const newSelection = selectedModels.filter(id => id !== modelId);
+    onSelectionChange(newSelection);
+    setSelectedModels(newSelection);
   };
 
   if (isLoading) {
