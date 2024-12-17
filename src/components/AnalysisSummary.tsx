@@ -173,6 +173,9 @@ export function AnalysisSummary({ documents, totalTime, onExport, usabilityResul
             <div className="mt-1 space-y-2">
               <div className="flex items-baseline justify-between">
                 <div className="text-2xl font-semibold">{documents.length}</div>
+                <div className="text-sm text-gray-500">
+                  {(totalTimes.total / documents.length / 1000).toFixed(1)}s / dokument
+                </div>
               </div>
               <div className="space-y-1 text-sm text-gray-500">
                 <div className="flex justify-between">
@@ -195,6 +198,43 @@ export function AnalysisSummary({ documents, totalTime, onExport, usabilityResul
             </div>
           </div>
 
+          {/* Średnia pewność */}
+          <div className="bg-white p-4 rounded-lg border">
+            <div className="text-sm font-medium text-gray-500">Średnia pewność</div>
+            <div className="mt-1 space-y-2">
+              <div className="flex items-baseline justify-between">
+                <div className={cn(
+                  "text-2xl font-semibold",
+                  averageConfidence >= 0.9 ? "text-green-600" :
+                  averageConfidence >= 0.7 ? "text-yellow-600" :
+                  "text-red-600"
+                )}>
+                  {(averageConfidence * 100).toFixed(1)}%
+                </div>
+              </div>
+              <div className="space-y-1 text-sm text-gray-500">
+                <div className="flex justify-between items-center">
+                  <Badge variant="secondary" className="bg-green-50 text-green-700">
+                    Wysoka (&ge;90%)
+                  </Badge>
+                  <span className="text-sm font-medium">{confidenceDistribution.high.count} ({confidenceDistribution.high.percentage.toFixed(1)}%)</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <Badge variant="secondary" className="bg-yellow-50 text-yellow-700">
+                    Średnia (70-89%)
+                  </Badge>
+                  <span className="text-sm font-medium">{confidenceDistribution.medium.count} ({confidenceDistribution.medium.percentage.toFixed(1)}%)</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <Badge variant="secondary" className="bg-red-50 text-red-700">
+                    Niska (&lt;70%)
+                  </Badge>
+                  <span className="text-sm font-medium">{confidenceDistribution.low.count} ({confidenceDistribution.low.percentage.toFixed(1)}%)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Formaty MIME */}
           <div className="bg-white p-4 rounded-lg border">
             <div className="text-sm font-medium text-gray-500">Formaty dokumentów</div>
@@ -205,31 +245,6 @@ export function AnalysisSummary({ documents, totalTime, onExport, usabilityResul
                   <span className="text-sm font-medium">{count}</span>
                 </div>
               ))}
-            </div>
-          </div>
-
-          {/* Rozkład pewności */}
-          <div className="bg-white p-4 rounded-lg border">
-            <div className="text-sm font-medium text-gray-500">Rozkład pewności</div>
-            <div className="mt-1 space-y-1">
-              <div className="flex justify-between items-center">
-                <Badge variant="secondary" className="bg-green-50 text-green-700">
-                  Wysoka (&ge;90%)
-                </Badge>
-                <span className="text-sm font-medium">{confidenceDistribution.high.count} ({confidenceDistribution.high.percentage.toFixed(1)}%)</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <Badge variant="secondary" className="bg-yellow-50 text-yellow-700">
-                  Średnia (70-89%)
-                </Badge>
-                <span className="text-sm font-medium">{confidenceDistribution.medium.count} ({confidenceDistribution.medium.percentage.toFixed(1)}%)</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <Badge variant="secondary" className="bg-red-50 text-red-700">
-                  Niska (&lt;70%)
-                </Badge>
-                <span className="text-sm font-medium">{confidenceDistribution.low.count} ({confidenceDistribution.low.percentage.toFixed(1)}%)</span>
-              </div>
             </div>
           </div>
 
