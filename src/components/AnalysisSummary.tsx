@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { formatPercentage } from '@/utils/text-formatting';
-import { calculateDocumentCompleteness, calculateUsability } from '@/utils/data-processing/completeness/confidence';
+import { calculateDocumentCompleteness, calculateUsability, calculateAverageConfidence } from '@/utils/data-processing/completeness/confidence';
 import type { ProcessingResult } from '@/types/processing';
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
 
@@ -31,7 +31,7 @@ function mapFields(fields: Record<string, any>): {
   };
 
   // Mapuj pola PPE
-  ['ppeNum', 'MeterNumber', 'Tariff', 'ContractNumber', 'ContractType', 'dpStreet', 'dpBuilding', 'dpUnit', 'dpPostalCode', 'dpCity', 'dpProvince', 'dpMunicipality', 'dpDistrict', 'dpMeterID'].forEach(key => {
+  ['ppeNum', 'MeterNumber', 'TariffGroup', 'ContractNumber', 'ContractType', 'dpStreet', 'dpBuilding', 'dpUnit', 'dpPostalCode', 'dpCity', 'dpProvince', 'dpMunicipality', 'dpDistrict', 'dpMeterID'].forEach(key => {
     if (key in fields) {
       result.ppeData[key as keyof PPEData] = fields[key];
     }
@@ -76,8 +76,16 @@ function mapFields(fields: Record<string, any>): {
 export function AnalysisSummary({ documents, totalTime, onExport }: AnalysisSummaryProps) {
   // Oblicz średnią pewność dla wszystkich dokumentów
   const averageConfidence = documents.reduce((acc, doc) => {
-    const confidence = doc.modelResults[0]?.confidence || 0;
-    return acc + confidence;
+    const fields = doc.modelResults[0]?.fields || {};
+    const mappedFields = mapFields(fields);
+    const sections = {
+      ppe: mappedFields.ppeData,
+      customer: mappedFields.customerData,
+      correspondence: mappedFields.correspondenceData,
+      supplier: mappedFields.supplierData,
+      billing: mappedFields.billingData
+    };
+    return acc + calculateAverageConfidence(sections);
   }, 0) / documents.length;
 
   // Oblicz kompletność i przydatność dla wszystkich dokumentów

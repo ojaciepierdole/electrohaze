@@ -1,144 +1,144 @@
-import type { 
-  TransformationRule, 
-  TransformationContext, 
-  TransformationResult,
-  DocumentData
-} from '@/types/document-processing';
+import type { DocumentData, TransformationRule, TransformationContext } from '@/types/document';
 
 /**
- * Klasa odpowiedzialna za transformację dokumentów
+ * Klasa odpowiedzialna za transformacje dokumentów
  */
 export class DocumentTransformer {
   private rules: TransformationRule[] = [];
 
   /**
-   * Dodaje nową regułę transformacji
+   * Dodaje reguły transformacji
    */
-  addRule(rule: TransformationRule) {
-    this.rules.push(rule);
+  addRules(rules: TransformationRule[]): void {
+    this.rules.push(...rules);
     // Sortuj reguły według priorytetu (wyższy priorytet = wcześniejsze wykonanie)
     this.rules.sort((a, b) => b.priority - a.priority);
   }
 
   /**
-   * Dodaje zestaw reguł transformacji
+   * Transformuje pojedyncze pole dokumentu
    */
-  addRules(rules: TransformationRule[]) {
-    rules.forEach(rule => this.addRule(rule));
-  }
-
-  /**
-   * Wykonuje transformację pojedynczej wartości
-   */
-  transform(value: string, context: TransformationContext): TransformationResult {
-    console.group(`Transformacja wartości: "${value}"`);
-    console.log('Kontekst:', {
-      section: context.section,
-      field: context.field,
-      metadata: context.metadata
-    });
+  private transformField(value: string, context: TransformationContext): string {
+    console.group(`Transformacja pola: ${context.field}`);
+    console.log('Wartość wejściowa:', value);
+    console.log('Kontekst:', context);
 
     try {
       // Znajdź pierwszą pasującą regułę
-      const matchingRule = this.rules.find(rule => {
-        const matches = rule.condition(value, context);
-        console.log(`Sprawdzanie reguły "${rule.name}":`, matches);
-        return matches;
-      });
+      for (const rule of this.rules) {
+        console.log(`Sprawdzanie reguły: ${rule.name}`);
 
-      if (!matchingRule) {
-        console.log('Nie znaleziono pasującej reguły');
-        console.groupEnd();
-        return { value };
+        // Jeśli reguła ma warunek i nie jest spełniony, pomiń ją
+        if (rule.condition && !rule.condition(value, context)) {
+          console.log('Warunek nie spełniony, pomijam regułę');
+          continue;
+        }
+
+        console.log('Znaleziono pasującą regułę');
+
+        // Zastosuj transformację
+        const result = rule.transform(value, context);
+        console.log('Wynik transformacji:', result);
+
+        // Jeśli transformacja zwróciła dodatkowe pola, dodaj je do dokumentu
+        if (result.additionalFields) {
+          Object.entries(result.additionalFields).forEach(([field, fieldData]) => {
+            if (context.document) {
+              context.document[field] = {
+                content: fieldData.value,
+                confidence: fieldData.confidence,
+                metadata: {
+                  fieldType: 'text',
+                  transformationType: 'additional',
+                  originalValue: value
+                }
+              };
+            }
+          });
+        }
+
+        return result.value;
       }
 
-      // Zastosuj transformację
-      console.log(`Stosowanie reguły "${matchingRule.name}"`);
-      const result = matchingRule.transform(value, context);
-      console.log('Wynik transformacji:', result);
-      
-      return {
-        ...result,
-        metadata: {
-          ...result.metadata,
-          appliedRule: matchingRule.name
-        }
-      };
+      console.log('Nie znaleziono pasującej reguły');
+      return value;
     } catch (error) {
       console.error('Błąd podczas transformacji:', error);
-      console.groupEnd();
-      return { value };
+      return value;
     } finally {
       console.groupEnd();
     }
   }
 
   /**
-   * Wykonuje transformację całego dokumentu
+   * Transformuje sekcję dokumentu
+   */
+  private transformSection(section: string, data: DocumentData[string]): DocumentData[string] {
+    console.group(`Transformacja sekcji: ${section}`);
+    console.log('Dane wejściowe:', data);
+
+    try {
+      const result = { ...data };
+
+      // Transformuj każde pole w sekcji
+      Object.entries(data).forEach(([field, fieldData]) => {
+        const context: TransformationContext = {
+          section,
+          field,
+          value: fieldData.content,
+          confidence: fieldData.confidence,
+          document: result
+        };
+
+        // Transformuj wartość pola
+        const transformedValue = this.transformField(fieldData.content, context);
+
+        // Zaktualizuj pole tylko jeśli wartość się zmieniła
+        if (transformedValue !== fieldData.content) {
+          result[field] = {
+            content: transformedValue,
+            confidence: fieldData.confidence,
+            metadata: {
+              ...fieldData.metadata,
+              transformationType: 'transformed',
+              originalValue: fieldData.content
+            }
+          };
+        }
+      });
+
+      console.log('Wynik transformacji sekcji:', result);
+      return result;
+    } catch (error) {
+      console.error('Błąd podczas transformacji sekcji:', error);
+      return data;
+    } finally {
+      console.groupEnd();
+    }
+  }
+
+  /**
+   * Transformuje cały dokument
    */
   transformDocument(document: DocumentData): DocumentData {
     console.group('Transformacja dokumentu');
-    const result = { ...document };
+    console.log('Dane wejściowe:', document);
 
     try {
-      // Przetwórz każdą sekcję
-      for (const [section, fields] of Object.entries(document)) {
-        console.group(`Przetwarzanie sekcji: ${section}`);
+      const result = { ...document };
 
-        // Przetwórz każde pole w sekcji
-        for (const [field, data] of Object.entries(fields)) {
-          console.group(`Przetwarzanie pola: ${field}`);
+      // Transformuj każdą sekcję dokumentu
+      Object.entries(document).forEach(([section, data]) => {
+        result[section] = this.transformSection(section, data);
+      });
 
-          if (!data.content) {
-            console.log('Puste pole - pomijam');
-            console.groupEnd();
-            continue;
-          }
-
-          const context: TransformationContext = {
-            section: section as any,
-            field,
-            document: result
-          };
-
-          // Zastosuj transformacje
-          const transformed = this.transform(data.content, context);
-
-          // Zaktualizuj główne pole
-          result[section][field] = {
-            ...data,
-            content: transformed.value,
-            metadata: {
-              ...data.metadata,
-              ...transformed.metadata
-            }
-          };
-
-          // Dodaj dodatkowe pola
-          if (transformed.additionalFields) {
-            for (const [additionalField, additionalData] of Object.entries(transformed.additionalFields)) {
-              result[section][additionalField] = {
-                content: additionalData.value,
-                confidence: additionalData.confidence,
-                metadata: {
-                  ...additionalData.metadata,
-                  generatedFrom: `${section}.${field}`,
-                  transformationType: transformed.metadata?.transformationType
-                }
-              };
-            }
-          }
-
-          console.groupEnd(); // pole
-        }
-        console.groupEnd(); // sekcja
-      }
+      console.log('Wynik transformacji dokumentu:', result);
+      return result;
     } catch (error) {
       console.error('Błąd podczas transformacji dokumentu:', error);
+      return document;
     } finally {
-      console.groupEnd(); // dokument
+      console.groupEnd();
     }
-
-    return result;
   }
 } 

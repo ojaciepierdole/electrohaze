@@ -4,6 +4,14 @@ import type { FieldWithConfidence } from './common';
 export interface DocumentField extends FieldWithConfidence {
   kind?: string;
   properties?: Record<string, DocumentField>;
+  content: string;
+  confidence: number;
+  metadata: {
+    fieldType?: string;
+    transformationType?: string;
+    originalValue?: string;
+    [key: string]: unknown;
+  };
 }
 
 // Struktura dokumentu
@@ -28,7 +36,12 @@ export interface TransformationContext {
 export interface TransformationResult {
   value: string;
   confidence: number;
-  metadata?: Record<string, unknown>;
+  metadata: {
+    fieldType: string;
+    transformationType: string;
+    originalValue?: string;
+    [key: string]: unknown;
+  };
   additionalFields?: Record<string, { value: string; confidence: number }>;
 }
 

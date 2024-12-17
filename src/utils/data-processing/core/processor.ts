@@ -1,4 +1,4 @@
-import type { DocumentData } from '@/types/document-processing';
+import type { DocumentData } from '@/types/document';
 import { DocumentTransformer } from './transform';
 import { personNameRules } from '../rules/person';
 import { addressRules } from '../rules/address';
@@ -86,7 +86,11 @@ export class DocumentProcessor {
         [section]: {
           [field]: {
             content: value,
-            confidence: 1
+            confidence: 1,
+            metadata: {
+              fieldType: 'text',
+              transformationType: 'initial'
+            }
           }
         }
       };

@@ -1,12 +1,12 @@
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
-import type { DocumentField } from '@/types/document-processing';
+import type { DocumentField } from '@/types/document';
 
 interface DocumentSections {
-  ppe?: Partial<PPEData>;
-  customer?: Partial<CustomerData>;
-  correspondence?: Partial<CorrespondenceData>;
-  supplier?: Partial<SupplierData>;
-  billing?: Partial<BillingData>;
+  ppe?: Record<string, DocumentField>;
+  customer?: Record<string, DocumentField>;
+  correspondence?: Record<string, DocumentField>;
+  supplier?: Record<string, DocumentField>;
+  billing?: Record<string, DocumentField>;
 }
 
 // Sprawdza czy adres jest kompletny
@@ -26,22 +26,52 @@ function isAddressComplete(data: Record<string, DocumentField> | undefined, pref
   });
 }
 
+// Sprawdza czy dane osobowe są kompletne
+function isPersonalDataComplete(data: Record<string, DocumentField> | undefined, prefix: string = ''): boolean {
+  if (!data) return false;
+
+  const requiredFields = [
+    prefix + 'FirstName',
+    prefix + 'LastName'
+  ];
+
+  return requiredFields.every(field => {
+    const value = data[field]?.content;
+    return value !== undefined && value !== null && value !== '';
+  });
+}
+
 // Sprawdza czy dokument jest przydatny (ma wszystkie wymagane pola do podpisania umowy)
 export function calculateUsability(sections: DocumentSections): boolean {
-  // Sprawdź czy mamy numer PPE
-  const hasPPENumber = sections.ppe?.ppeNum?.content;
+  // Sprawdź czy mamy numer PPE i taryfę
+  const hasPPEData = Boolean(
+    sections.ppe?.ppeNum?.content &&
+    sections.ppe?.TariffGroup?.content &&
+    sections.ppe?.MeterNumber?.content
+  );
   
-  // Sprawdź czy mamy taryfę
-  const hasTariff = sections.ppe?.TariffGroup?.content;
+  // Sprawdź czy mamy dane osobowe klienta
+  const hasCustomerData = isPersonalDataComplete(sections.customer);
   
   // Sprawdź czy mamy kompletny adres klienta lub korespondencyjny
-  const hasCustomerAddress = isAddressComplete(sections.customer as Record<string, DocumentField>);
-  const hasCorrespondenceAddress = isAddressComplete(sections.correspondence as Record<string, DocumentField>, 'pa');
+  const hasCustomerAddress = isAddressComplete(sections.customer);
+  const hasCorrespondenceAddress = isAddressComplete(sections.correspondence, 'pa');
   
-  // Dokument jest przydatny jeśli ma numer PPE, taryfę i przynajmniej jeden kompletny adres
+  // Sprawdź czy mamy dane rozliczeniowe
+  const hasBillingData = Boolean(
+    sections.billing?.billingStartDate?.content &&
+    sections.billing?.billingEndDate?.content &&
+    sections.billing?.billedUsage?.content
+  );
+  
+  // Dokument jest przydatny jeśli ma:
+  // 1. Dane PPE
+  // 2. Dane osobowe klienta
+  // 3. Przynajmniej jeden kompletny adres
+  // 4. Dane rozliczeniowe (opcjonalnie)
   return Boolean(
-    hasPPENumber && 
-    hasTariff && 
+    hasPPEData && 
+    hasCustomerData && 
     (hasCustomerAddress || hasCorrespondenceAddress)
   );
 }
@@ -54,24 +84,68 @@ interface SectionWeights {
   billing: number;
 }
 
+// Wagi dla różnych typów pól
+const fieldWeights: Record<string, number> = {
+  // PPE
+  'ppeNum': 1.0,
+  'MeterNumber': 0.8,
+  'TariffGroup': 0.8,
+  
+  // Dane osobowe
+  'FirstName': 0.9,
+  'LastName': 0.9,
+  'BusinessName': 0.9,
+  'taxID': 0.8,
+  
+  // Adres
+  'Street': 0.7,
+  'Building': 0.7,
+  'PostalCode': 0.6,
+  'City': 0.6,
+  'Unit': 0.3,
+  
+  // Dostawca
+  'supplierName': 0.8,
+  'supplierTaxID': 0.7,
+  'OSD_name': 0.7,
+  'OSD_region': 0.6,
+  
+  // Rozliczenia
+  'billingStartDate': 0.5,
+  'billingEndDate': 0.5,
+  'billedUsage': 0.7,
+  '12mUsage': 0.6
+};
+
 const defaultWeights: SectionWeights = {
   ppe: 0.3,
-  customer: 0.2,
-  correspondence: 0.1,
-  supplier: 0.3,
+  customer: 0.25,
+  correspondence: 0.15,
+  supplier: 0.2,
   billing: 0.1
 };
 
-// Funkcja do obliczania kompletności sekcji
-function calculateSectionCompleteness(data: Record<string, DocumentField | undefined> | undefined, requiredFields: string[]): number {
+// Funkcja do obliczania kompletności sekcji z uwzględnieniem wag pól
+function calculateSectionCompleteness(
+  data: Record<string, DocumentField | undefined> | undefined, 
+  requiredFields: string[]
+): number {
   if (!data) return 0;
 
-  const filledFields = requiredFields.filter(field => {
-    const value = data[field]?.content;
-    return value !== undefined && value !== null && value !== '';
-  });
+  let totalWeight = 0;
+  let weightedSum = 0;
 
-  return filledFields.length / requiredFields.length;
+  for (const field of requiredFields) {
+    const fieldWeight = fieldWeights[field] || 0.5;
+    totalWeight += fieldWeight;
+
+    const value = data[field]?.content;
+    if (value !== undefined && value !== null && value !== '') {
+      weightedSum += fieldWeight;
+    }
+  }
+
+  return totalWeight > 0 ? weightedSum / totalWeight : 0;
 }
 
 // Wymagane pola dla każdej sekcji
@@ -110,17 +184,18 @@ export function calculateDocumentCompleteness(sections: DocumentSections, weight
 
 // Funkcja do obliczania średniej pewności ze wszystkich pól
 export function calculateAverageConfidence(sections: DocumentSections): number {
-  let totalConfidence = 0;
-  let totalFields = 0;
+  let totalWeightedConfidence = 0;
+  let totalWeight = 0;
 
   // Funkcja pomocnicza do przetwarzania sekcji
   const processSection = (data: Record<string, DocumentField | undefined> | undefined) => {
     if (!data) return;
     
-    Object.values(data).forEach(field => {
+    Object.entries(data).forEach(([fieldName, field]) => {
       if (field?.confidence !== undefined) {
-        totalConfidence += field.confidence;
-        totalFields++;
+        const fieldWeight = fieldWeights[fieldName] || 0.5;
+        totalWeightedConfidence += field.confidence * fieldWeight;
+        totalWeight += fieldWeight;
       }
     });
   };
@@ -132,5 +207,5 @@ export function calculateAverageConfidence(sections: DocumentSections): number {
   processSection(sections.supplier);
   processSection(sections.billing);
 
-  return totalFields > 0 ? totalConfidence / totalFields : 0;
+  return totalWeight > 0 ? totalWeightedConfidence / totalWeight : 0;
 } 

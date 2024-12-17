@@ -1,112 +1,114 @@
-import type { DocumentField } from './document-processing';
+import type { DocumentField } from './document';
 
-// Typ bazowy dla wszystkich pól dokumentu
-type BaseDocumentFields = Record<string, DocumentField>;
+/**
+ * Dane punktu poboru energii (PPE)
+ */
+export interface PPEData extends Record<string, DocumentField> {
+  ppeNum: DocumentField;
+  MeterNumber: DocumentField;
+  TariffGroup: DocumentField;
+  ContractNumber?: DocumentField;
+  ContractType?: DocumentField;
+  dpStreet?: DocumentField;
+  dpBuilding?: DocumentField;
+  dpUnit?: DocumentField;
+  dpPostalCode?: DocumentField;
+  dpCity?: DocumentField;
+  Municipality?: DocumentField;
+  District?: DocumentField;
+  Province?: DocumentField;
+}
 
-// Typ pomocniczy do definiowania pól
-type DocumentFieldKeys<T extends string> = Record<T, DocumentField>;
+/**
+ * Dane klienta
+ */
+export interface CustomerData extends Record<string, DocumentField> {
+  FirstName?: DocumentField;
+  LastName?: DocumentField;
+  BusinessName?: DocumentField;
+  taxID?: DocumentField;
+  Street?: DocumentField;
+  Building?: DocumentField;
+  Unit?: DocumentField;
+  PostalCode?: DocumentField;
+  City?: DocumentField;
+}
 
-export interface SupplierData extends DocumentFieldKeys<
-  | 'supplierName'
-  | 'supplierTaxID'
-  | 'supplierStreet'
-  | 'supplierBuilding'
-  | 'supplierUnit'
-  | 'supplierPostalCode'
-  | 'supplierCity'
-  | 'supplierBankAccount'
-  | 'supplierBankName'
-  | 'supplierEmail'
-  | 'supplierPhone'
-  | 'supplierWebsite'
-  | 'OSD_name'
-  | 'OSD_region'
-> {}
+/**
+ * Dane adresu korespondencyjnego
+ */
+export interface CorrespondenceData extends Record<string, DocumentField> {
+  paFirstName?: DocumentField;
+  paLastName?: DocumentField;
+  paBusinessName?: DocumentField;
+  paTitle?: DocumentField;
+  paStreet?: DocumentField;
+  paBuilding?: DocumentField;
+  paUnit?: DocumentField;
+  paPostalCode?: DocumentField;
+  paCity?: DocumentField;
+}
 
-export interface PPEData extends DocumentFieldKeys<
-  | 'ppeNum'
-  | 'MeterNumber'
-  | 'TariffGroup'
-  | 'ContractNumber'
-  | 'ContractType'
-  | 'dpFirstName'
-  | 'dpLastName'
-  | 'dpStreet'
-  | 'dpBuilding'
-  | 'dpUnit'
-  | 'dpPostalCode'
-  | 'dpCity'
-  | 'dpMunicipality'
-  | 'dpDistrict'
-  | 'dpProvince'
-  | 'OSD_name'
-  | 'OSD_region'
-> {}
+/**
+ * Dane dostawcy
+ */
+export interface SupplierData extends Record<string, DocumentField> {
+  supplierName: DocumentField;
+  supplierTaxID: DocumentField;
+  supplierStreet?: DocumentField;
+  supplierBuilding?: DocumentField;
+  supplierUnit?: DocumentField;
+  supplierPostalCode?: DocumentField;
+  supplierCity?: DocumentField;
+  supplierBankAccount?: DocumentField;
+  supplierBankName?: DocumentField;
+  supplierEmail?: DocumentField;
+  supplierPhone?: DocumentField;
+  supplierWebsite?: DocumentField;
+  OSD_name?: DocumentField;
+  OSD_region?: DocumentField;
+}
 
-export interface CustomerData extends DocumentFieldKeys<
-  | 'FirstName'
-  | 'LastName'
-  | 'BusinessName'
-  | 'taxID'
-  | 'Street'
-  | 'Building'
-  | 'Unit'
-  | 'PostalCode'
-  | 'City'
-  | 'Municipality'
-  | 'District'
-  | 'Province'
-> {}
-
-export interface CorrespondenceData extends DocumentFieldKeys<
-  | 'paFirstName'
-  | 'paLastName'
-  | 'paBusinessName'
-  | 'paTitle'
-  | 'paStreet'
-  | 'paBuilding'
-  | 'paUnit'
-  | 'paPostalCode'
-  | 'paCity'
-> {}
-
-export interface BillingData extends DocumentFieldKeys<
-  | 'billingStartDate'
-  | 'billingEndDate'
-  | 'billedUsage'
-  | 'usage12m'
-> {}
+/**
+ * Dane rozliczeniowe
+ */
+export interface BillingData extends Record<string, DocumentField> {
+  billingStartDate?: DocumentField;
+  billingEndDate?: DocumentField;
+  billedUsage?: DocumentField;
+  '12mUsage'?: DocumentField;
+}
 
 // Komponenty adresowe
 export interface AddressComponents {
-  dpFirstName: string | null;
-  dpLastName: string | null;
-  dpStreet: string | null;
-  dpBuilding: string | null;
-  dpUnit: string | null;
-  dpPostalCode: string | null;
-  dpCity: string | null;
-  paFirstName: string | null;
-  paLastName: string | null;
-  paStreet: string | null;
-  paBuilding: string | null;
-  paUnit: string | null;
-  paPostalCode: string | null;
-  paCity: string | null;
-  supplierFirstName: string | null;
-  supplierLastName: string | null;
-  supplierStreet: string | null;
-  supplierBuilding: string | null;
-  supplierUnit: string | null;
-  supplierPostalCode: string | null;
-  supplierCity: string | null;
+  dpFirstName: DocumentField | null;
+  dpLastName: DocumentField | null;
+  dpStreet: DocumentField | null;
+  dpBuilding: DocumentField | null;
+  dpUnit: DocumentField | null;
+  dpPostalCode: DocumentField | null;
+  dpCity: DocumentField | null;
+  paFirstName: DocumentField | null;
+  paLastName: DocumentField | null;
+  paStreet: DocumentField | null;
+  paBuilding: DocumentField | null;
+  paUnit: DocumentField | null;
+  paPostalCode: DocumentField | null;
+  paCity: DocumentField | null;
+  supplierFirstName: DocumentField | null;
+  supplierLastName: DocumentField | null;
+  supplierStreet: DocumentField | null;
+  supplierBuilding: DocumentField | null;
+  supplierUnit: DocumentField | null;
+  supplierPostalCode: DocumentField | null;
+  supplierCity: DocumentField | null;
 }
 
 // Komponenty osobowe
 export interface PersonComponents {
-  firstName: string | null;
-  lastName: string | null;
-  title: string | null;
+  firstName: DocumentField | null;
+  lastName: DocumentField | null;
+  title: DocumentField | null;
 }
 
 // Znormalizowane komponenty
@@ -115,7 +117,7 @@ export interface NormalizedAddress extends AddressComponents {
 }
 
 export interface NormalizedPerson extends PersonComponents {
-  originalName: string | null;
+  originalName: DocumentField | null;
   confidence: number;
 }
 
