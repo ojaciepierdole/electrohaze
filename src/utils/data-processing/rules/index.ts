@@ -1,4 +1,4 @@
-import type { DocumentField } from '@/types/document-processing';
+import type { DocumentField } from '@/types/processing';
 import { normalizeText } from '@/utils/text-formatting/core/normalization';
 
 // Typ dla reguł przetwarzania pól

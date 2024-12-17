@@ -1,4 +1,4 @@
-import type { DocumentField } from '@/types/document-processing';
+import type { DocumentField } from '@/types/processing';
 import type { SupplierData } from '@/types/fields';
 import { cleanOSDName, cleanOSDRegion } from '@/utils/data-processing/text-formatting';
 

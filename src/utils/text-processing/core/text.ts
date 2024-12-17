@@ -1,11 +1,11 @@
-import { TextProcessingOptions } from '@/types/processing';
+import { TextNormalizationOptions } from './types';
 
 /**
  * Normalizuje tekst według podanych opcji
  */
 export function normalizeText(
   text: string | null | undefined,
-  options: TextProcessingOptions = {}
+  options: TextNormalizationOptions = {}
 ): string {
   if (!text) return '';
 
@@ -53,7 +53,7 @@ export function normalizeText(
 /**
  * Sprawdza czy tekst jest pusty
  */
-export function isEmpty(text: string | null | undefined): boolean {
+export function isEmptyString(text: string | null | undefined): boolean {
   if (!text) return true;
   return text.trim().length === 0;
 }
@@ -85,7 +85,7 @@ export function isAlphanumeric(text: string | null | undefined): boolean {
 /**
  * Sprawdza czy tekst jest poprawnym adresem email
  */
-export function isEmail(text: string | null | undefined): boolean {
+export function isValidEmailString(text: string | null | undefined): boolean {
   if (!text) return false;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text.trim());
 }
@@ -93,15 +93,15 @@ export function isEmail(text: string | null | undefined): boolean {
 /**
  * Sprawdza czy tekst jest poprawnym numerem telefonu
  */
-export function isPhone(text: string | null | undefined): boolean {
+export function isValidPhoneString(text: string | null | undefined): boolean {
   if (!text) return false;
-  return /^\+?[\d\s-]+$/.test(text.trim());
+  return /^[\d\s+\-()]{9,}$/.test(text.trim());
 }
 
 /**
  * Sprawdza czy tekst jest poprawnym kodem pocztowym
  */
-export function isPostalCode(text: string | null | undefined): boolean {
+export function isValidPostalCodeString(text: string | null | undefined): boolean {
   if (!text) return false;
   return /^\d{2}-\d{3}$/.test(text.trim());
 }
@@ -109,7 +109,7 @@ export function isPostalCode(text: string | null | undefined): boolean {
 /**
  * Sprawdza czy tekst jest poprawnym numerem NIP
  */
-export function isTaxId(text: string | null | undefined): boolean {
+export function isValidTaxIdString(text: string | null | undefined): boolean {
   if (!text) return false;
   const cleaned = text.replace(/[^0-9]/g, '');
   return cleaned.length === 10;
@@ -118,7 +118,7 @@ export function isTaxId(text: string | null | undefined): boolean {
 /**
  * Sprawdza czy tekst jest poprawnym numerem konta bankowego
  */
-export function isBankAccount(text: string | null | undefined): boolean {
+export function isValidBankAccountNumber(text: string | null | undefined): boolean {
   if (!text) return false;
   const cleaned = text.replace(/[^0-9]/g, '');
   return cleaned.length === 26;

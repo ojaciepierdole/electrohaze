@@ -1,5 +1,5 @@
 import { TextProcessor } from './text-processor';
-import type { DocumentField, TransformationResult } from '@/types/document';
+import type { DocumentField, TransformationResult } from '@/types/processing';
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
 
 /**
@@ -128,10 +128,13 @@ export class DataProcessor {
     if (!value) {
       return {
         value: '',
+        content: '',
         confidence: 0,
         metadata: {
           fieldType: config.type,
-          transformationType: 'empty'
+          transformationType: 'empty',
+          source: 'processor',
+          status: 'empty'
         }
       };
     }
@@ -195,10 +198,13 @@ export class DataProcessor {
 
     return {
       value: processedValue,
+      content: value,
       confidence: value === processedValue ? 1 : 0.8,
       metadata: {
         fieldType: config.type,
         transformationType: 'processed',
+        source: 'processor',
+        status: 'success',
         originalValue: value
       }
     };
@@ -232,7 +238,9 @@ export class DataProcessor {
           confidence: 0,
           metadata: {
             fieldType: fieldConfig.type,
-            transformationType: 'missing_required'
+            transformationType: 'missing_required',
+            source: 'processor',
+            status: 'error'
           }
         };
         continue;

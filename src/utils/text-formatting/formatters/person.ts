@@ -162,8 +162,20 @@ export function mergePersonFields(
     return undefined;
   }
 
+  const normalizedContent = normalizeText(bestField.content);
+  if (!normalizedContent) {
+    return undefined;
+  }
+
   return {
-    content: normalizeText(bestField.content) ?? null,
-    confidence: bestField.confidence
+    content: normalizedContent,
+    confidence: bestField.confidence,
+    metadata: {
+      fieldType: bestField.metadata?.fieldType || 'text',
+      transformationType: bestField.metadata?.transformationType || 'normalized',
+      source: bestField.metadata?.source || 'merged',
+      originalValue: bestField.content,
+      ...bestField.metadata
+    }
   };
 } 

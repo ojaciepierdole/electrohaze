@@ -1,4 +1,4 @@
-import type { TextNormalizationOptions } from '@/types/core/options';
+import type { TextNormalizationOptions } from './types';
 
 /**
  * Podstawowe funkcje normalizacji tekstu
@@ -23,7 +23,7 @@ export function normalizeCase(text: string | null, toUpper: boolean = true): str
 /**
  * Usuwa znaki specjalne - bardziej agresywna wersja
  */
-export function removeSpecialChars(text: string | null): string | null {
+export function removeSpecialCharacters(text: string | null): string | null {
   if (!text) return null;
   
   // Najpierw usuń przecinki i kropki na końcu tekstu
@@ -39,7 +39,7 @@ export function removeSpecialChars(text: string | null): string | null {
     .replace(/\s*\-\s*/g, '-') // normalizuj myślniki (usuń spacje wokół nich)
     .trim();
     
-  console.log('[removeSpecialChars] Przed:', text, 'Po:', cleaned);
+  console.log('[removeSpecialCharacters] Przed:', text, 'Po:', cleaned);
   return cleaned;
 }
 
@@ -59,8 +59,10 @@ export function normalizeText(text: string | null, options: TextNormalizationOpt
 
   const {
     toUpper = true,
-    removeSpecial = true,
-    normalizePolish = false,
+    removeSpecialChars = true,
+    removeDiacritics = false,
+    trim = true,
+    trimWhitespace = true,
     debug = false
   } = options;
 
@@ -69,23 +71,25 @@ export function normalizeText(text: string | null, options: TextNormalizationOpt
   
   // Kolejność jest ważna:
   // 1. Najpierw usuwamy znaki specjalne (zamienia je na spacje)
-  if (removeSpecial) {
-    normalized = removeSpecialChars(normalized) || '';
+  if (removeSpecialChars) {
+    normalized = removeSpecialCharacters(normalized) || '';
     if (debug) console.log('[normalizeText] Po usunięciu znaków specjalnych:', normalized);
   }
   
   // 2. Normalizujemy spacje (po usunięciu znaków specjalnych)
-  normalized = normalizeSpaces(normalized) || '';
-  if (debug) console.log('[normalizeText] Po normalizacji spacji:', normalized);
+  if (trimWhitespace) {
+    normalized = normalizeSpaces(normalized) || '';
+    if (debug) console.log('[normalizeText] Po normalizacji spacji:', normalized);
+  }
   
   // 3. Opcjonalnie normalizujemy polskie znaki
-  if (normalizePolish) {
+  if (removeDiacritics) {
     normalized = normalizePolishChars(normalized) || '';
     if (debug) console.log('[normalizeText] Po normalizacji polskich znaków:', normalized);
   }
   
   // 4. Na końcu zmieniamy wielkość liter
-  if (toUpper !== null) {
+  if (toUpper) {
     normalized = normalizeCase(normalized, toUpper) || '';
     if (debug) console.log('[normalizeText] Po zmianie wielkości liter:', normalized);
   }
@@ -102,8 +106,10 @@ export function cleanText(value: string | null, options: TextNormalizationOption
   console.log('[cleanText] Przed:', value);
   const cleaned = normalizeText(value, {
     toUpper: options.toUpper ?? true,
-    removeSpecial: true,
-    normalizePolish: options.normalizePolish ?? false,
+    removeSpecialChars: true,
+    removeDiacritics: options.removeDiacritics ?? false,
+    trim: options.trim ?? true,
+    trimWhitespace: options.trimWhitespace ?? true,
     debug: options.debug ?? false
   }) || '';
   console.log('[cleanText] Po:', cleaned);

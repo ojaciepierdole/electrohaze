@@ -14,19 +14,19 @@ import { CustomerDataGroup } from '@/components/data-groups/CustomerDataGroup';
 import { SupplierDataGroup } from '@/components/data-groups/SupplierDataGroup';
 import { CorrespondenceDataGroup } from './data-groups/CorrespondenceDataGroup';
 import { BillingDataGroup } from './data-groups/BillingDataGroup';
-import { processSupplierData, calculateSupplierConfidence, calculateSupplierCompleteness } from '@/utils/data-processing/sections/supplier';
+import { processSupplierData, calculateSupplierConfidence, calculateSupplierCompleteness } from '@/utils/document-mapping';
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
-import type { DocumentField } from '@/types/document-processing';
+import type { DocumentField, FieldWithConfidence } from '@/types/processing';
 import type { DocumentSections } from '@/utils/data-processing/completeness/confidence';
 
 interface AnalysisResultCardProps {
   fileName: string;
   confidence: number;
-  ppeData?: Partial<PPEData>;
-  customerData?: Partial<CustomerData>;
-  correspondenceData?: Partial<CorrespondenceData>;
-  supplierData?: Partial<SupplierData>;
-  billingData?: Partial<BillingData>;
+  ppeData: Partial<PPEData>;
+  customerData: Partial<CustomerData>;
+  correspondenceData: Partial<CorrespondenceData>;
+  supplierData: Partial<SupplierData>;
+  billingData: Partial<BillingData>;
   usability: boolean;
 }
 
@@ -47,11 +47,76 @@ export function AnalysisResultCard({
 
   // Konwertuj dane do wymaganego formatu
   const sections: DocumentSections = {
-    ppe: ppeData as Record<string, DocumentField>,
-    customer: customerData as Record<string, DocumentField>,
-    correspondence: correspondenceData as Record<string, DocumentField>,
-    supplier: supplierData as Record<string, DocumentField>,
-    billing: billingData as Record<string, DocumentField>
+    ppe: Object.entries(ppeData || {}).reduce<Record<string, FieldWithConfidence>>((acc, [key, value]) => {
+      if (value) {
+        acc[key] = {
+          content: value.content,
+          confidence: value.confidence,
+          metadata: {
+            fieldType: value.metadata?.fieldType || 'text',
+            transformationType: value.metadata?.transformationType || 'initial',
+            source: value.metadata?.source || 'raw'
+          }
+        };
+      }
+      return acc;
+    }, {}),
+    customer: Object.entries(customerData || {}).reduce<Record<string, FieldWithConfidence>>((acc, [key, value]) => {
+      if (value) {
+        acc[key] = {
+          content: value.content,
+          confidence: value.confidence,
+          metadata: {
+            fieldType: value.metadata?.fieldType || 'text',
+            transformationType: value.metadata?.transformationType || 'initial',
+            source: value.metadata?.source || 'raw'
+          }
+        };
+      }
+      return acc;
+    }, {}),
+    correspondence: Object.entries(correspondenceData || {}).reduce<Record<string, FieldWithConfidence>>((acc, [key, value]) => {
+      if (value) {
+        acc[key] = {
+          content: value.content,
+          confidence: value.confidence,
+          metadata: {
+            fieldType: value.metadata?.fieldType || 'text',
+            transformationType: value.metadata?.transformationType || 'initial',
+            source: value.metadata?.source || 'raw'
+          }
+        };
+      }
+      return acc;
+    }, {}),
+    supplier: Object.entries(supplierData || {}).reduce<Record<string, FieldWithConfidence>>((acc, [key, value]) => {
+      if (value) {
+        acc[key] = {
+          content: value.content,
+          confidence: value.confidence,
+          metadata: {
+            fieldType: value.metadata?.fieldType || 'text',
+            transformationType: value.metadata?.transformationType || 'initial',
+            source: value.metadata?.source || 'raw'
+          }
+        };
+      }
+      return acc;
+    }, {}),
+    billing: Object.entries(billingData || {}).reduce<Record<string, FieldWithConfidence>>((acc, [key, value]) => {
+      if (value) {
+        acc[key] = {
+          content: value.content,
+          confidence: value.confidence,
+          metadata: {
+            fieldType: value.metadata?.fieldType || 'text',
+            transformationType: value.metadata?.transformationType || 'initial',
+            source: value.metadata?.source || 'raw'
+          }
+        };
+      }
+      return acc;
+    }, {})
   };
 
   // Oblicz średnią pewność ze wszystkich pól
@@ -189,9 +254,9 @@ export function AnalysisResultCard({
                     >
                       <SupplierDataGroup 
                         title="Sprzedawca"
-                        data={processSupplierData(supplierData || {})}
-                        confidence={calculateSupplierConfidence(processSupplierData(supplierData || {}))}
-                        completeness={calculateSupplierCompleteness(processSupplierData(supplierData || {}))}
+                        data={processSupplierData(supplierData)}
+                        confidence={calculateSupplierConfidence(processSupplierData(supplierData))}
+                        completeness={calculateSupplierCompleteness(processSupplierData(supplierData))}
                         fieldLabels={{
                           supplierName: 'Sprzedawca',
                           OSD_name: 'Nazwa OSD',

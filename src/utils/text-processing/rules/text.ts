@@ -6,10 +6,10 @@ const textNormalizationRule: TransformationRule = {
   name: 'text-normalization',
   description: 'Normalizuje tekst',
   priority: 100,
-  transform: (context: TransformationContext): TransformationResult => {
-    const { value, field } = context;
+  transform: (value: string, context: TransformationContext): TransformationResult => {
     if (!value) return {
       value: '',
+      content: '',
       confidence: 0,
       metadata: {
         transformationType: 'normalization',
@@ -26,7 +26,8 @@ const textNormalizationRule: TransformationRule = {
 
     return {
       value: normalized,
-      confidence: field?.confidence ?? 0,
+      content: normalized,
+      confidence: context.confidence ?? 0,
       metadata: {
         transformationType: 'normalization',
         fieldType: 'text',
@@ -42,10 +43,10 @@ const upperCaseRule: TransformationRule = {
   name: 'uppercase-conversion',
   description: 'Konwertuje tekst na wielkie litery',
   priority: 90,
-  transform: (context: TransformationContext): TransformationResult => {
-    const { value, field } = context;
+  transform: (value: string, context: TransformationContext): TransformationResult => {
     if (!value) return {
       value: '',
+      content: '',
       confidence: 0,
       metadata: {
         transformationType: 'conversion',
@@ -63,7 +64,8 @@ const upperCaseRule: TransformationRule = {
 
     return {
       value: normalized,
-      confidence: field?.confidence ?? 0,
+      content: normalized,
+      confidence: context.confidence ?? 0,
       metadata: {
         transformationType: 'conversion',
         fieldType: 'text',
@@ -79,10 +81,10 @@ const lowerCaseRule: TransformationRule = {
   name: 'lowercase-conversion',
   description: 'Konwertuje tekst na małe litery',
   priority: 90,
-  transform: (context: TransformationContext): TransformationResult => {
-    const { value, field } = context;
+  transform: (value: string, context: TransformationContext): TransformationResult => {
     if (!value) return {
       value: '',
+      content: '',
       confidence: 0,
       metadata: {
         transformationType: 'conversion',
@@ -100,7 +102,8 @@ const lowerCaseRule: TransformationRule = {
 
     return {
       value: normalized,
-      confidence: field?.confidence ?? 0,
+      content: normalized,
+      confidence: context.confidence ?? 0,
       metadata: {
         transformationType: 'conversion',
         fieldType: 'text',

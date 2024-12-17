@@ -1,4 +1,4 @@
-import type { TransformationRule, TransformationContext, DocumentField } from '@/types/document';
+import type { TransformationRule, TransformationContext, DocumentField } from '@/types/processing';
 import { isFirstName, isLastName } from '@/utils/text-formatting/dictionaries/names';
 import { normalizeText } from '@/utils/text-formatting/core/normalization';
 
@@ -64,10 +64,12 @@ export const personNameRules: TransformationRule[] = [
     description: 'Rozdziela pełne imię i nazwisko na oddzielne pola',
     priority: 100,
     condition: (value: string, context: TransformationContext) => {
+      if (!context.section) return false;
+      
       // Sprawdź czy pole zawiera spację i kończy się na FirstName lub LastName
       return value.includes(' ') && (
-        context.field.endsWith('FirstName') || 
-        context.field.endsWith('LastName')
+        context.section.endsWith('FirstName') || 
+        context.section.endsWith('LastName')
       );
     },
     transform: (value: string, context: TransformationContext) => {
@@ -75,11 +77,14 @@ export const personNameRules: TransformationRule[] = [
       if (parts.length !== 2) {
         return {
           value,
+          content: value,
           confidence: context.confidence || 0.5,
           metadata: {
             fieldType: 'text',
             transformationType: 'unchanged',
-            originalValue: value
+            originalValue: value,
+            source: 'person_transform',
+            status: 'unchanged'
           }
         };
       }
@@ -89,55 +94,74 @@ export const personNameRules: TransformationRule[] = [
       const confidence = context.confidence || 0.5;
 
       // Określ prefiks pola na podstawie sekcji
-      const fieldPrefix = context.field.replace(/(?:FirstName|LastName)$/, '');
+      const fieldPrefix = (context.section || '').replace(/(?:FirstName|LastName)$/, '');
 
       // Jeśli przetwarzamy pole FirstName
-      if (context.field.endsWith('FirstName')) {
+      if (context.section?.endsWith('FirstName')) {
         return {
           value: firstName,
+          content: firstName,
           confidence,
           additionalFields: {
             [`${fieldPrefix}LastName`]: {
               value: lastName,
-              confidence
+              confidence,
+              metadata: {
+                fieldType: 'name',
+                transformationType: 'name_split',
+                originalValue: value
+              }
             }
           },
           metadata: {
             fieldType: 'name',
             transformationType: 'name_split',
             splitType: 'from_first_name',
-            originalValue: value
+            originalValue: value,
+            source: 'person_transform',
+            status: 'transformed'
           }
         };
       }
 
       // Jeśli przetwarzamy pole LastName
-      if (context.field.endsWith('LastName')) {
+      if (context.section?.endsWith('LastName')) {
         return {
           value: lastName,
+          content: lastName,
           confidence,
           additionalFields: {
             [`${fieldPrefix}FirstName`]: {
               value: firstName,
-              confidence
+              confidence,
+              metadata: {
+                fieldType: 'name',
+                transformationType: 'name_split',
+                originalValue: value
+              }
             }
           },
           metadata: {
             fieldType: 'name',
             transformationType: 'name_split',
             splitType: 'from_last_name',
-            originalValue: value
+            originalValue: value,
+            source: 'person_transform',
+            status: 'transformed'
           }
         };
       }
 
       return {
         value,
+        content: value,
         confidence,
         metadata: {
           fieldType: 'text',
           transformationType: 'unchanged',
-          originalValue: value
+          originalValue: value,
+          source: 'person_transform',
+          status: 'unchanged'
         }
       };
     }
@@ -147,14 +171,18 @@ export const personNameRules: TransformationRule[] = [
     name: 'normalize_first_name',
     description: 'Normalizuje format imienia (wielkie litery, usunięcie nadmiarowych spacji)',
     priority: 90,
-    condition: (value: string, context: TransformationContext) => context.field.endsWith('FirstName'),
+    condition: (value: string, context: TransformationContext) => 
+      context.section ? context.section.endsWith('FirstName') : false,
     transform: (value: string, context: TransformationContext) => ({
       value: normalizeText(value, { toUpper: true }) || value,
+      content: normalizeText(value, { toUpper: true }) || value,
       confidence: context.confidence || 0.8,
       metadata: {
         fieldType: 'name',
         transformationType: 'name_normalization',
-        originalValue: value
+        originalValue: value,
+        source: 'person_transform',
+        status: 'normalized'
       }
     })
   },
@@ -163,14 +191,18 @@ export const personNameRules: TransformationRule[] = [
     name: 'normalize_last_name',
     description: 'Normalizuje format nazwiska (wielkie litery, usunięcie nadmiarowych spacji)',
     priority: 90,
-    condition: (value: string, context: TransformationContext) => context.field.endsWith('LastName'),
+    condition: (value: string, context: TransformationContext) => 
+      context.section ? context.section.endsWith('LastName') : false,
     transform: (value: string, context: TransformationContext) => ({
       value: normalizeText(value, { toUpper: true }) || value,
+      content: normalizeText(value, { toUpper: true }) || value,
       confidence: context.confidence || 0.8,
       metadata: {
         fieldType: 'name',
         transformationType: 'name_normalization',
-        originalValue: value
+        originalValue: value,
+        source: 'person_transform',
+        status: 'normalized'
       }
     })
   }

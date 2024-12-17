@@ -1,5 +1,5 @@
-import { TransformationContext, TransformationResult, TransformationRule } from '@/types/document-processing';
-import { parseDate, formatDate } from '@/utils/date-helpers';
+import { TransformationContext, TransformationResult, TransformationRule } from '@/types/processing';
+import { parseDate } from '@/utils/date-helpers';
 
 export const dateRules: TransformationRule[] = [
   {
@@ -7,9 +7,10 @@ export const dateRules: TransformationRule[] = [
     description: 'Normalizacja daty',
     priority: 100,
     condition: (value: string, context: TransformationContext) => {
-      return context.field?.includes('Date') || 
-             context.field?.includes('Time') ||
-             context.field?.includes('Timestamp');
+      const fieldType = context.field?.metadata?.fieldType || '';
+      return fieldType.toLowerCase().includes('date') || 
+             fieldType.toLowerCase().includes('time') ||
+             fieldType.toLowerCase().includes('timestamp');
     },
     transform: (value: string, context: TransformationContext): TransformationResult => {
       const parsedDate = parseDate(value);
@@ -18,16 +19,27 @@ export const dateRules: TransformationRule[] = [
           value: value,
           content: value,
           confidence: context.confidence ?? 0,
-          metadata: { normalized: false }
+          metadata: {
+            fieldType: 'text',
+            transformationType: 'date_normalization',
+            source: 'raw',
+            status: 'failed',
+            originalValue: value
+          }
         };
       }
 
-      const formattedDate = formatDate(parsedDate);
       return {
-        value: formattedDate,
-        content: formattedDate,
+        value: parsedDate,
+        content: parsedDate,
         confidence: context.confidence ?? 0,
-        metadata: { normalized: true }
+        metadata: {
+          fieldType: 'date',
+          transformationType: 'date_normalization',
+          source: 'parsed',
+          status: 'success',
+          originalValue: value
+        }
       };
     }
   }

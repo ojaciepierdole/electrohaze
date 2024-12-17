@@ -6,10 +6,10 @@ const supplierNameNormalizationRule: TransformationRule = {
   name: 'supplier-name-normalization',
   description: 'Normalizuje nazwę dostawcy',
   priority: 100,
-  transform: (context: TransformationContext): TransformationResult => {
-    const { value, field } = context;
+  transform: (value: string, context: TransformationContext): TransformationResult => {
     if (!value) return {
       value: '',
+      content: '',
       confidence: 0,
       metadata: {
         transformationType: 'normalization',
@@ -19,9 +19,11 @@ const supplierNameNormalizationRule: TransformationRule = {
       }
     };
 
+    const normalizedValue = normalizeText(value, { toUpper: true }) || '';
     return {
-      value: normalizeText(value, { toUpper: true }) || '',
-      confidence: field?.confidence ?? 0,
+      value: normalizedValue,
+      content: normalizedValue,
+      confidence: context.confidence ?? 0,
       metadata: {
         transformationType: 'normalization',
         fieldType: 'supplier-name',
@@ -38,10 +40,10 @@ const supplierTaxIdNormalizationRule: TransformationRule = {
   name: 'supplier-tax-id-normalization',
   description: 'Normalizuje NIP dostawcy',
   priority: 100,
-  transform: (context: TransformationContext): TransformationResult => {
-    const { value, field } = context;
+  transform: (value: string, context: TransformationContext): TransformationResult => {
     if (!value) return {
       value: '',
+      content: '',
       confidence: 0,
       metadata: {
         transformationType: 'normalization',
@@ -61,7 +63,8 @@ const supplierTaxIdNormalizationRule: TransformationRule = {
 
     return {
       value: formatted,
-      confidence: field?.confidence ?? 0,
+      content: formatted,
+      confidence: context.confidence ?? 0,
       metadata: {
         transformationType: 'normalization',
         fieldType: 'supplier-tax-id',
@@ -78,10 +81,10 @@ const bankAccountNormalizationRule: TransformationRule = {
   name: 'bank-account-normalization',
   description: 'Normalizuje numer konta bankowego',
   priority: 100,
-  transform: (context: TransformationContext): TransformationResult => {
-    const { value, field } = context;
+  transform: (value: string, context: TransformationContext): TransformationResult => {
     if (!value) return {
       value: '',
+      content: '',
       confidence: 0,
       metadata: {
         transformationType: 'normalization',
@@ -101,7 +104,8 @@ const bankAccountNormalizationRule: TransformationRule = {
 
     return {
       value: formatted,
-      confidence: field?.confidence ?? 0,
+      content: formatted,
+      confidence: context.confidence ?? 0,
       metadata: {
         transformationType: 'normalization',
         fieldType: 'bank-account',
@@ -118,11 +122,11 @@ const supplierEnrichmentRule: TransformationRule = {
   name: 'supplier-enrichment',
   description: 'Wzbogaca dane dostawcy',
   priority: 90,
-  transform: (context: TransformationContext): TransformationResult => {
-    const { value, field, document } = context;
-    if (!value || !document?.fields) {
+  transform: (value: string, context: TransformationContext): TransformationResult => {
+    if (!value || !context.document?.fields) {
       return {
         value: '',
+        content: '',
         confidence: 0,
         metadata: {
           transformationType: 'enrichment',
@@ -134,24 +138,30 @@ const supplierEnrichmentRule: TransformationRule = {
     }
 
     // Sprawdź czy mamy powiązane pola
-    const supplierName = document.fields['SupplierName']?.content;
-    const supplierTaxId = document.fields['SupplierTaxID']?.content;
-    const bankAccount = document.fields['BankAccount']?.content;
+    const supplierName = context.document.fields['SupplierName']?.content;
+    const supplierTaxId = context.document.fields['SupplierTaxID']?.content;
+    const bankAccount = context.document.fields['BankAccount']?.content;
 
     // Jeśli mamy nazwę i NIP, użyj ich do wzbogacenia
     if (supplierName && supplierTaxId) {
-      const result = context.field === 'SupplierName' ? supplierName :
-                    context.field === 'SupplierTaxID' ? supplierTaxId :
-                    context.field === 'BankAccount' ? bankAccount :
+      const currentField = Object.entries(context.document.fields).find(([_, field]) => 
+        field === context.field
+      )?.[0];
+
+      const result = currentField === 'SupplierName' ? supplierName :
+                    currentField === 'SupplierTaxID' ? supplierTaxId :
+                    currentField === 'BankAccount' ? bankAccount :
                     value;
 
-      const confidence = context.field === 'SupplierName' ? document.fields['SupplierName']?.confidence :
-                        context.field === 'SupplierTaxID' ? document.fields['SupplierTaxID']?.confidence :
-                        context.field === 'BankAccount' ? document.fields['BankAccount']?.confidence :
-                        field?.confidence;
+      const confidence = currentField === 'SupplierName' ? context.document.fields['SupplierName']?.confidence :
+                        currentField === 'SupplierTaxID' ? context.document.fields['SupplierTaxID']?.confidence :
+                        currentField === 'BankAccount' ? context.document.fields['BankAccount']?.confidence :
+                        context.confidence;
 
+      const normalizedValue = normalizeText(result || '', { toUpper: true }) || '';
       return {
-        value: normalizeText(result || '', { toUpper: true }) || '',
+        value: normalizedValue,
+        content: normalizedValue,
         confidence: confidence ?? 0,
         metadata: {
           transformationType: 'enrichment',
@@ -163,9 +173,11 @@ const supplierEnrichmentRule: TransformationRule = {
     }
 
     // Jeśli nie mamy żadnych danych, zwróć oryginalną wartość
+    const normalizedValue = normalizeText(value, { toUpper: true }) || '';
     return {
-      value: normalizeText(value, { toUpper: true }) || '',
-      confidence: field?.confidence ?? 0,
+      value: normalizedValue,
+      content: normalizedValue,
+      confidence: context.confidence ?? 0,
       metadata: {
         transformationType: 'enrichment',
         fieldType: 'supplier',

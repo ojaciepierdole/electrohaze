@@ -1,15 +1,39 @@
 import { NextResponse } from 'next/server';
-import { DocumentAnalysisClient, DocumentField } from '@azure/ai-form-recognizer';
-import type { ProcessingResult, ProcessedField, PollOptions } from '@/types/processing';
-import type { DocumentFields } from '@/types/azure';
-import { determineFieldGroup } from '@/utils/fields';
+import { DocumentAnalysisClient } from '@azure/ai-form-recognizer';
+import type { 
+  ProcessingResult, 
+  PollOptions, 
+  ProcessedField, 
+  FieldGroupKey, 
+  FieldWithConfidence,
+  DocumentField
+} from '@/types/processing';
+import type { DocumentAnalysisResult } from '@/types/documentAnalysis';
 import { cacheManager } from '@/lib/cache-manager';
 import { decompressData } from '@/utils/compression';
 import { sendProgress } from '@/lib/progress-emitter';
-import { headers } from 'next/headers';
+import { mapDocumentAnalysisResult } from '@/utils/document-mapping';
 
 // Azure Document Intelligence pozwala na maksymalnie 15 równoległych żądań
 const MAX_CONCURRENT_REQUESTS = 15;
+
+// Funkcja pomocnicza do określania grupy pola
+function determineFieldGroup(fieldName: string): FieldGroupKey {
+  if (fieldName.startsWith('dp') || fieldName === 'ppeNum' || fieldName === 'MeterNumber' || fieldName === 'Tariff' || 
+      fieldName === 'ContractNumber' || fieldName === 'ContractType' || fieldName === 'OSD_name' || fieldName === 'OSD_region') {
+    return 'delivery_point';
+  }
+  if (fieldName.startsWith('pa')) {
+    return 'postal_address';
+  }
+  if (fieldName.startsWith('supplier')) {
+    return 'supplier';
+  }
+  if (fieldName.startsWith('Billing') || fieldName.includes('Usage')) {
+    return 'billing';
+  }
+  return 'buyer_data';
+}
 
 async function analyzeDocument(
   client: DocumentAnalysisClient,
@@ -129,7 +153,18 @@ async function analyzeDocument(
         ocrTime,
         analysisTime: Date.now() - (azureStartTime + ocrTime),
         mappedData: {
-          fileName: fileName
+          modelId: modelId,
+          metadata: {
+            technicalData: {
+              content: '',
+              pages: result.pages?.map(page => ({
+                pageNumber: page.pageNumber,
+                width: page.width || 0,
+                height: page.height || 0,
+                unit: page.unit || 'pixel'
+              }))
+            }
+          }
         },
         confidence: 0,
         cacheStats: {
@@ -164,8 +199,11 @@ async function analyzeDocument(
       fields[key] = {
         confidence: field.confidence || 0,
         fieldType: field.kind || 'unknown',
-        content: field.content,
+        content: field.content || '',
         page: field.boundingRegions?.[0]?.pageNumber || 1,
+        name: key,
+        type: field.kind || 'unknown',
+        description: key,
         definition: {
           name: key,
           type: field.kind || 'unknown',
@@ -176,11 +214,37 @@ async function analyzeDocument(
       };
     }
 
+    const convertedFields: Record<string, DocumentField> = {};
+    for (const [key, field] of Object.entries(documentFields)) {
+      if (!isCustomModel && (key.startsWith('_') || key === 'Locale')) {
+        continue;
+      }
+
+      convertedFields[key] = {
+        content: field.content || '',
+        confidence: field.confidence || 0,
+        kind: field.kind || 'string',
+        boundingRegions: field.boundingRegions?.map(region => ({
+          pageNumber: region.pageNumber,
+          polygon: region.polygon?.map(point => ({
+            x: point.x,
+            y: point.y
+          })) || []
+        })) || [],
+        spans: field.spans || [],
+        metadata: {
+          fieldType: field.kind || 'text',
+          transformationType: 'initial',
+          source: 'azure'
+        }
+      };
+    }
+
     const finalResult: ProcessingResult = {
       fileName: fileName,
       modelResults: [{
         modelId,
-        fields: result.documents[0].fields,
+        fields: convertedFields,
         confidence: result.documents[0].confidence,
         pageCount: result.pages?.length || 1
       }],
@@ -188,9 +252,7 @@ async function analyzeDocument(
       uploadTime,
       ocrTime,
       analysisTime: Date.now() - (azureStartTime + ocrTime),
-      mappedData: {
-        fileName: fileName
-      },
+      mappedData: mapDocumentAnalysisResult(documentFields),
       confidence: result.documents[0].confidence,
       cacheStats: {
         size: 0,
@@ -292,7 +354,7 @@ async function processDocumentsWithModels(
     });
 
     const batchResults = await Promise.all(batchPromises);
-    console.log(`Zakończono grupę w ${Date.now() - batchStartTime}ms`);
+    console.log(`Zakończono grupę w ${Date.now() - batchStartTime}ms, przetworzono ${batchResults.length} plików`);
   }
   
   const totalTime = Date.now() - startTime;

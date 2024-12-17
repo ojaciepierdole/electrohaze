@@ -2,13 +2,7 @@
  * Funkcje pomocnicze do normalizacji tekstu
  */
 
-export interface TextNormalizationOptions {
-  toUpper?: boolean;
-  toLower?: boolean;
-  removeSpecialChars?: boolean;
-  removeDiacritics?: boolean;
-  trim?: boolean;
-}
+import type { TextNormalizationOptions } from '../../text-processing/core/types';
 
 /**
  * Normalizuje tekst według podanych opcji

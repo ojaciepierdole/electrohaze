@@ -1,6 +1,5 @@
-import { ProcessingResult, GroupedResult, ProcessedField } from '@/types/processing';
+import { ProcessingResult, GroupedResult, ProcessedField, DocumentField } from '@/types/processing';
 import { formatDate, formatConsumption } from '@/utils/text-formatting';
-import { DocumentField } from '@azure/ai-form-recognizer';
 
 type ResultField = DocumentField | ProcessedField;
 

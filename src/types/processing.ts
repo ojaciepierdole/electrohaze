@@ -1,6 +1,39 @@
-import { DocumentField } from '@azure/ai-form-recognizer';
 import { AbortSignalLike } from '@azure/abort-controller';
 import { Alert } from '@/lib/alert-service';
+
+export interface Point2D {
+  x: number;
+  y: number;
+}
+
+export interface BoundingRegion {
+  pageNumber: number;
+  polygon: Point2D[];
+}
+
+export interface DocumentField {
+  content: string;
+  confidence: number;
+  boundingRegions?: BoundingRegion[];
+  spans?: Array<{
+    offset: number;
+    length: number;
+  }>;
+  properties?: Record<string, DocumentField>;
+  kind?: string;
+  metadata?: {
+    fieldType?: string;
+    transformationType?: string;
+    originalValue?: string;
+    source?: string;
+    boundingRegions?: BoundingRegion[];
+    spans?: Array<{
+      offset: number;
+      length: number;
+    }>;
+    [key: string]: unknown;
+  };
+}
 
 export interface FieldWithConfidence {
   content: string;
@@ -30,6 +63,14 @@ export interface FieldGroup {
   order: number;
 }
 
+export interface ModelDefinition {
+  id: string;
+  name: string;
+  description?: string;
+  fields?: Array<FieldDefinition>;
+  version?: string;
+}
+
 export interface FieldDefinition {
   name: string;
   type: string;
@@ -38,7 +79,29 @@ export interface FieldDefinition {
   group: FieldGroupKey;
 }
 
-export interface ProcessedField {
+export interface AnalysisField {
+  name: string;
+  type: string;
+  isRequired: boolean;
+  description: string;
+  group: FieldGroupKey;
+  confidence?: number;
+  content?: string;
+  metadata?: {
+    fieldType?: string;
+    transformationType?: string;
+    originalValue?: string;
+    source?: string;
+    boundingRegions?: BoundingRegion[];
+    spans?: Array<{
+      offset: number;
+      length: number;
+    }>;
+    [key: string]: unknown;
+  };
+}
+
+export interface ProcessedField extends Omit<AnalysisField, 'group' | 'isRequired'> {
   confidence: number;
   fieldType: string;
   content?: string;
@@ -75,32 +138,6 @@ export interface PPEData {
   dpMeterID?: FieldWithConfidence;
 }
 
-export interface SupplierData {
-  [key: string]: FieldWithConfidence | undefined;
-  supplierName?: FieldWithConfidence;
-  spTaxID?: FieldWithConfidence;
-  spStreet?: FieldWithConfidence;
-  spBuilding?: FieldWithConfidence;
-  spUnit?: FieldWithConfidence;
-  spPostalCode?: FieldWithConfidence;
-  spCity?: FieldWithConfidence;
-  spProvince?: FieldWithConfidence;
-  spMunicipality?: FieldWithConfidence;
-  spDistrict?: FieldWithConfidence;
-  spIBAN?: FieldWithConfidence;
-  spPhoneNum?: FieldWithConfidence;
-  spWebUrl?: FieldWithConfidence;
-  OSD_name?: FieldWithConfidence;
-}
-
-export interface BillingData {
-  [key: string]: FieldWithConfidence | undefined;
-  billingStartDate?: FieldWithConfidence;
-  billingEndDate?: FieldWithConfidence;
-  billedUsage?: FieldWithConfidence;
-  usage12m?: FieldWithConfidence;
-}
-
 export interface CustomerData {
   [key: string]: FieldWithConfidence | undefined;
   FirstName?: FieldWithConfidence;
@@ -133,16 +170,107 @@ export interface CorrespondenceData {
   paDistrict?: FieldWithConfidence;
 }
 
-export interface DocumentAnalysisResult {
-  [key: string]: unknown;
-  fileName?: string;
-  fileUrl?: string;
-  ppeData?: PPEData;
-  correspondenceData?: CorrespondenceData;
-  supplierData?: SupplierData;
-  billingData?: BillingData;
-  customerData?: CustomerData;
+export interface SupplierData {
+  [key: string]: FieldWithConfidence | undefined;
+  supplierName?: FieldWithConfidence;
+  supplierTaxID?: FieldWithConfidence;
+  supplierStreet?: FieldWithConfidence;
+  supplierBuilding?: FieldWithConfidence;
+  supplierUnit?: FieldWithConfidence;
+  supplierPostalCode?: FieldWithConfidence;
+  supplierCity?: FieldWithConfidence;
+  supplierBankAccount?: FieldWithConfidence;
+  supplierBankName?: FieldWithConfidence;
+  supplierEmail?: FieldWithConfidence;
+  supplierPhone?: FieldWithConfidence;
+  supplierWebsite?: FieldWithConfidence;
+  OSD_name?: FieldWithConfidence;
+  OSD_region?: FieldWithConfidence;
 }
+
+export interface BillingData {
+  [key: string]: FieldWithConfidence | undefined;
+  billingStartDate?: FieldWithConfidence;
+  billingEndDate?: FieldWithConfidence;
+  billedUsage?: FieldWithConfidence;
+  usage12m?: FieldWithConfidence;
+}
+
+export interface ProcessingContext {
+  ppe?: Partial<PPEData>;
+  customer?: Partial<CustomerData>;
+  correspondence?: Partial<CorrespondenceData>;
+  supplier?: Partial<SupplierData>;
+  billing?: Partial<BillingData>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ProcessSectionInput {
+  section: string;
+  fields: Record<string, DocumentField>;
+  allFields?: Record<string, DocumentField>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ProcessSectionContext {
+  ppe?: Record<string, DocumentField>;
+  customer?: Record<string, DocumentField>;
+  correspondence?: Record<string, DocumentField>;
+  supplier?: Record<string, DocumentField>;
+  billing?: Record<string, DocumentField>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface DocumentProcessingResult {
+  success: boolean;
+  documentId: string;
+  fields?: Record<string, DocumentField>;
+  errors?: string[];
+  confidence: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface TextProcessingOptions {
+  toUpper?: boolean;
+  toLower?: boolean;
+  trim?: boolean;
+  removeSpaces?: boolean;
+  removeSpecialChars?: boolean;
+  removeAccents?: boolean;
+  removePunctuation?: boolean;
+  removeNumbers?: boolean;
+  removeLetters?: boolean;
+  [key: string]: boolean | undefined;
+}
+
+export type AddressPrefix = '' | 'pa' | 'dp' | 'supplier';
+export type AddressField = 
+  | 'FirstName' 
+  | 'LastName' 
+  | 'Street' 
+  | 'Building' 
+  | 'Unit' 
+  | 'PostalCode' 
+  | 'City' 
+  | 'Title'
+  | 'Municipality'
+  | 'District'
+  | 'Province'
+  | 'TaxID'
+  | 'BusinessName'
+  | 'MeterID';
+
+export type AddressSet = {
+  [K in AddressField]: string | undefined;
+} & {
+  [K in AddressField as `pa${K}`]: string | undefined;
+} & {
+  [K in AddressField as `dp${K}`]: string | undefined;
+} & {
+  [K in AddressField as `supplier${K}`]: string | undefined;
+} & {
+  ppeNum?: string;
+};
 
 export interface BatchProcessingStatus {
   isProcessing: boolean;
@@ -183,34 +311,6 @@ export interface ProcessingResult {
   mimeType?: string;
 }
 
-export interface AnalysisField {
-  name: string;
-  type: string;
-  isRequired: boolean;
-  description?: string;
-  group: FieldGroupKey;
-}
-
-export interface ModelDefinition {
-  id: string;
-  name: string;
-  description: string;
-  type: 'prebuilt' | 'custom';
-  category: string;
-  version?: string;
-}
-
-export interface AnalysisLogEntry {
-  timestamp: Date;
-  supplierName: string;
-  timings: {
-    totalTime: number;
-    azureResponseTime: number;
-    processingTime: number;
-  };
-  extractedFields: Record<string, string | null>;
-}
-
 export interface GroupedResult {
   fileName: string;
   modelResults: Array<{
@@ -220,35 +320,6 @@ export interface GroupedResult {
     pageCount: number;
   }>;
 }
-
-export type AddressPrefix = '' | 'pa' | 'dp' | 'sp';
-export type AddressField = 
-  | 'FirstName' 
-  | 'LastName' 
-  | 'Street' 
-  | 'Building' 
-  | 'Unit' 
-  | 'PostalCode' 
-  | 'City' 
-  | 'Title'
-  | 'Municipality'
-  | 'District'
-  | 'Province'
-  | 'TaxID'
-  | 'BusinessName'
-  | 'MeterID';
-
-export type AddressSet = {
-  [K in AddressField]: string | undefined;
-} & {
-  [K in AddressField as `pa${K}`]: string | undefined;
-} & {
-  [K in AddressField as `dp${K}`]: string | undefined;
-} & {
-  [K in AddressField as `sp${K}`]: string | undefined;
-} & {
-  ppeNum?: string;
-};
 
 export interface PerformanceStats {
   name: string;
@@ -261,133 +332,153 @@ export interface PerformanceStats {
   maxDuration?: number;
   lastDuration?: number;
 }
+
 export interface PollOptions {
   intervalInMs?: number;
   abortSignal?: AbortSignalLike;
 }
 
-// Stary format danych
+export interface TransformationContext {
+  value: string;
+  confidence: number;
+  field?: DocumentField;
+  document?: {
+    fields: Record<string, DocumentField>;
+  };
+  metadata?: Record<string, unknown>;
+  section?: string;
+}
+
+export interface TransformationResult {
+  value: string;
+  content: string;
+  confidence: number;
+  metadata: {
+    transformationType: string;
+    fieldType: string;
+    source: string;
+    status: string;
+    [key: string]: unknown;
+  };
+  additionalFields?: Record<string, {
+    value: string;
+    confidence: number;
+    metadata?: Record<string, unknown>;
+  }>;
+}
+
+export interface TransformationRule {
+  name: string;
+  description: string;
+  priority: number;
+  condition?: (value: string, context: TransformationContext) => boolean;
+  transform: (value: string, context: TransformationContext) => TransformationResult;
+}
+
+export type DocumentData = {
+  [section: string]: {
+    [field: string]: DocumentField;
+  };
+};
+
+export interface DocumentAnalysisResult {
+  modelId?: string;
+  ppe?: Partial<PPEData>;
+  customer?: Partial<CustomerData>;
+  correspondence?: Partial<CorrespondenceData>;
+  supplier?: Partial<SupplierData>;
+  billing?: Partial<BillingData>;
+  metadata?: Record<string, unknown>;
+}
+
 export interface LegacyFields {
-  // Podstawowe dane faktury
-  invoiceNumber?: string;
-  invoiceDate?: string;
-  dueDate?: string;
-  totalAmount?: string;
-  netAmount?: string;
-  vatAmount?: string;
-  vatRate?: string;
-  currency?: string;
-  periodStart?: string;
-  periodEnd?: string;
-  invoiceType?: string;
-  BilledUsage?: string;
-  '12mUsage'?: string;
-  BillingStartDate?: string;
-  BillingEndDate?: string;
-  EnergySaleBreakdown?: any;
-  Fortum_zużycie?: any;
-  BillBreakdown?: any;
-  Unit?: string;
-
-  // Dane punktu poboru
-  ppeNum?: string;
-  Tariff?: string;
-  ReadingType?: string;
-
   // Dane sprzedawcy
   supplierName?: string;
   OSD_name?: string;
-  taxID?: string;
+  spTaxID?: string;
   OSD_region?: string;
   spStreet?: string;
   spBuilding?: string;
   spUnit?: string;
-  spPostalCode?: string;
   spCity?: string;
+  spPostalCode?: string;
   spProvince?: string;
   spMunicipality?: string;
   spDistrict?: string;
-  spTaxID?: string;
   spIBAN?: string;
   spPhoneNum?: string;
   spWebUrl?: string;
 
-  // Dane odbiorcy
+  // Dane klienta
+  BusinessName?: string;
   FirstName?: string;
   LastName?: string;
-  BusinessName?: string;
+  taxID?: string;
   Street?: string;
   Building?: string;
-  PostalCode?: string;
+  Unit?: string;
   City?: string;
+  PostalCode?: string;
   Province?: string;
-  Municipality?: string;
-  District?: string;
 
   // Adres korespondencyjny
+  paBusinessName?: string;
   paFirstName?: string;
   paLastName?: string;
-  paBusinessName?: string;
   paTitle?: string;
   paStreet?: string;
   paBuilding?: string;
   paUnit?: string;
-  paPostalCode?: string;
   paCity?: string;
+  paPostalCode?: string;
   paProvince?: string;
   paMunicipality?: string;
   paDistrict?: string;
 
-  // Adres dostawy
-  dpFirstName?: string;
-  dpLastName?: string;
+  // Miejsce dostawy
+  ppeNum?: string;
+  dpMeterID?: string;
   dpStreet?: string;
   dpBuilding?: string;
   dpUnit?: string;
-  dpPostalCode?: string;
   dpCity?: string;
+  dpPostalCode?: string;
   dpProvince?: string;
   dpMunicipality?: string;
   dpDistrict?: string;
-  dpMeterID?: string;
+  Tariff?: string;
+
+  // Dane faktury
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  dueDate?: string;
+  totalAmount?: string;
+  currency?: string;
+  invoiceType?: string;
+  BillingStartDate?: string;
+  BillingEndDate?: string;
+  periodStart?: string;
+  periodEnd?: string;
+  netAmount?: string;
+  vatAmount?: string;
+  vatRate?: string;
+
+  // Dane zużycia
+  BilledUsage?: string;
+  '12mUsage'?: string;
+  ReadingType?: string;
 
   // Dane produktu
   ProductName?: string;
   productCode?: string;
+
+  // Dodatkowe dane
+  EnergySaleBreakdown?: string;
+  'Fortum_zużycie'?: string;
+  BillBreakdown?: string;
 }
 
-// Nowy format danych
 export interface ModernFields {
-  // Podstawowe dane faktury
-  InvoiceNumber?: string;
-  InvoiceDate?: string;
-  DueDate?: string;
-  TotalAmount?: string;
-  NetAmount?: string;
-  VatAmount?: string;
-  VatRate?: string;
-  Currency?: string;
-  InvoiceType: string;
-  BillingStartDate?: string;
-  BillingEndDate?: string;
-
-  // Dane punktu poboru
-  PPENumber?: string;
-  MeterID?: string;
-  Tariff?: string;
-  BilledUsage?: string;
-  ConsumptionUnit: string;
-  Usage12m?: string;
-  ReadingType?: string;
-  DeliveryStreet?: string;
-  DeliveryBuilding?: string;
-  DeliveryUnit?: string;
-  DeliveryCity?: string;
-  DeliveryPostalCode?: string;
-  DeliveryProvince?: string;
-  DeliveryMunicipality?: string;
-  DeliveryDistrict?: string;
-
   // Dane sprzedawcy
   SupplierName: string;
   SupplierTaxID?: string;
@@ -404,7 +495,7 @@ export interface ModernFields {
   SupplierPhoneNum?: string;
   SupplierWebURL?: string;
 
-  // Dane odbiorcy
+  // Dane klienta
   CustomerName: string;
   CustomerTaxId?: string;
   CustomerStreet?: string;
@@ -413,11 +504,9 @@ export interface ModernFields {
   CustomerCity?: string;
   CustomerPostalCode?: string;
   CustomerProvince?: string;
-  CustomerMunicipality?: string;
-  CustomerDistrict?: string;
 
   // Adres korespondencyjny
-  PostalName: string;
+  PostalName?: string;
   PostalTitle?: string;
   PostalStreet?: string;
   PostalBuilding?: string;
@@ -428,39 +517,44 @@ export interface ModernFields {
   PostalMunicipality?: string;
   PostalDistrict?: string;
 
+  // Miejsce dostawy
+  PPENumber?: string;
+  MeterID?: string;
+  DeliveryStreet?: string;
+  DeliveryBuilding?: string;
+  DeliveryUnit?: string;
+  DeliveryCity?: string;
+  DeliveryPostalCode?: string;
+  DeliveryProvince?: string;
+  DeliveryMunicipality?: string;
+  DeliveryDistrict?: string;
+  Tariff?: string;
+
+  // Dane faktury
+  InvoiceNumber?: string;
+  InvoiceDate?: string;
+  DueDate?: string;
+  TotalAmount?: string;
+  Currency?: string;
+  InvoiceType: string;
+  BillingStartDate?: string;
+  BillingEndDate?: string;
+  NetAmount?: string;
+  VatAmount?: string;
+  VatRate?: string;
+
+  // Dane zużycia
+  BilledUsage?: string;
+  ConsumptionUnit: string;
+  Usage12m?: string;
+  ReadingType?: string;
+
   // Dane produktu
   ProductName?: string;
   ProductCode?: string;
 
   // Dodatkowe dane
-  EnergySaleBreakdown?: any;
-  FortumUsage?: any;
-  BillBreakdown?: any;
-}
-
-// Dodajmy funkcję pomocniczą do transformacji wartości na UPPERCASE
-export function toUpperCaseValues<T extends Record<string, string | undefined>>(obj: T): T {
-  const result = {} as T;
-  for (const [key, value] of Object.entries(obj)) {
-    result[key as keyof T] = value?.toUpperCase() as T[keyof T];
-  }
-  return result;
-}
-
-export interface TransformationContext {
-  value: string;
-  confidence: number;
-  metadata?: Record<string, unknown>;
-}
-
-export interface TransformationResult {
-  value: string;
-  confidence: number;
-  metadata?: Record<string, unknown>;
-}
-
-export interface TransformationRule {
-  name: string;
-  description: string;
-  transform: (context: TransformationContext) => TransformationResult;
+  EnergySaleBreakdown?: string;
+  FortumUsage?: string;
+  BillBreakdown?: string;
 }

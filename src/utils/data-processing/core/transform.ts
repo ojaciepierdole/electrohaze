@@ -1,4 +1,4 @@
-import type { DocumentData, TransformationRule, TransformationContext } from '@/types/document';
+import type { DocumentData, TransformationRule, TransformationContext, DocumentField } from '@/types/processing';
 
 /**
  * Klasa odpowiedzialna za transformacje dokumentów
@@ -19,7 +19,7 @@ export class DocumentTransformer {
    * Transformuje pojedyncze pole dokumentu
    */
   private transformField(value: string, context: TransformationContext): string {
-    console.group(`Transformacja pola: ${context.field}`);
+    console.group(`Transformacja pola: ${context.field?.content || 'unknown'}`);
     console.log('Wartość wejściowa:', value);
     console.log('Kontekst:', context);
 
@@ -41,19 +41,24 @@ export class DocumentTransformer {
         console.log('Wynik transformacji:', result);
 
         // Jeśli transformacja zwróciła dodatkowe pola, dodaj je do dokumentu
-        if (result.additionalFields) {
-          Object.entries(result.additionalFields).forEach(([field, fieldData]) => {
-            if (context.document) {
-              context.document[field] = {
-                content: fieldData.value,
-                confidence: fieldData.confidence,
-                metadata: {
-                  fieldType: 'text',
-                  transformationType: 'additional',
-                  originalValue: value
-                }
-              };
-            }
+        if (result.additionalFields && context.document?.fields) {
+          Object.entries(result.additionalFields).forEach(([fieldName, fieldData]) => {
+            if (!context.document?.fields) return;
+
+            const fieldType = fieldData.metadata?.fieldType;
+            if (typeof fieldType !== 'string') return;
+
+            const documentField: DocumentField = {
+              content: fieldData.value,
+              confidence: fieldData.confidence,
+              metadata: {
+                fieldType: fieldType,
+                transformationType: 'additional',
+                originalValue: value,
+                ...(fieldData.metadata || {})
+              }
+            };
+            context.document.fields[fieldName] = documentField;
           });
         }
 
@@ -81,13 +86,20 @@ export class DocumentTransformer {
       const result = { ...data };
 
       // Transformuj każde pole w sekcji
-      Object.entries(data).forEach(([field, fieldData]) => {
+      Object.entries(data).forEach(([fieldName, fieldData]) => {
         const context: TransformationContext = {
-          section,
-          field,
           value: fieldData.content,
           confidence: fieldData.confidence,
-          document: result
+          section,
+          field: {
+            content: fieldData.content,
+            confidence: fieldData.confidence,
+            metadata: fieldData.metadata
+          },
+          document: {
+            fields: result
+          },
+          metadata: fieldData.metadata
         };
 
         // Transformuj wartość pola
@@ -95,7 +107,7 @@ export class DocumentTransformer {
 
         // Zaktualizuj pole tylko jeśli wartość się zmieniła
         if (transformedValue !== fieldData.content) {
-          result[field] = {
+          result[fieldName] = {
             content: transformedValue,
             confidence: fieldData.confidence,
             metadata: {

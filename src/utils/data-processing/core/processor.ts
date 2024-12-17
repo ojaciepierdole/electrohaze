@@ -1,4 +1,4 @@
-import type { DocumentData } from '@/types/document';
+import type { DocumentData } from '@/types/processing';
 import { DocumentTransformer } from './transform';
 import { personNameRules } from '../rules/person';
 import { addressRules } from '../rules/address';

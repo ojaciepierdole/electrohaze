@@ -1,87 +1,95 @@
-import type { DocumentField } from './document';
+import type { FieldWithConfidence, DocumentField } from './processing';
 
 /**
  * Dane punktu poboru energii (PPE)
  */
 export interface PPEData {
-  ppeNum: DocumentField;
-  MeterNumber: DocumentField;
-  TariffGroup: DocumentField;
-  ContractNumber?: DocumentField;
-  ContractType?: DocumentField;
-  dpStreet?: DocumentField;
-  dpBuilding?: DocumentField;
-  dpUnit?: DocumentField;
-  dpPostalCode?: DocumentField;
-  dpCity?: DocumentField;
-  Municipality?: DocumentField;
-  District?: DocumentField;
-  Province?: DocumentField;
-  [key: string]: DocumentField | undefined;
+  [key: string]: FieldWithConfidence | undefined;
+  ppeNum?: FieldWithConfidence;
+  MeterNumber?: FieldWithConfidence;
+  Tariff?: FieldWithConfidence;
+  ContractNumber?: FieldWithConfidence;
+  ContractType?: FieldWithConfidence;
+  OSD_name?: FieldWithConfidence;
+  OSD_region?: FieldWithConfidence;
+  ProductName?: FieldWithConfidence;
+  dpFirstName?: FieldWithConfidence;
+  dpLastName?: FieldWithConfidence;
+  dpStreet?: FieldWithConfidence;
+  dpBuilding?: FieldWithConfidence;
+  dpUnit?: FieldWithConfidence;
+  dpPostalCode?: FieldWithConfidence;
+  dpCity?: FieldWithConfidence;
+  dpProvince?: FieldWithConfidence;
+  dpMunicipality?: FieldWithConfidence;
+  dpDistrict?: FieldWithConfidence;
+  dpMeterID?: FieldWithConfidence;
 }
 
 /**
  * Dane klienta
  */
 export interface CustomerData {
-  FirstName?: DocumentField;
-  LastName?: DocumentField;
-  BusinessName?: DocumentField;
-  taxID?: DocumentField;
-  Street?: DocumentField;
-  Building?: DocumentField;
-  Unit?: DocumentField;
-  PostalCode?: DocumentField;
-  City?: DocumentField;
-  [key: string]: DocumentField | undefined;
+  [key: string]: FieldWithConfidence | undefined;
+  FirstName?: FieldWithConfidence;
+  LastName?: FieldWithConfidence;
+  BusinessName?: FieldWithConfidence;
+  taxID?: FieldWithConfidence;
+  Street?: FieldWithConfidence;
+  Building?: FieldWithConfidence;
+  Unit?: FieldWithConfidence;
+  PostalCode?: FieldWithConfidence;
+  City?: FieldWithConfidence;
+  Municipality?: FieldWithConfidence;
+  District?: FieldWithConfidence;
+  Province?: FieldWithConfidence;
 }
 
 /**
  * Dane adresu korespondencyjnego
  */
 export interface CorrespondenceData {
-  paFirstName?: DocumentField;
-  paLastName?: DocumentField;
-  paBusinessName?: DocumentField;
-  paTitle?: DocumentField;
-  paStreet?: DocumentField;
-  paBuilding?: DocumentField;
-  paUnit?: DocumentField;
-  paPostalCode?: DocumentField;
-  paCity?: DocumentField;
-  [key: string]: DocumentField | undefined;
+  [key: string]: FieldWithConfidence | undefined;
+  paFirstName?: FieldWithConfidence;
+  paLastName?: FieldWithConfidence;
+  paBusinessName?: FieldWithConfidence;
+  paTitle?: FieldWithConfidence;
+  paStreet?: FieldWithConfidence;
+  paBuilding?: FieldWithConfidence;
+  paUnit?: FieldWithConfidence;
+  paPostalCode?: FieldWithConfidence;
+  paCity?: FieldWithConfidence;
 }
 
 /**
  * Dane dostawcy
  */
 export interface SupplierData {
-  supplierName: DocumentField;
-  supplierTaxID: DocumentField;
-  supplierStreet?: DocumentField;
-  supplierBuilding?: DocumentField;
-  supplierUnit?: DocumentField;
-  supplierPostalCode?: DocumentField;
-  supplierCity?: DocumentField;
-  supplierBankAccount?: DocumentField;
-  supplierBankName?: DocumentField;
-  supplierEmail?: DocumentField;
-  supplierPhone?: DocumentField;
-  supplierWebsite?: DocumentField;
-  OSD_name?: DocumentField;
-  OSD_region?: DocumentField;
-  [key: string]: DocumentField | undefined;
+  [key: string]: FieldWithConfidence | undefined;
+  supplierName?: FieldWithConfidence;
+  supplierTaxID?: FieldWithConfidence;
+  supplierStreet?: FieldWithConfidence;
+  supplierBuilding?: FieldWithConfidence;
+  supplierUnit?: FieldWithConfidence;
+  supplierPostalCode?: FieldWithConfidence;
+  supplierCity?: FieldWithConfidence;
+  supplierBankAccount?: FieldWithConfidence;
+  supplierBankName?: FieldWithConfidence;
+  supplierEmail?: FieldWithConfidence;
+  supplierPhone?: FieldWithConfidence;
+  supplierWebsite?: FieldWithConfidence;
+  OSD_name?: FieldWithConfidence;
 }
 
 /**
  * Dane rozliczeniowe
  */
 export interface BillingData {
-  billingStartDate?: DocumentField;
-  billingEndDate?: DocumentField;
-  billedUsage?: DocumentField;
-  '12mUsage'?: DocumentField;
-  [key: string]: DocumentField | undefined;
+  [key: string]: FieldWithConfidence | undefined;
+  billingStartDate?: FieldWithConfidence;
+  billingEndDate?: FieldWithConfidence;
+  billedUsage?: FieldWithConfidence;
+  usage12m?: FieldWithConfidence;
 }
 
 // Komponenty adresowe

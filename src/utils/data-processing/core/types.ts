@@ -1,4 +1,4 @@
-import type { DocumentField, TransformationContext, TransformationResult } from '@/types/document';
+import type { DocumentField, TransformationContext, TransformationResult } from '@/types/processing';
 
 export interface Rule {
   name: string;

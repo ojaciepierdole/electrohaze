@@ -1,12 +1,13 @@
 // Funkcja mapująca surowe dane do naszej struktury
-import type { DocumentAnalysisResult, FieldWithConfidence, CustomerData, PPEData, CorrespondenceData, SupplierData, BillingData } from '@/types/processing';
-import type { DocumentField, AnalyzeResult } from '@azure/ai-form-recognizer';
+import type { DocumentAnalysisResult, FieldWithConfidence, CustomerData, PPEData, CorrespondenceData, SupplierData, BillingData, DocumentField, Point2D, BoundingRegion } from '@/types/processing';
+import type { AnalyzeResult, DocumentField as AzureDocumentField, BoundingRegion as AzureBoundingRegion, Point2D as AzurePoint2D } from '@azure/ai-form-recognizer';
 import { DateHelpers } from '@/types/common';
 import { safeValidateMappedResult } from '@/types/validation';
 import { Logger } from '@/lib/logger';
 import { formatDate, formatConsumption } from './text-formatting';
 import { normalizeAddress } from './data-processing/normalizers/address';
 import { determineOSDByPostalCode } from './data-processing/rules/osd';
+import { cleanOSDName, cleanOSDRegion } from '@/utils/data-processing/text-formatting';
 
 const logger = Logger.getInstance();
 
@@ -57,9 +58,9 @@ export function findMissingFields(data: DocumentAnalysisResult): MissingFields {
   const supplierMissing: string[] = [];
 
   // Sprawdzenie pól klienta
-  if (data.customerData) {
+  if (data.customer) {
     Object.entries(requiredCustomerFields).forEach(([key, label]) => {
-      if (!data.customerData?.[key as keyof typeof requiredCustomerFields]) {
+      if (!data.customer?.[key as keyof typeof requiredCustomerFields]) {
         customerMissing.push(label);
       }
     });
@@ -68,9 +69,9 @@ export function findMissingFields(data: DocumentAnalysisResult): MissingFields {
   }
 
   // Sprawdzenie pól PPE
-  if (data.ppeData) {
+  if (data.ppe) {
     Object.entries(requiredPPEFields).forEach(([key, label]) => {
-      if (!data.ppeData?.[key as keyof typeof requiredPPEFields]) {
+      if (!data.ppe?.[key as keyof typeof requiredPPEFields]) {
         ppeMissing.push(label);
       }
     });
@@ -79,9 +80,9 @@ export function findMissingFields(data: DocumentAnalysisResult): MissingFields {
   }
 
   // Sprawdzenie pól korespondencyjnych
-  if (data.correspondenceData) {
+  if (data.correspondence) {
     Object.entries(requiredCorrespondenceFields).forEach(([key, label]) => {
-      if (!data.correspondenceData?.[key as keyof typeof requiredCorrespondenceFields]) {
+      if (!data.correspondence?.[key as keyof typeof requiredCorrespondenceFields]) {
         correspondenceMissing.push(label);
       }
     });
@@ -90,9 +91,9 @@ export function findMissingFields(data: DocumentAnalysisResult): MissingFields {
   }
 
   // Sprawdzenie pól rozliczeniowych
-  if (data.billingData) {
+  if (data.billing) {
     Object.entries(requiredBillingFields).forEach(([key, label]) => {
-      if (!data.billingData?.[key as keyof typeof requiredBillingFields]) {
+      if (!data.billing?.[key as keyof typeof requiredBillingFields]) {
         billingMissing.push(label);
       }
     });
@@ -101,9 +102,9 @@ export function findMissingFields(data: DocumentAnalysisResult): MissingFields {
   }
 
   // Sprawdzenie pól dostawcy
-  if (data.supplierData) {
+  if (data.supplier) {
     Object.entries(requiredSupplierFields).forEach(([key, label]) => {
-      if (!data.supplierData?.[key as keyof typeof requiredSupplierFields]) {
+      if (!data.supplier?.[key as keyof typeof requiredSupplierFields]) {
         supplierMissing.push(label);
       }
     });
@@ -182,124 +183,169 @@ function createFieldWithConfidence(content: string, confidence: number, source: 
   };
 }
 
-export function mapDocumentAnalysisResult(fields: Record<string, DocumentField>): DocumentAnalysisResult {
-  // Inicjalizujemy wszystkie możliwe pola jako puste
-  const emptyField: FieldWithConfidence = { 
-    content: '', 
-    confidence: 0,
-    metadata: {
-      fieldType: 'text',
-      transformationType: 'initial',
-      source: 'empty'
-    }
-  };
-  
-  const mappedResult: DocumentAnalysisResult = {
-    customerData: {
-      FirstName: emptyField,
-      LastName: emptyField,
-      BusinessName: emptyField,
-      taxID: emptyField,
-      Street: emptyField,
-      Building: emptyField,
-      Unit: emptyField,
-      PostalCode: emptyField,
-      City: emptyField,
-      Municipality: emptyField,
-      District: emptyField,
-      Province: emptyField
-    },
-    ppeData: {
-      ppeNum: emptyField,
-      MeterNumber: emptyField,
-      Tariff: emptyField,
-      ContractNumber: emptyField,
-      ContractType: emptyField,
-      OSD_name: emptyField,
-      OSD_region: emptyField,
-      ProductName: emptyField,
-      dpFirstName: emptyField,
-      dpLastName: emptyField,
-      dpStreet: emptyField,
-      dpBuilding: emptyField,
-      dpUnit: emptyField,
-      dpPostalCode: emptyField,
-      dpCity: emptyField,
-      EnergySaleBreakdown: emptyField,
-      FortumZuzycie: emptyField,
-      BillBreakdown: emptyField
-    },
-    correspondenceData: {
-      paFirstName: emptyField,
-      paLastName: emptyField,
-      paBusinessName: emptyField,
-      paTitle: emptyField,
-      paStreet: emptyField,
-      paBuilding: emptyField,
-      paUnit: emptyField,
-      paPostalCode: emptyField,
-      paCity: emptyField
-    },
-    supplierData: {
-      supplierName: emptyField,
-      supplierTaxID: emptyField,
-      supplierStreet: emptyField,
-      supplierBuilding: emptyField,
-      supplierUnit: emptyField,
-      supplierPostalCode: emptyField,
-      supplierCity: emptyField,
-      supplierBankAccount: emptyField,
-      supplierBankName: emptyField,
-      supplierEmail: emptyField,
-      supplierPhone: emptyField,
-      supplierWebsite: emptyField,
-      OSD_name: emptyField
-    },
-    billingData: {
-      billingStartDate: emptyField,
-      billingEndDate: emptyField,
-      billedUsage: emptyField,
-      usage12m: emptyField
-    }
-  };
+// Funkcja pomocnicza do konwersji DocumentField na FieldWithConfidence
+function convertToFieldWithConfidence(field: DocumentField | undefined): FieldWithConfidence {
+  if (!field) {
+    return {
+      content: '',
+      confidence: 0,
+      metadata: {
+        fieldType: 'text',
+        transformationType: 'initial',
+        source: 'empty'
+      }
+    };
+  }
 
-  // Uzupełniamy wartości z pól rozpoznanych przez Azure
-  Object.entries(fields).forEach(([key, field]) => {
-    const value = getFieldValue(field);
-    if (value !== undefined) {
-      // Mapujemy wartość na odpowiednie pole w strukturze
-      if (mappedResult.customerData && key in mappedResult.customerData) {
-        mappedResult.customerData[key as keyof CustomerData] = createFieldWithConfidence(value, field.confidence || 0, 'azure');
-      } else if (mappedResult.ppeData && key in mappedResult.ppeData) {
-        mappedResult.ppeData[key as keyof PPEData] = createFieldWithConfidence(value, field.confidence || 0, 'azure');
-      } else if (mappedResult.correspondenceData && key in mappedResult.correspondenceData) {
-        mappedResult.correspondenceData[key as keyof CorrespondenceData] = createFieldWithConfidence(value, field.confidence || 0, 'azure');
-      } else if (mappedResult.supplierData && key in mappedResult.supplierData) {
-        mappedResult.supplierData[key as keyof SupplierData] = createFieldWithConfidence(value, field.confidence || 0, 'azure');
-      } else if (mappedResult.billingData && key in mappedResult.billingData) {
-        mappedResult.billingData[key as keyof BillingData] = createFieldWithConfidence(value, field.confidence || 0, 'azure');
+  return {
+    content: field.content || '',
+    confidence: field.confidence || 0,
+    metadata: {
+      fieldType: field.metadata?.fieldType || 'text',
+      transformationType: field.metadata?.transformationType || 'initial',
+      source: field.metadata?.source || 'azure',
+      originalValue: field.content
+    }
+  };
+}
+
+function convertAzureFieldToDocumentField(field: AzureDocumentField): DocumentField {
+  return {
+    content: field.content || '',
+    confidence: field.confidence || 0,
+    kind: field.kind || 'string',
+    boundingRegions: field.boundingRegions?.map((region: AzureBoundingRegion) => ({
+      pageNumber: region.pageNumber,
+      polygon: region.polygon?.map((point: AzurePoint2D) => ({
+        x: point.x,
+        y: point.y
+      })) || []
+    })) || [],
+    spans: field.spans || [],
+    metadata: {
+      fieldType: field.kind || 'text',
+      transformationType: 'initial',
+      source: 'azure'
+    }
+  };
+}
+
+export function mapDocumentAnalysisResult(fields: Record<string, AzureDocumentField>): DocumentAnalysisResult {
+  const result: DocumentAnalysisResult = {
+    customer: {},
+    ppe: {},
+    correspondence: {},
+    supplier: {},
+    billing: {},
+    metadata: {
+      technicalData: {
+        content: '',
+        pages: []
       }
     }
-  });
+  };
 
-  return mappedResult;
+  // Mapowanie pól klienta
+  const customerFields = ['FirstName', 'LastName', 'BusinessName', 'taxID', 'Street', 'Building', 'Unit', 'PostalCode', 'City', 'Municipality', 'District', 'Province'];
+  for (const field of customerFields) {
+    if (fields[field]) {
+      result.customer![field as keyof CustomerData] = convertToFieldWithConfidence(convertAzureFieldToDocumentField(fields[field]));
+    }
+  }
+
+  // Mapowanie pól PPE
+  const ppeFields = ['ppeNum', 'MeterNumber', 'Tariff', 'ContractNumber', 'ContractType', 'OSD_name', 'OSD_region', 'ProductName', 
+    'dpFirstName', 'dpLastName', 'dpStreet', 'dpBuilding', 'dpUnit', 'dpPostalCode', 'dpCity', 'dpProvince', 'dpMunicipality', 'dpDistrict', 'dpMeterID'];
+  for (const field of ppeFields) {
+    if (fields[field]) {
+      result.ppe![field as keyof PPEData] = convertToFieldWithConfidence(convertAzureFieldToDocumentField(fields[field]));
+    }
+  }
+
+  // Mapowanie pól korespondencyjnych
+  const correspondenceFields = ['paFirstName', 'paLastName', 'paBusinessName', 'paTitle', 'paStreet', 'paBuilding', 'paUnit', 'paPostalCode', 'paCity'];
+  for (const field of correspondenceFields) {
+    if (fields[field]) {
+      result.correspondence![field as keyof CorrespondenceData] = convertToFieldWithConfidence(convertAzureFieldToDocumentField(fields[field]));
+    }
+  }
+
+  // Mapowanie pól dostawcy
+  const supplierFields = ['supplierName', 'supplierTaxID', 'supplierStreet', 'supplierBuilding', 'supplierUnit', 'supplierPostalCode', 'supplierCity',
+    'supplierBankAccount', 'supplierBankName', 'supplierEmail', 'supplierPhone', 'supplierWebsite', 'OSD_name'];
+  for (const field of supplierFields) {
+    if (fields[field]) {
+      result.supplier![field as keyof SupplierData] = convertToFieldWithConfidence(convertAzureFieldToDocumentField(fields[field]));
+    }
+  }
+
+  // Mapowanie pól rozliczeniowych
+  const billingFields = ['billingStartDate', 'billingEndDate', 'billedUsage', 'usage12m'];
+  for (const field of billingFields) {
+    if (fields[field]) {
+      result.billing![field as keyof BillingData] = convertToFieldWithConfidence(convertAzureFieldToDocumentField(fields[field]));
+    }
+  }
+
+  return result;
+}
+
+// Funkcja pomocnicza do ekstrakcji wartości string z DocumentField lub string | DocumentField
+function extractStringValue(value: string | DocumentField | null | undefined): string {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  return value.content || '';
+}
+
+// Funkcja pomocnicza do tworzenia pustego wyniku
+function createEmptyResult(): DocumentAnalysisResult {
+  return {
+    customer: {},
+    ppe: {},
+    correspondence: {},
+    supplier: {},
+    billing: {},
+    metadata: {}
+  };
+}
+
+// Funkcja pomocnicza do bezpiecznej konwersji pola adresowego
+function convertAddressField(
+  azureField: AzureDocumentField | undefined,
+  normalizedValue: DocumentField | null | undefined,
+  defaultContent: string = ''
+): DocumentField {
+  if (!azureField) {
+    return convertAzureFieldToDocumentField({
+      content: defaultContent,
+      confidence: 0,
+      kind: 'string',
+      boundingRegions: [],
+      spans: []
+    } as AzureDocumentField);
+  }
+
+  return convertAzureFieldToDocumentField({
+    ...azureField,
+    content: extractStringValue(normalizedValue) || azureField.content || defaultContent
+  });
 }
 
 // Funkcja pomocnicza do mapowania odpowiedzi z Azure na nasz format
 export function mapAzureResponse(response: AnalyzeResult): DocumentAnalysisResult {
   if (!response.documents || !Array.isArray(response.documents) || response.documents.length === 0) {
-    return {};
+    return createEmptyResult();
   }
 
   const firstDocument = response.documents[0];
   if (!firstDocument || !firstDocument.fields) {
-    return {};
+    return createEmptyResult();
   }
 
   // Normalizuj dane adresowe
   const dpFields = firstDocument.fields;
   const dpAddress = normalizeAddress(
-    createFieldWithConfidence(dpFields.dpStreet?.content || '', dpFields.dpStreet?.confidence || 0, 'azure'),
+    convertToFieldWithConfidence(convertAzureFieldToDocumentField(dpFields.dpStreet as AzureDocumentField)),
     {},
     'dp'
   );
@@ -309,32 +355,83 @@ export function mapAzureResponse(response: AnalyzeResult): DocumentAnalysisResul
   const osdConfidence = osdName ? 1.0 : 0;
 
   // Zachowaj oryginalne wartości dla pól adresowych
-  const mappedFields = {
-    ...firstDocument.fields,
-    dpStreet: dpFields.dpStreet ? {
-      ...dpFields.dpStreet,
-      content: dpAddress.dpStreet || dpFields.dpStreet.content
-    } : undefined,
-    dpBuilding: dpFields.dpBuilding ? {
-      ...dpFields.dpBuilding,
-      content: dpAddress.dpBuilding || dpFields.dpBuilding.content
-    } : undefined,
-    dpUnit: dpFields.dpUnit ? {
-      ...dpFields.dpUnit,
-      content: dpAddress.dpUnit || dpFields.dpUnit.content
-    } : undefined,
-    OSD_name: createFieldWithConfidence(
-      osdName || '',
-      osdConfidence,
-      'postal_code_mapping'
-    )
+  const mappedFields: Record<string, DocumentField> = {
+    dpStreet: convertAddressField(dpFields.dpStreet as AzureDocumentField, dpAddress.dpStreet),
+    dpBuilding: convertAddressField(dpFields.dpBuilding as AzureDocumentField, dpAddress.dpBuilding),
+    dpUnit: convertAddressField(dpFields.dpUnit as AzureDocumentField, dpAddress.dpUnit),
+    OSD_name: convertAddressField(undefined, undefined, osdName || '')
   };
 
   return {
-    ...response,
-    documents: [{
-      ...firstDocument,
+    ...createEmptyResult(),
+    metadata: {
+      docType: firstDocument.docType || 'unknown',
+      confidence: firstDocument.confidence || 0,
       fields: mappedFields
-    }]
+    }
   };
+}
+
+export function processSupplierData(data: Partial<SupplierData>): Record<string, FieldWithConfidence | undefined> {
+  const processedData: Record<string, FieldWithConfidence | undefined> = {};
+
+  // Przetwórz nazwę OSD
+  if (data.OSD_name?.content) {
+    processedData.OSD_name = {
+      content: cleanOSDName(data.OSD_name.content),
+      confidence: data.OSD_name.confidence,
+      metadata: {
+        fieldType: data.OSD_name.metadata?.fieldType || 'text',
+        transformationType: data.OSD_name.metadata?.transformationType || 'initial',
+        source: data.OSD_name.metadata?.source || 'raw'
+      }
+    };
+  }
+
+  // Przetwórz region OSD
+  if (data.OSD_region?.content) {
+    processedData.OSD_region = {
+      content: cleanOSDRegion(data.OSD_region.content),
+      confidence: data.OSD_region.confidence,
+      metadata: {
+        fieldType: data.OSD_region.metadata?.fieldType || 'text',
+        transformationType: data.OSD_region.metadata?.transformationType || 'initial',
+        source: data.OSD_region.metadata?.source || 'raw'
+      }
+    };
+  }
+
+  // Skopiuj pozostałe pola bez zmian
+  Object.entries(data).forEach(([key, value]) => {
+    if (!['OSD_name', 'OSD_region'].includes(key) && value) {
+      processedData[key] = {
+        content: value.content,
+        confidence: value.confidence,
+        metadata: {
+          fieldType: value.metadata?.fieldType || 'text',
+          transformationType: value.metadata?.transformationType || 'initial',
+          source: value.metadata?.source || 'raw'
+        }
+      };
+    }
+  });
+
+  return processedData;
+}
+
+// Oblicz średnią pewność dla pól z danymi
+export function calculateSupplierConfidence(data: Record<string, FieldWithConfidence | undefined>): number {
+  const fieldsWithConfidence = Object.values(data)
+    .filter((field): field is FieldWithConfidence => field?.confidence !== undefined);
+  
+  return fieldsWithConfidence.length > 0
+    ? fieldsWithConfidence.reduce((acc, field) => acc + field.confidence, 0) / fieldsWithConfidence.length
+    : 0;
+}
+
+// Oblicz kompletność danych dostawcy
+export function calculateSupplierCompleteness(data: Record<string, FieldWithConfidence | undefined>): number {
+  const requiredFields = ['supplierName', 'OSD_name', 'OSD_region'];
+  const filledRequiredFields = requiredFields.filter(key => data[key]?.content).length;
+  return Math.round((filledRequiredFields / requiredFields.length) * 100);
 } 

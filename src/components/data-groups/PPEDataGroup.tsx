@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { DataGroup } from '@/components/data-groups/DataGroup';
-import type { DocumentField } from '@/types/document-processing';
+import type { FieldWithConfidence } from '@/types/processing';
 import { processSection } from '@/utils/data-processing';
 import type { PPEData } from '@/types/fields';
 
@@ -12,7 +12,7 @@ interface PPEDataGroupProps {
 
 export const PPEDataGroup: React.FC<PPEDataGroupProps> = ({ data }) => {
   // Konwertuj dane do wymaganego formatu
-  const processedData = processSection('ppe', data) as Record<string, DocumentField | undefined>;
+  const processedData = processSection('ppe', data) as Record<string, FieldWithConfidence | undefined>;
 
   // Przetwórz numer budynku i lokalu
   if (processedData.dpBuilding?.content) {
@@ -27,15 +27,20 @@ export const PPEDataGroup: React.FC<PPEDataGroupProps> = ({ data }) => {
       processedData.dpUnit = {
         content: unitNumber.trim(),
         confidence: processedData.dpBuilding.confidence,
-        isEnriched: processedData.dpBuilding.isEnriched,
-        metadata: processedData.dpBuilding.metadata
+        metadata: {
+          fieldType: 'text',
+          transformationType: 'split',
+          source: 'derived',
+          status: 'success',
+          originalValue: processedData.dpBuilding.content
+        }
       };
     }
   }
 
   // Oblicz średnią pewność dla pól z danymi
   const fieldsWithConfidence = Object.values(processedData)
-    .filter((field): field is DocumentField => field?.confidence !== undefined);
+    .filter((field): field is FieldWithConfidence => field?.confidence !== undefined);
   const averageConfidence = fieldsWithConfidence.length > 0
     ? fieldsWithConfidence.reduce((acc, field) => acc + field.confidence, 0) / fieldsWithConfidence.length
     : 0;

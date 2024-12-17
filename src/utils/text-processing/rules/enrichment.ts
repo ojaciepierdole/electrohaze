@@ -1,60 +1,29 @@
-import { TransformationContext, TransformationResult, TransformationRule } from '@/types/document-processing';
-import { enrichPersonName } from '@/utils/text-formatting/person';
-import { enrichAddress } from '@/utils/text-formatting/address';
+import { normalizeAddressField } from '@/utils/text-formatting/address';
+import type { TransformationContext, TransformationResult, TransformationRule } from '@/types/processing';
 
 export const enrichmentRules: TransformationRule[] = [
   {
-    name: 'person_name_enrichment',
-    description: 'Wzbogacanie danych osobowych',
-    priority: 100,
-    condition: (value: string, context: TransformationContext) => {
-      return context.field?.includes('FirstName') || 
-             context.field?.includes('LastName');
-    },
-    transform: (value: string, context: TransformationContext): TransformationResult => {
-      const enriched = enrichPersonName(value);
-      if (!enriched) {
-        return {
-          value: value,
-          content: value,
-          confidence: context.confidence ?? 0,
-          metadata: { enriched: false }
-        };
-      }
-
-      return {
-        value: enriched,
-        content: enriched,
-        confidence: context.confidence ?? 0,
-        metadata: { enriched: true }
-      };
-    }
-  },
-  {
     name: 'address_enrichment',
     description: 'Wzbogacanie adresu',
-    priority: 90,
+    priority: 100,
     condition: (value: string, context: TransformationContext) => {
-      return context.field?.includes('Street') || 
-             context.field?.includes('Building') || 
-             context.field?.includes('Unit');
+      const fieldType = context.field?.metadata?.fieldType || '';
+      return fieldType === 'address';
     },
     transform: (value: string, context: TransformationContext): TransformationResult => {
-      const enriched = enrichAddress(value);
-      if (!enriched) {
-        return {
-          value: value,
-          content: value,
-          confidence: context.confidence ?? 0,
-          metadata: { enriched: false }
-        };
-      }
-
+      const normalizedAddress = normalizeAddressField(value);
+      
       return {
-        value: enriched,
-        content: enriched,
+        value: normalizedAddress || value,
+        content: normalizedAddress || value,
         confidence: context.confidence ?? 0,
-        metadata: { enriched: true }
+        metadata: {
+          fieldType: 'address',
+          transformationType: 'enrichment',
+          source: 'normalized',
+          status: normalizedAddress ? 'success' : 'failed',
+          originalValue: value
+        }
       };
     }
   }

@@ -10,6 +10,19 @@ function isTypicalLastName(name: string): boolean {
   return TYPICAL_LAST_NAMES.has(name.toUpperCase());
 }
 
+// Funkcja do normalizacji imienia i nazwiska
+export function normalizePersonName(value: string | null): string | null {
+  if (!value) return null;
+  
+  // Usuń nadmiarowe białe znaki i zamień na wielkie litery
+  const normalized = value.trim().toUpperCase();
+  
+  // Usuń potencjalne duplikaty oddzielone znakiem nowej linii
+  const cleanedValue = normalized.split('\n')[0];
+  
+  return cleanedValue;
+}
+
 // Funkcja do rozdzielania imienia i nazwiska
 export function splitPersonName(fullName: string | null): {
   firstName: string | null;
@@ -138,6 +151,25 @@ export function splitPersonName(fullName: string | null): {
   };
 }
 
+// Funkcja pomocnicza do konwersji na FieldWithConfidence
+function convertToFieldWithConfidence(field: { content: string; confidence: number; } | FieldWithConfidence | undefined): FieldWithConfidence | undefined {
+  if (!field) return undefined;
+  
+  if ('metadata' in field) {
+    return field as FieldWithConfidence;
+  }
+  
+  return {
+    content: field.content,
+    confidence: field.confidence,
+    metadata: {
+      fieldType: 'text',
+      transformationType: 'initial',
+      source: 'conversion'
+    }
+  };
+}
+
 // Funkcja do wzbogacania danych osobowych
 export function enrichPersonFields(
   mainFields: { firstName?: FieldWithConfidence; lastName?: FieldWithConfidence } | undefined,
@@ -163,8 +195,8 @@ export function enrichPersonFields(
     const { firstName, lastName } = splitPersonName(deliveryFields.fullName.content);
     if (firstName && lastName) {
       splitDeliveryName = {
-        firstName: { content: firstName, confidence: deliveryFields.fullName.confidence },
-        lastName: { content: lastName, confidence: deliveryFields.fullName.confidence }
+        firstName: convertToFieldWithConfidence({ content: firstName, confidence: deliveryFields.fullName.confidence }),
+        lastName: convertToFieldWithConfidence({ content: lastName, confidence: deliveryFields.fullName.confidence })
       };
     }
   }
@@ -175,8 +207,8 @@ export function enrichPersonFields(
     const { firstName, lastName } = splitPersonName(mainFields.firstName.content);
     if (firstName && lastName) {
       splitMainName = {
-        firstName: { content: firstName, confidence: mainFields.firstName.confidence },
-        lastName: { content: lastName, confidence: mainFields.firstName.confidence }
+        firstName: convertToFieldWithConfidence({ content: firstName, confidence: mainFields.firstName.confidence }),
+        lastName: convertToFieldWithConfidence({ content: lastName, confidence: mainFields.firstName.confidence })
       };
     }
   }
@@ -187,24 +219,24 @@ export function enrichPersonFields(
     const { firstName, lastName } = splitPersonName(mainFields.lastName.content);
     if (firstName && lastName) {
       splitMainLastName = {
-        firstName: { content: firstName, confidence: mainFields.lastName.confidence },
-        lastName: { content: lastName, confidence: mainFields.lastName.confidence }
+        firstName: convertToFieldWithConfidence({ content: firstName, confidence: mainFields.lastName.confidence }),
+        lastName: convertToFieldWithConfidence({ content: lastName, confidence: mainFields.lastName.confidence })
       };
     }
   }
 
   // Wzbogać imię
   const enrichedFirstName = mergeFieldsWithConfidence([
-    { field: splitMainName?.firstName || splitMainLastName?.firstName || mainFields?.firstName, weight: mainWeight },
-    { field: correspondenceFields?.firstName, weight: correspondenceWeight },
-    { field: deliveryFields?.firstName || splitDeliveryName?.firstName, weight: deliveryWeight }
+    { field: convertToFieldWithConfidence(splitMainName?.firstName || splitMainLastName?.firstName || mainFields?.firstName), weight: mainWeight },
+    { field: convertToFieldWithConfidence(correspondenceFields?.firstName), weight: correspondenceWeight },
+    { field: convertToFieldWithConfidence(deliveryFields?.firstName || splitDeliveryName?.firstName), weight: deliveryWeight }
   ], { confidenceThreshold });
 
   // Wzbogać nazwisko
   const enrichedLastName = mergeFieldsWithConfidence([
-    { field: splitMainName?.lastName || splitMainLastName?.lastName || mainFields?.lastName, weight: mainWeight },
-    { field: correspondenceFields?.lastName, weight: correspondenceWeight },
-    { field: deliveryFields?.lastName || splitDeliveryName?.lastName, weight: deliveryWeight }
+    { field: convertToFieldWithConfidence(splitMainName?.lastName || splitMainLastName?.lastName || mainFields?.lastName), weight: mainWeight },
+    { field: convertToFieldWithConfidence(correspondenceFields?.lastName), weight: correspondenceWeight },
+    { field: convertToFieldWithConfidence(deliveryFields?.lastName || splitDeliveryName?.lastName), weight: deliveryWeight }
   ], { confidenceThreshold });
 
   return {
@@ -294,14 +326,24 @@ export function mergeFieldsWithConfidence(
 
     return {
       content: mergedContent.toUpperCase(),
-      confidence: weightedConfidence
+      confidence: weightedConfidence,
+      metadata: {
+        fieldType: 'text',
+        transformationType: 'merged',
+        source: 'custom_merge'
+      }
     };
   }
 
   // Zwróć pole z najwyższą liczbą wystąpień i najwyższą pewnością * waga
   return {
     content: mergedFields[0].content.toUpperCase(),
-    confidence: mergedFields[0].confidence
+    confidence: mergedFields[0].confidence,
+    metadata: {
+      fieldType: 'text',
+      transformationType: 'merged',
+      source: 'best_match'
+    }
   };
 }
 

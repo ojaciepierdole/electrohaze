@@ -1,5 +1,7 @@
 import type { FieldWithConfidence } from '@/types/processing';
-import type { DocumentField } from '@/types/document';
+import type { DocumentField } from '@/types/processing';
+import { normalizeText } from '@/utils/data-processing/core/normalization';
+import { type AddressComponents } from '@/types/fields';
 import { mergeFieldsWithConfidence } from './person';
 import { normalizeAddress } from '../data-processing/normalizers/address';
 
@@ -233,7 +235,7 @@ export function formatAddress(value: DocumentField | string | null): string | nu
   if (!value) return null;
   const content = typeof value === 'string' ? value : value.content;
   if (!content) return null;
-  return content.replace(/,+$/, '').toUpperCase();
+  return normalizeText(content, { toUpper: true });
 }
 
 // Funkcja do formatowania kodu pocztowego
@@ -242,8 +244,8 @@ export function formatPostalCode(value: DocumentField | string | null): string |
   const content = typeof value === 'string' ? value : value.content;
   if (!content) return null;
   // Usuń wszystkie białe znaki i formatuj jako XX-XXX
-  const cleaned = content.replace(/\s+/g, '');
-  if (cleaned.length === 5) {
+  const cleaned = normalizeText(content, { removeSpecial: true });
+  if (cleaned && cleaned.length === 5) {
     return `${cleaned.slice(0, 2)}-${cleaned.slice(2)}`;
   }
   return content;
@@ -254,7 +256,7 @@ export function formatCity(value: DocumentField | string | null): string | null 
   if (!value) return null;
   const content = typeof value === 'string' ? value : value.content;
   if (!content) return null;
-  return content.toUpperCase();
+  return normalizeText(content, { toUpper: true });
 }
 
 // Funkcja do formatowania województwa
@@ -262,7 +264,7 @@ export function formatProvince(value: DocumentField | string | null): string | n
   if (!value) return null;
   const content = typeof value === 'string' ? value : value.content;
   if (!content) return null;
-  return content.toUpperCase();
+  return normalizeText(content, { toUpper: true });
 }
 
 // Funkcja do formatowania ulicy
@@ -280,5 +282,88 @@ export function formatStreet(value: DocumentField | string | null): string | nul
     ''
   ).trim();
   
-  return withoutPrefix.toUpperCase();
+  return normalizeText(withoutPrefix, { toUpper: true });
+}
+
+// Funkcja do normalizacji adresu
+export function normalizeAddressField(value: string | null): string | null {
+  if (!value) return null;
+  
+  // Usuń nadmiarowe białe znaki i zamień na wielkie litery
+  const normalized = normalizeText(value, { toUpper: true });
+  if (!normalized) return null;
+  
+  // Usuń potencjalne duplikaty oddzielone znakiem nowej linii
+  const cleanedValue = normalized.split('\n')[0];
+  
+  // Usuń prefiksy ulicy - dodajemy spację po prefiksie aby uniknąć usuwania części nazw
+  const withoutPrefix = cleanedValue.replace(
+    /^(?:UL|UL\.|ULICA|AL|AL\.|ALEJA|PL|PL\.|PLAC|RONDO|OS|OS\.|OSIEDLE)\s+/i,
+    ''
+  ).trim();
+  
+  return withoutPrefix;
+}
+
+// Funkcja do przetwarzania adresu dostawy
+export function processDeliveryPointAddress(address: AddressComponents): FieldWithConfidence {
+  const addressField = createFieldWithConfidence(
+    [address.dpStreet, address.dpBuilding, address.dpUnit]
+      .filter(Boolean)
+      .join(' '),
+    1,
+    'delivery_point'
+  );
+
+  return {
+    ...addressField,
+    metadata: {
+      ...addressField.metadata,
+      fieldType: 'address',
+      transformationType: 'normalization',
+      source: 'delivery_point'
+    }
+  };
+}
+
+// Funkcja do przetwarzania adresu korespondencyjnego
+export function processPostalAddress(address: AddressComponents): FieldWithConfidence {
+  const addressField = createFieldWithConfidence(
+    [address.paStreet, address.paBuilding, address.paUnit]
+      .filter(Boolean)
+      .join(' '),
+    1,
+    'postal_address'
+  );
+
+  return {
+    ...addressField,
+    metadata: {
+      ...addressField.metadata,
+      fieldType: 'address',
+      transformationType: 'normalization',
+      source: 'postal_address'
+    }
+  };
+}
+
+// Funkcja do przetwarzania adresu dostawcy
+export function processSupplierAddress(address: AddressComponents): FieldWithConfidence {
+  const addressField = createFieldWithConfidence(
+    [address.supplierStreet, address.supplierBuilding, address.supplierUnit]
+      .filter(Boolean)
+      .join(' '),
+    1,
+    'supplier'
+  );
+
+  return {
+    ...addressField,
+    metadata: {
+      ...addressField.metadata,
+      fieldType: 'address',
+      transformationType: 'normalization',
+      source: 'supplier'
+    }
+  };
 } 

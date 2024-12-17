@@ -1,4 +1,4 @@
-import { TransformationContext, TransformationResult, TransformationRule } from '@/types/document-processing';
+import { TransformationContext, TransformationResult, TransformationRule } from '@/types/processing';
 import { normalizeOSDName } from '@/utils/data-processing/rules/tariff';
 
 export const osdRules: TransformationRule[] = [
@@ -7,38 +7,37 @@ export const osdRules: TransformationRule[] = [
     description: 'Normalizacja nazwy OSD',
     priority: 100,
     condition: (value: string, context: TransformationContext) => {
-      return context.field?.includes('OSD_name');
+      const fieldType = context.field?.metadata?.fieldType || '';
+      return fieldType.toLowerCase().includes('osd_name');
     },
     transform: (value: string, context: TransformationContext): TransformationResult => {
       const normalized = normalizeOSDName(value);
       if (!normalized) {
         return {
           value: value,
+          content: value,
           confidence: context.confidence ?? 0,
-          metadata: { normalized: false }
+          metadata: {
+            fieldType: 'text',
+            transformationType: 'osd_name_normalization',
+            source: 'raw',
+            status: 'failed',
+            originalValue: value
+          }
         };
       }
 
       return {
         value: normalized,
+        content: normalized,
         confidence: context.confidence ?? 0,
-        metadata: { normalized: true }
-      };
-    }
-  },
-  {
-    name: 'osd_region_normalization',
-    description: 'Normalizacja regionu OSD',
-    priority: 90,
-    condition: (value: string, context: TransformationContext) => {
-      return context.field?.includes('OSD_region');
-    },
-    transform: (value: string, context: TransformationContext): TransformationResult => {
-      const normalized = value.toUpperCase().trim();
-      return {
-        value: normalized,
-        confidence: context.confidence ?? 0,
-        metadata: { normalized: true }
+        metadata: {
+          fieldType: 'osd_name',
+          transformationType: 'osd_name_normalization',
+          source: 'normalized',
+          status: 'success',
+          originalValue: value
+        }
       };
     }
   }

@@ -1,6 +1,6 @@
 import { NormalizedAddress, ProcessingOptions } from '../types';
 import { FieldWithConfidence } from '../../../types/common';
-import { DocumentField } from '@/types/document';
+import { DocumentField } from '@/types/processing';
 import {
   AddressPrefix,
   AddressStreetKey,

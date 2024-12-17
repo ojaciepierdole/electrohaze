@@ -1,5 +1,5 @@
 import { DocumentProcessor } from './core/processor';
-import type { DocumentData } from '@/types/document-processing';
+import type { DocumentData } from '@/types/processing';
 
 // Singleton instancja procesora dokumentów
 const documentProcessor = new DocumentProcessor();
@@ -27,6 +27,6 @@ export function processField(section: string, field: string, value: string): str
 }
 
 // Eksportuj wszystkie typy i interfejsy
-export * from '@/types/document-processing';
+export * from '@/types/processing';
 export * from './rules/person';
 export * from './rules/address'; 

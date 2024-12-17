@@ -1,4 +1,4 @@
-import type { TransformationRule, TransformationContext, TransformationResult } from '@/types/document-processing';
+import type { TransformationRule, TransformationContext, TransformationResult } from '@/types/processing';
 import { normalizeText } from '../core/normalization';
 
 // Funkcja do normalizacji nazwy OSD
@@ -68,12 +68,15 @@ export const tariffRules: TransformationRule[] = [
         if (normalized.includes(variant) || normalized.includes(variant.replace(' ', ''))) {
           return {
             value: standardized,
+            content: standardized,
             confidence: 1.0,
             metadata: {
               originalValue,
               transformationType: 'normalizeTariffGroup',
               matchedVariant: variant,
-              fieldType: 'string'
+              fieldType: 'string',
+              source: 'mapped',
+              status: 'success'
             }
           };
         }
@@ -81,12 +84,15 @@ export const tariffRules: TransformationRule[] = [
 
       return {
         value: normalized,
+        content: normalized,
         confidence: 0.8,
         metadata: {
           originalValue,
           transformationType: 'normalizeTariffGroup',
           matchedVariant: null,
-          fieldType: 'string'
+          fieldType: 'string',
+          source: 'normalized',
+          status: 'unmatched'
         }
       };
     }
@@ -117,12 +123,15 @@ export const tariffRules: TransformationRule[] = [
         if (normalized.includes(variant)) {
           return {
             value: standardized,
+            content: standardized,
             confidence: 1.0,
             metadata: {
               originalValue,
               transformationType: 'normalizeOSDName',
               matchedVariant: variant,
-              fieldType: 'string'
+              fieldType: 'string',
+              source: 'mapped',
+              status: 'success'
             }
           };
         }
@@ -130,12 +139,15 @@ export const tariffRules: TransformationRule[] = [
 
       return {
         value: normalized,
+        content: normalized,
         confidence: 0.8,
         metadata: {
           originalValue,
           transformationType: 'normalizeOSDName',
           matchedVariant: null,
-          fieldType: 'string'
+          fieldType: 'string',
+          source: 'normalized',
+          status: 'unmatched'
         }
       };
     }

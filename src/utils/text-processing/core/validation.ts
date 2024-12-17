@@ -38,7 +38,7 @@ export function needsVerification(field: DocumentField | undefined, threshold: n
 /**
  * Sprawdza czy pole zawiera poprawny email
  */
-export function isEmail(field: DocumentField | undefined): boolean {
+export function isValidEmail(field: DocumentField | undefined): boolean {
   if (!field?.content) return false;
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(field.content);
@@ -47,7 +47,7 @@ export function isEmail(field: DocumentField | undefined): boolean {
 /**
  * Sprawdza czy pole zawiera poprawny numer telefonu
  */
-export function isPhone(field: DocumentField | undefined): boolean {
+export function isValidPhone(field: DocumentField | undefined): boolean {
   if (!field?.content) return false;
   const phoneRegex = /^[\d\s+\-()]{9,}$/;
   return phoneRegex.test(field.content);
@@ -56,7 +56,7 @@ export function isPhone(field: DocumentField | undefined): boolean {
 /**
  * Sprawdza czy pole zawiera poprawny kod pocztowy
  */
-export function isPostalCode(field: DocumentField | undefined): boolean {
+export function isValidPostalCode(field: DocumentField | undefined): boolean {
   if (!field?.content) return false;
   const postalCodeRegex = /^\d{2}-\d{3}$/;
   return postalCodeRegex.test(field.content);
@@ -65,7 +65,7 @@ export function isPostalCode(field: DocumentField | undefined): boolean {
 /**
  * Sprawdza czy pole zawiera poprawny NIP
  */
-export function isTaxId(field: DocumentField | undefined): boolean {
+export function isValidTaxId(field: DocumentField | undefined): boolean {
   if (!field?.content) return false;
   const taxIdRegex = /^\d{10}$/;
   return taxIdRegex.test(field.content);
@@ -74,7 +74,7 @@ export function isTaxId(field: DocumentField | undefined): boolean {
 /**
  * Sprawdza czy pole zawiera poprawny numer konta bankowego
  */
-export function isBankAccount(field: DocumentField | undefined): boolean {
+export function isValidBankAccount(field: DocumentField | undefined): boolean {
   if (!field?.content) return false;
   const bankAccountRegex = /^\d{26}$/;
   return bankAccountRegex.test(field.content);

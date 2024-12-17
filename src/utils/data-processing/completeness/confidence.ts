@@ -1,5 +1,5 @@
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
-import type { DocumentField } from '@/types/document';
+import type { DocumentField } from '@/types/processing';
 
 export interface DocumentSections {
   ppe?: Record<string, DocumentField>;

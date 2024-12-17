@@ -5,8 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
-import type { ProcessingResult } from '@/types/processing';
-import type { DocumentField } from '@/types/document';
+import type { ProcessingResult, DocumentField } from '@/types/processing';
 import { cn } from '@/lib/utils';
 
 interface AnalysisSummaryProps {

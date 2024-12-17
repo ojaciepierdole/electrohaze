@@ -1,8 +1,8 @@
-import {
+import type {
   TransformationContext,
   TransformationResult,
   TransformationRule
-} from '@/types/document-processing';
+} from '@/types/processing';
 
 export class TextTransformer {
   private rules: TransformationRule[];
@@ -17,7 +17,12 @@ export class TextTransformer {
         value: '',
         content: '',
         confidence: 0,
-        metadata: { empty: true }
+        metadata: {
+          fieldType: 'text',
+          transformationType: 'empty',
+          source: 'empty',
+          status: 'empty'
+        }
       };
     }
 
@@ -36,7 +41,12 @@ export class TextTransformer {
       value: value,
       content: value,
       confidence: context.confidence ?? 0,
-      metadata: { transformed: false }
+      metadata: {
+        fieldType: context.field?.metadata?.fieldType || 'text',
+        transformationType: 'none',
+        source: 'raw',
+        status: 'unprocessed'
+      }
     };
   }
 
@@ -52,7 +62,12 @@ export class TextTransformer {
           value: '',
           content: '',
           confidence: 0,
-          metadata: { empty: true }
+          metadata: {
+            fieldType: 'text',
+            transformationType: 'empty',
+            source: 'empty',
+            status: 'empty'
+          }
         };
         continue;
       }
@@ -61,7 +76,15 @@ export class TextTransformer {
         ...context,
         value: data.content,
         confidence: data.confidence,
-        field
+        field: {
+          content: data.content,
+          confidence: data.confidence,
+          metadata: {
+            fieldType: field,
+            transformationType: 'initial',
+            source: 'raw'
+          }
+        }
       };
 
       result[field] = this.transform(data.content, fieldContext);

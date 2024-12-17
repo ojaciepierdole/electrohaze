@@ -1,3 +1,5 @@
+import { removeSpecialCharacters } from '@/utils/text-processing/core/normalization';
+
 /**
  * Podstawowe funkcje normalizacji tekstu
  */
@@ -16,14 +18,6 @@ export function normalizeSpaces(text: string | null): string | null {
 export function normalizeCase(text: string | null, toUpper: boolean = true): string | null {
   if (!text) return null;
   return toUpper ? text.toUpperCase() : text.toLowerCase();
-}
-
-/**
- * Usuwa znaki specjalne
- */
-export function removeSpecialChars(text: string | null): string | null {
-  if (!text) return null;
-  return text.replace(/["""()[\]{}]/g, '');
 }
 
 /**
@@ -53,7 +47,7 @@ export function normalizeText(text: string | null, options: {
   let normalized = normalizeSpaces(text);
   
   if (removeSpecial) {
-    normalized = removeSpecialChars(normalized);
+    normalized = removeSpecialCharacters(normalized);
   }
   
   if (normalizePolish) {

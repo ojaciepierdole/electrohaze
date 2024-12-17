@@ -7,10 +7,10 @@ const personNameNormalizationRule: TransformationRule = {
   name: 'person-name-normalization',
   description: 'Normalizuje imię i nazwisko',
   priority: 100,
-  transform: (context: TransformationContext): TransformationResult => {
-    const { value, field } = context;
+  transform: (value: string, context: TransformationContext): TransformationResult => {
     if (!value) return {
       value: '',
+      content: '',
       confidence: 0,
       metadata: {
         transformationType: 'normalization',
@@ -21,11 +21,15 @@ const personNameNormalizationRule: TransformationRule = {
     };
 
     const { firstName, lastName } = splitPersonName(value);
-    const result = context.field === 'FirstName' ? firstName : lastName;
+    const isFirstName = Object.keys(context.document?.fields || {}).some(key => 
+      key === 'FirstName' && context.document?.fields[key] === context.field
+    );
+    const result = isFirstName ? firstName : lastName;
 
     return {
       value: result || value,
-      confidence: field?.confidence ?? 0,
+      content: result || value,
+      confidence: context.confidence ?? 0,
       metadata: {
         transformationType: 'normalization',
         fieldType: 'person-name',
@@ -42,11 +46,11 @@ const personEnrichmentRule: TransformationRule = {
   name: 'person-enrichment',
   description: 'Wzbogaca dane osobowe',
   priority: 90,
-  transform: (context: TransformationContext): TransformationResult => {
-    const { value, field, document } = context;
-    if (!value || !document?.fields) {
+  transform: (value: string, context: TransformationContext): TransformationResult => {
+    if (!value || !context.document?.fields) {
       return {
         value: '',
+        content: '',
         confidence: 0,
         metadata: {
           transformationType: 'enrichment',
@@ -58,15 +62,17 @@ const personEnrichmentRule: TransformationRule = {
     }
 
     // Sprawdź czy mamy powiązane pola
-    const firstName = document.fields['FirstName']?.content;
-    const lastName = document.fields['LastName']?.content;
-    const businessName = document.fields['BusinessName']?.content;
+    const firstName = context.document.fields['FirstName']?.content;
+    const lastName = context.document.fields['LastName']?.content;
+    const businessName = context.document.fields['BusinessName']?.content;
 
     // Jeśli mamy nazwę firmy, użyj jej dla pól osobowych
     if (businessName) {
+      const normalizedValue = normalizeText(businessName, { toUpper: true }) || '';
       return {
-        value: normalizeText(businessName, { toUpper: true }) || '',
-        confidence: document.fields['BusinessName']?.confidence ?? 0,
+        value: normalizedValue,
+        content: normalizedValue,
+        confidence: context.document.fields['BusinessName']?.confidence ?? 0,
         metadata: {
           transformationType: 'enrichment',
           fieldType: 'person',
@@ -78,13 +84,18 @@ const personEnrichmentRule: TransformationRule = {
 
     // Jeśli mamy imię i nazwisko, użyj ich
     if (firstName && lastName) {
-      const result = context.field === 'FirstName' ? firstName : lastName;
-      const confidence = context.field === 'FirstName' ? 
-        document.fields['FirstName']?.confidence ?? 0 :
-        document.fields['LastName']?.confidence ?? 0;
+      const isFirstName = Object.keys(context.document?.fields || {}).some(key => 
+        key === 'FirstName' && context.document?.fields?.[key] === context.field
+      );
+      const result = isFirstName ? firstName : lastName;
+      const confidence = isFirstName ? 
+        context.document.fields['FirstName']?.confidence ?? 0 :
+        context.document.fields['LastName']?.confidence ?? 0;
 
+      const normalizedValue = normalizeText(result, { toUpper: true }) || '';
       return {
-        value: normalizeText(result, { toUpper: true }) || '',
+        value: normalizedValue,
+        content: normalizedValue,
         confidence,
         metadata: {
           transformationType: 'enrichment',
@@ -96,9 +107,11 @@ const personEnrichmentRule: TransformationRule = {
     }
 
     // Jeśli nie mamy żadnych danych, zwróć oryginalną wartość
+    const normalizedValue = normalizeText(value, { toUpper: true }) || '';
     return {
-      value: normalizeText(value, { toUpper: true }) || '',
-      confidence: field?.confidence ?? 0,
+      value: normalizedValue,
+      content: normalizedValue,
+      confidence: context.confidence ?? 0,
       metadata: {
         transformationType: 'enrichment',
         fieldType: 'person',

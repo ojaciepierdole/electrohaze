@@ -3,7 +3,7 @@ import { AnalysisSummary } from './AnalysisSummary';
 import type { ProcessingResult } from '@/types/processing';
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
 import { calculateUsability } from '@/utils/data-processing/completeness/confidence';
-import type { DocumentField } from '@/types/document';
+import type { DocumentField } from '@/types/processing';
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,21 +15,21 @@ interface DocumentListProps {
   onExport?: () => void;
 }
 
-function mapFields(fields: Record<string, any>): {
-  ppeData: Partial<PPEData>;
-  customerData: Partial<CustomerData>;
-  correspondenceData: Partial<CorrespondenceData>;
-  supplierData: Partial<SupplierData>;
-  billingData: Partial<BillingData>;
+function mapFields(fields: Record<string, DocumentField>): {
+  ppe: Partial<PPEData>;
+  customer: Partial<CustomerData>;
+  correspondence: Partial<CorrespondenceData>;
+  supplier: Partial<SupplierData>;
+  billing: Partial<BillingData>;
 } {
   console.log('Input fields from Azure:', fields);
 
   const result = {
-    ppeData: {} as Partial<PPEData>,
-    customerData: {} as Partial<CustomerData>,
-    correspondenceData: {} as Partial<CorrespondenceData>,
-    supplierData: {} as Partial<SupplierData>,
-    billingData: {} as Partial<BillingData>
+    ppe: {} as Partial<PPEData>,
+    customer: {} as Partial<CustomerData>,
+    correspondence: {} as Partial<CorrespondenceData>,
+    supplier: {} as Partial<SupplierData>,
+    billing: {} as Partial<BillingData>
   };
 
   // Mapuj pola PPE
@@ -39,11 +39,26 @@ function mapFields(fields: Record<string, any>): {
   ppeFields.forEach(key => {
     if (key in fields) {
       console.log(`Found ${key}:`, fields[key]);
-      result.ppeData[key as keyof PPEData] = fields[key];
+      result.ppe[key as keyof PPEData] = {
+        content: fields[key].content || '',
+        confidence: fields[key].confidence || 0,
+        metadata: {
+          fieldType: fields[key].metadata?.fieldType || 'text',
+          transformationType: fields[key].metadata?.transformationType || 'initial',
+          source: fields[key].metadata?.source || 'raw'
+        }
+      };
     } else if (key === 'TariffGroup' && 'Tariff' in fields) {
-      // Jeśli nie ma TariffGroup, ale jest Tariff, użyj go jako TariffGroup
       console.log('Using Tariff as TariffGroup:', fields['Tariff']);
-      result.ppeData.TariffGroup = fields['Tariff'];
+      result.ppe.TariffGroup = {
+        content: fields['Tariff'].content || '',
+        confidence: fields['Tariff'].confidence || 0,
+        metadata: {
+          fieldType: 'text',
+          transformationType: 'mapped',
+          originalValue: fields['Tariff'].content
+        }
+      };
     } else {
       console.log(`Missing ${key}`);
     }
@@ -52,21 +67,49 @@ function mapFields(fields: Record<string, any>): {
   // Mapuj pola klienta
   ['FirstName', 'LastName', 'BusinessName', 'taxID', 'Street', 'Building', 'Unit', 'PostalCode', 'City', 'Municipality', 'District', 'Province'].forEach(key => {
     if (key in fields) {
-      result.customerData[key as keyof CustomerData] = fields[key];
+      result.customer[key as keyof CustomerData] = {
+        content: fields[key].content || '',
+        confidence: fields[key].confidence || 0,
+        metadata: {
+          fieldType: fields[key].metadata?.fieldType || 'text',
+          transformationType: fields[key].metadata?.transformationType || 'initial',
+          source: fields[key].metadata?.source || 'raw'
+        }
+      };
     }
   });
 
   // Mapuj pola adresu korespondencyjnego
   ['paFirstName', 'paLastName', 'paBusinessName', 'paTitle', 'paStreet', 'paBuilding', 'paUnit', 'paPostalCode', 'paCity', 'paProvince', 'paMunicipality', 'paDistrict'].forEach(key => {
     if (key in fields) {
-      result.correspondenceData[key as keyof CorrespondenceData] = fields[key];
+      result.correspondence[key as keyof CorrespondenceData] = {
+        content: fields[key].content || '',
+        confidence: fields[key].confidence || 0,
+        metadata: {
+          fieldType: fields[key].metadata?.fieldType || 'text',
+          transformationType: fields[key].metadata?.transformationType || 'initial',
+          source: fields[key].metadata?.source || 'raw'
+        }
+      };
     }
   });
 
   // Mapuj pola dostawcy
-  ['supplierName', 'spTaxID', 'spStreet', 'spBuilding', 'spUnit', 'spPostalCode', 'spCity', 'spProvince', 'spMunicipality', 'spDistrict', 'spIBAN', 'spPhoneNum', 'spWebUrl', 'OSD_name', 'OSD_region'].forEach(key => {
+  ['supplierName', 'supplierTaxID', 'supplierStreet', 'supplierBuilding', 'supplierUnit', 
+   'supplierPostalCode', 'supplierCity', 'supplierProvince', 'supplierMunicipality', 
+   'supplierDistrict', 'supplierBankAccount', 'supplierPhone', 'supplierWebsite', 
+   'OSD_name', 'OSD_region'].forEach(key => {
     if (key in fields) {
-      result.supplierData[key as keyof SupplierData] = fields[key];
+      const field = fields[key];
+      result.supplier[key as keyof SupplierData] = {
+        content: field.content || '',
+        confidence: field.confidence || 0,
+        metadata: {
+          fieldType: field.metadata?.fieldType || 'text',
+          transformationType: field.metadata?.transformationType || 'initial',
+          source: field.metadata?.source || 'raw'
+        }
+      };
     }
   });
 
@@ -78,11 +121,19 @@ function mapFields(fields: Record<string, any>): {
                      key === '12mUsage' ? 'usage12m' : key;
     
     if (key in fields) {
-      result.billingData[mappedKey as keyof BillingData] = fields[key];
+      result.billing[mappedKey as keyof BillingData] = {
+        content: fields[key].content || '',
+        confidence: fields[key].confidence || 0,
+        metadata: {
+          fieldType: fields[key].metadata?.fieldType || 'text',
+          transformationType: fields[key].metadata?.transformationType || 'initial',
+          source: fields[key].metadata?.source || 'raw'
+        }
+      };
     }
   });
 
-  console.log('Final PPE data:', result.ppeData);
+  console.log('Final mapped data:', result);
   return result;
 }
 
@@ -102,11 +153,11 @@ export function DocumentList({ documents, onExport }: DocumentListProps) {
     const mappedFields = mapFields(fields);
     
     const sections = {
-      ppe: mappedFields.ppeData as Record<string, DocumentField>,
-      customer: mappedFields.customerData as Record<string, DocumentField>,
-      correspondence: mappedFields.correspondenceData as Record<string, DocumentField>,
-      supplier: mappedFields.supplierData as Record<string, DocumentField>,
-      billing: mappedFields.billingData as Record<string, DocumentField>
+      ppe: mappedFields.ppe as Record<string, DocumentField>,
+      customer: mappedFields.customer as Record<string, DocumentField>,
+      correspondence: mappedFields.correspondence as Record<string, DocumentField>,
+      supplier: mappedFields.supplier as Record<string, DocumentField>,
+      billing: mappedFields.billing as Record<string, DocumentField>
     };
 
     // Sprawdź czy mamy pole Tariff
@@ -177,11 +228,11 @@ export function DocumentList({ documents, onExport }: DocumentListProps) {
                   if (!result) return null;
 
                   const sections = {
-                    ppe: result.ppeData as Record<string, DocumentField>,
-                    customer: result.customerData as Record<string, DocumentField>,
-                    correspondence: result.correspondenceData as Record<string, DocumentField>,
-                    supplier: result.supplierData as Record<string, DocumentField>,
-                    billing: result.billingData as Record<string, DocumentField>
+                    ppe: result.ppe as Record<string, DocumentField>,
+                    customer: result.customer as Record<string, DocumentField>,
+                    correspondence: result.correspondence as Record<string, DocumentField>,
+                    supplier: result.supplier as Record<string, DocumentField>,
+                    billing: result.billing as Record<string, DocumentField>
                   };
 
                   return (
@@ -189,11 +240,11 @@ export function DocumentList({ documents, onExport }: DocumentListProps) {
                       key={`${doc.fileName}-${index}`}
                       fileName={doc.fileName}
                       confidence={doc.modelResults?.[0]?.confidence || 0}
-                      ppeData={result.ppeData}
-                      customerData={result.customerData}
-                      correspondenceData={result.correspondenceData}
-                      supplierData={result.supplierData}
-                      billingData={result.billingData}
+                      ppeData={result.ppe}
+                      customerData={result.customer}
+                      correspondenceData={result.correspondence}
+                      supplierData={result.supplier}
+                      billingData={result.billing}
                       usability={result.usability}
                     />
                   );

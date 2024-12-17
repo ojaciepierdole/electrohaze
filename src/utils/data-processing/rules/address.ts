@@ -1,4 +1,4 @@
-import type { TransformationRule, TransformationContext, TransformationResult } from '@/types/document';
+import type { TransformationRule, TransformationContext, TransformationResult } from '@/types/processing';
 import { extractPostalCode, normalizeAddress } from '../helpers/address-helpers';
 
 const postalCodeRule: TransformationRule = {
@@ -10,10 +10,14 @@ const postalCodeRule: TransformationRule = {
   },
   transform: (value: string, context: TransformationContext): TransformationResult => ({
     value,
+    content: value,
     confidence: 0.9,
     metadata: {
       fieldType: 'postal_code',
-      transformationType: 'direct'
+      transformationType: 'direct',
+      source: 'raw',
+      status: 'success',
+      originalValue: value
     }
   })
 };
@@ -23,19 +27,36 @@ const streetRule: TransformationRule = {
   description: 'Nazwa ulicy',
   priority: 1,
   condition: (value: string) => {
-    return value.length > 3 && (
-      value.toLowerCase().includes('ul.') || 
-      value.toLowerCase().includes('ulica') ||
-      value.toLowerCase().includes('al.') ||
-      value.toLowerCase().includes('aleja')
+    const streetPrefixes = [
+      'ul.', 'ulica',
+      'al.', 'aleja',
+      'pl.', 'plac',
+      'os.', 'osiedle',
+      'rynek', 'skwer',
+      'bulwar', 'park'
+    ];
+    
+    // Sprawdź czy zawiera prefiks lub jest samą nazwą ulicy (min. 3 znaki)
+    const hasPrefix = streetPrefixes.some(prefix => 
+      value.toLowerCase().includes(prefix)
     );
+    
+    // Jeśli nie ma prefiksu, sprawdź czy to może być nazwa ulicy
+    const isPotentialStreet = value.length > 3 && 
+      /^[A-ZŁŚŹŻĆĄĘŃÓ][a-ząęółśżźćń\s-]+$/.test(value);
+    
+    return hasPrefix || isPotentialStreet;
   },
   transform: (value: string, context: TransformationContext): TransformationResult => ({
     value: normalizeAddress(value),
+    content: value,
     confidence: 0.8,
     metadata: {
       fieldType: 'street',
-      transformationType: 'normalized'
+      transformationType: 'normalized',
+      source: 'raw',
+      status: 'success',
+      originalValue: value
     }
   })
 };
@@ -45,14 +66,18 @@ const cityRule: TransformationRule = {
   description: 'Nazwa miasta',
   priority: 1,
   condition: (value: string) => {
-    return value.length > 2 && /^[A-ZŁŚŹŻĆĄĘŃÓ][a-ząęółśżźćń]+$/.test(value);
+    return value.length > 2 && /^[A-ZŁŚŹŻĆĄĘŃÓ][a-ząęółśżźćń]+(?:[\s-][A-ZŁŚŹŻĆĄĘŃÓ][a-ząęółśżźćń]+)*$/.test(value);
   },
   transform: (value: string, context: TransformationContext): TransformationResult => ({
     value: normalizeAddress(value),
+    content: value,
     confidence: 0.8,
     metadata: {
       fieldType: 'city',
-      transformationType: 'normalized'
+      transformationType: 'normalized',
+      source: 'raw',
+      status: 'success',
+      originalValue: value
     }
   })
 };

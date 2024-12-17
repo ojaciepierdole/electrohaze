@@ -1,3 +1,5 @@
+import type { TextNormalizationOptions } from '../text-processing/core/types';
+
 /**
  * Typy operacji formatowania
  */
@@ -27,20 +29,6 @@ interface CacheKey {
   text: string;
   type?: CacheType;
   options?: TextNormalizationOptions;
-}
-
-/**
- * Opcje normalizacji tekstu
- */
-export interface TextNormalizationOptions {
-  /** Czy normalizować polskie znaki */
-  normalizePolish?: boolean;
-  /** Czy usuwać znaki specjalne */
-  removeSpecialChars?: boolean;
-  /** Czy normalizować białe znaki */
-  trimWhitespace?: boolean;
-  /** Wymuszenie wielkości liter */
-  enforceCase?: 'upper' | 'lower' | 'none';
 }
 
 /**
@@ -131,19 +119,19 @@ export class TextProcessor {
     }
 
     // Normalizacja białych znaków
-    if (options.trimWhitespace) {
+    if (options.trimWhitespace || options.trim) {
       result = result.replace(/\s+/g, ' ').trim();
     }
 
     // Normalizacja polskich znaków
-    if (options.normalizePolish) {
+    if (options.normalizePolish || options.removeDiacritics) {
       result = result.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     }
 
     // Wymuszenie wielkości liter
-    if (options.enforceCase === 'upper') {
+    if (options.enforceCase === 'upper' || options.toUpper) {
       result = result.toUpperCase();
-    } else if (options.enforceCase === 'lower') {
+    } else if (options.enforceCase === 'lower' || options.toLower) {
       result = result.toLowerCase();
     }
 
@@ -166,7 +154,8 @@ export class TextProcessor {
   static format(text: string | null, type: FormatType): string {
     const baseOptions: TextNormalizationOptions = {
       removeSpecialChars: true,
-      trimWhitespace: true
+      trimWhitespace: true,
+      trim: true
     };
 
     switch (type) {
@@ -175,7 +164,7 @@ export class TextProcessor {
         return this.processText(text, type, {
           ...baseOptions,
           enforceCase: 'upper',
-          normalizePolish: true
+          removeDiacritics: true
         });
 
       case 'number':

@@ -3,6 +3,19 @@ import { splitPersonName, mergePersonFields } from '@/utils/text-formatting/form
 import { normalizeText } from '@/utils/text-formatting/core/normalization';
 import { shouldProcessField } from '@/utils/text-formatting/core/validation';
 
+// Funkcja pomocnicza do tworzenia FieldWithConfidence
+function createFieldWithConfidence(content: string, confidence: number, source: string): FieldWithConfidence {
+  return {
+    content,
+    confidence,
+    metadata: {
+      fieldType: 'text',
+      transformationType: 'initial',
+      source
+    }
+  };
+}
+
 /**
  * Normalizuje dane osobowe z jednego źródła
  */
@@ -29,16 +42,10 @@ export function normalizePersonData(data: {
     console.log('Wynik rozdzielenia:', { firstName, lastName });
     
     if (firstName) {
-      result.firstName = {
-        content: firstName,
-        confidence: data.fullName.confidence
-      };
+      result.firstName = createFieldWithConfidence(firstName, data.fullName.confidence, 'fullName');
     }
     if (lastName) {
-      result.lastName = {
-        content: lastName,
-        confidence: data.fullName.confidence
-      };
+      result.lastName = createFieldWithConfidence(lastName, data.fullName.confidence, 'fullName');
     }
   }
 
@@ -49,15 +56,9 @@ export function normalizePersonData(data: {
     console.log('Wynik rozdzielenia firstName:', { firstName, lastName });
     
     if (firstName && lastName) {
-      result.firstName = {
-        content: firstName,
-        confidence: data.firstName.confidence
-      };
+      result.firstName = createFieldWithConfidence(firstName, data.firstName.confidence, 'firstName');
       if (!data.lastName?.content) {
-        result.lastName = {
-          content: lastName,
-          confidence: data.firstName.confidence
-        };
+        result.lastName = createFieldWithConfidence(lastName, data.firstName.confidence, 'firstName');
       }
     }
   }
@@ -70,33 +71,35 @@ export function normalizePersonData(data: {
     
     if (firstName && lastName) {
       if (!data.firstName?.content) {
-        result.firstName = {
-          content: firstName,
-          confidence: data.lastName.confidence
-        };
+        result.firstName = createFieldWithConfidence(firstName, data.lastName.confidence, 'lastName');
       }
-      result.lastName = {
-        content: lastName,
-        confidence: data.lastName.confidence
-      };
+      result.lastName = createFieldWithConfidence(lastName, data.lastName.confidence, 'lastName');
     }
   }
 
   // Jeśli mamy pojedyncze pola, użyj ich
   if (data.firstName?.content && !result.firstName) {
     console.log('Użycie pojedynczego firstName:', data.firstName.content);
-    result.firstName = {
-      content: normalizeText(data.firstName.content),
-      confidence: data.firstName.confidence
-    };
+    const normalizedFirstName = normalizeText(data.firstName.content);
+    if (normalizedFirstName) {
+      result.firstName = createFieldWithConfidence(
+        normalizedFirstName,
+        data.firstName.confidence,
+        'firstName'
+      );
+    }
   }
 
   if (data.lastName?.content && !result.lastName) {
     console.log('Użycie pojedynczego lastName:', data.lastName.content);
-    result.lastName = {
-      content: normalizeText(data.lastName.content),
-      confidence: data.lastName.confidence
-    };
+    const normalizedLastName = normalizeText(data.lastName.content);
+    if (normalizedLastName) {
+      result.lastName = createFieldWithConfidence(
+        normalizedLastName,
+        data.lastName.confidence,
+        'lastName'
+      );
+    }
   }
 
   console.log('Wynik końcowy:', result);

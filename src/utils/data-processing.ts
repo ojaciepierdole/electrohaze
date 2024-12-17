@@ -1,4 +1,4 @@
-import type { DocumentField, ProcessSectionInput, ProcessSectionContext } from '@/types/document-processing';
+import type { DocumentField, ProcessSectionInput, ProcessSectionContext, ProcessingContext } from '@/types/processing';
 import type { SupplierData, CustomerData, PPEData, CorrespondenceData, BillingData } from '@/types/fields';
 import { DocumentProcessor } from './data-processing/core/processor';
 import { normalizeText } from './data-processing/core/normalization';
@@ -17,13 +17,6 @@ export type SectionData =
 // Interfejs dla reguł przetwarzania
 interface ProcessingRules {
   [key: string]: (value: string) => string;
-}
-
-// Interfejs dla kontekstu przetwarzania
-interface ProcessingContext {
-  ppe?: Partial<PPEData>;
-  customer?: Partial<CustomerData>;
-  correspondence?: Partial<CorrespondenceData>;
 }
 
 // Inicjalizacja procesora dokumentów
