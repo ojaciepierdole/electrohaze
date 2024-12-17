@@ -12,7 +12,6 @@ import { cn } from '@/lib/utils';
 
 interface DocumentListProps {
   documents: ProcessingResult[];
-  totalTime?: number;
   onExport?: () => void;
 }
 
@@ -87,7 +86,7 @@ function mapFields(fields: Record<string, any>): {
   return result;
 }
 
-export function DocumentList({ documents, totalTime, onExport }: DocumentListProps) {
+export function DocumentList({ documents, onExport }: DocumentListProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
   
@@ -142,7 +141,6 @@ export function DocumentList({ documents, totalTime, onExport }: DocumentListPro
     <div className="space-y-6">
       <AnalysisSummary 
         documents={documents}
-        totalTime={totalTime}
         onExport={onExport}
         usabilityResults={usabilityResults}
       />

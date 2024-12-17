@@ -52,7 +52,7 @@ export function ModelSelector({
     if (persistedModels.length > 0 && selectedModels.length === 0) {
       onSelectionChange(persistedModels);
     }
-  }, []);
+  }, [onSelectionChange, persistedModels, selectedModels.length]);
 
   const handleModelSelect = (modelId: string) => {
     let newSelection: string[];

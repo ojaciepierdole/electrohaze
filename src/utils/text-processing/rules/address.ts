@@ -1,12 +1,11 @@
 import type { 
-  DocumentField, 
   TransformationContext, 
   TransformationResult,
   TransformationRule 
 } from '@/types/processing';
 
 import { normalizeText } from '@/utils/text-formatting/core/text';
-import { STREET_PREFIXES } from '@/utils/text-formatting/dictionaries/addresses';
+import { STREET_PREFIXES } from '../../../utils/text-formatting/dictionaries/addresses';
 
 /**
  * Reguła normalizacji adresu
@@ -22,11 +21,11 @@ export const addressNormalizationRule: TransformationRule = {
       }
 
       // Normalizuj tekst
-      const normalized = normalizeText(value, { toUpper: true });
+      const normalized = normalizeText(value, { toUpper: true }) || '';
 
       // Usuń prefiksy ulic
       const withoutPrefix = STREET_PREFIXES.reduce(
-        (text, prefix) => text.replace(new RegExp(`^${prefix}\\.?\\s+`, 'i'), ''),
+        (text: string, prefix: string) => text.replace(new RegExp(`^${prefix}\\.?\\s+`, 'i'), ''),
         normalized
       );
 

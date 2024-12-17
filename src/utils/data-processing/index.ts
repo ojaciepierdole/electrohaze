@@ -22,7 +22,8 @@ export function processSection(section: string, data: DocumentData[string]): Doc
  * Przetwarza pojedyncze pole dokumentu
  */
 export function processField(section: string, field: string, value: string): string | null {
-  return documentProcessor.processField(section, field, value);
+  const result = documentProcessor.processField(section, field, value);
+  return result ?? null;
 }
 
 // Eksportuj wszystkie typy i interfejsy

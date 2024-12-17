@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { DocumentField as AzureDocumentField } from '@azure/ai-form-recognizer';
+import { type FieldWithConfidence } from './processing';
 
 // Schemat walidacji dla dat w formacie ISO
 export const ISODateSchema = z.string().regex(
@@ -75,12 +76,7 @@ export interface BillingPeriod extends BaseDataGroup {
 }
 
 // Podstawowe typy dla pól
-export interface FieldWithConfidence {
-  content: string | null | undefined;
-  confidence: number;
-  isEnriched?: boolean;
-  metadata?: Record<string, unknown>;
-}
+export type { FieldWithConfidence };
 
 // Typy sekcji dokumentu
 export type DataSection = 'ppe' | 'correspondence' | 'supplier' | 'delivery';

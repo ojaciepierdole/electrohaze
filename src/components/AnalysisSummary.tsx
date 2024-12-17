@@ -5,94 +5,17 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
-import { formatPercentage } from '@/utils/text-formatting';
-import { calculateDocumentCompleteness, calculateUsability, calculateAverageConfidence } from '@/utils/data-processing/completeness/confidence';
 import type { ProcessingResult } from '@/types/processing';
-import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
 import type { DocumentField } from '@/types/document';
 import { cn } from '@/lib/utils';
 
 interface AnalysisSummaryProps {
   documents: ProcessingResult[];
-  totalTime?: number;
   onExport?: () => void;
   usabilityResults: boolean[];
 }
 
-function createDocumentField(value: any): DocumentField {
-  if (typeof value === 'object' && value !== null && 'content' in value) {
-    return value as DocumentField;
-  }
-  
-  return {
-    content: String(value),
-    confidence: 1,
-    metadata: {
-      fieldType: 'text',
-      transformationType: 'mapped'
-    }
-  };
-}
-
-function mapFields(fields: Record<string, any>): {
-  ppeData: Record<string, DocumentField>;
-  customerData: Record<string, DocumentField>;
-  correspondenceData: Record<string, DocumentField>;
-  supplierData: Record<string, DocumentField>;
-  billingData: Record<string, DocumentField>;
-} {
-  const result = {
-    ppeData: {} as Record<string, DocumentField>,
-    customerData: {} as Record<string, DocumentField>,
-    correspondenceData: {} as Record<string, DocumentField>,
-    supplierData: {} as Record<string, DocumentField>,
-    billingData: {} as Record<string, DocumentField>
-  };
-
-  // Mapuj pola PPE
-  ['ppeNum', 'MeterNumber', 'TariffGroup', 'ContractNumber', 'ContractType', 'dpStreet', 'dpBuilding', 'dpUnit', 'dpPostalCode', 'dpCity', 'dpProvince', 'dpMunicipality', 'dpDistrict', 'dpMeterID'].forEach(key => {
-    if (key in fields) {
-      result.ppeData[key] = createDocumentField(fields[key]);
-    }
-  });
-
-  // Mapuj pola klienta
-  ['FirstName', 'LastName', 'BusinessName', 'taxID', 'Street', 'Building', 'Unit', 'PostalCode', 'City', 'Municipality', 'District', 'Province'].forEach(key => {
-    if (key in fields) {
-      result.customerData[key] = createDocumentField(fields[key]);
-    }
-  });
-
-  // Mapuj pola adresu korespondencyjnego
-  ['paFirstName', 'paLastName', 'paBusinessName', 'paTitle', 'paStreet', 'paBuilding', 'paUnit', 'paPostalCode', 'paCity', 'paProvince', 'paMunicipality', 'paDistrict'].forEach(key => {
-    if (key in fields) {
-      result.correspondenceData[key] = createDocumentField(fields[key]);
-    }
-  });
-
-  // Mapuj pola dostawcy
-  ['supplierName', 'spTaxID', 'spStreet', 'spBuilding', 'spUnit', 'spPostalCode', 'spCity', 'spProvince', 'spMunicipality', 'spDistrict', 'spIBAN', 'spPhoneNum', 'spWebUrl', 'OSD_name', 'OSD_region'].forEach(key => {
-    if (key in fields) {
-      result.supplierData[key] = createDocumentField(fields[key]);
-    }
-  });
-
-  // Mapuj pola rozliczeniowe
-  ['BillingStartDate', 'BillingEndDate', 'BilledUsage', '12mUsage'].forEach(key => {
-    const mappedKey = key === 'BillingStartDate' ? 'billingStartDate' :
-                     key === 'BillingEndDate' ? 'billingEndDate' :
-                     key === 'BilledUsage' ? 'billedUsage' :
-                     key === '12mUsage' ? '12mUsage' : key;
-    
-    if (key in fields) {
-      result.billingData[mappedKey] = createDocumentField(fields[key]);
-    }
-  });
-
-  return result;
-}
-
-export function AnalysisSummary({ documents, totalTime, onExport, usabilityResults }: AnalysisSummaryProps) {
+export function AnalysisSummary({ documents, onExport, usabilityResults }: AnalysisSummaryProps) {
   // Oblicz średnią pewność bezpośrednio z API
   const averageConfidence = documents.length > 0
     ? documents.reduce((sum, doc) => sum + (doc.modelResults?.[0]?.confidence || 0), 0) / documents.length
@@ -129,14 +52,6 @@ export function AnalysisSummary({ documents, totalTime, onExport, usabilityResul
     upload: processingTimes.reduce((sum, times) => sum + times.upload, 0),
     ocr: processingTimes.reduce((sum, times) => sum + times.ocr, 0),
     analysis: processingTimes.reduce((sum, times) => sum + times.analysis, 0)
-  };
-
-  // Oblicz średnie czasy na dokument
-  const averageTimes = {
-    total: totalTimes.total / totalDocs,
-    upload: totalTimes.upload / totalDocs,
-    ocr: totalTimes.ocr / totalDocs,
-    analysis: totalTimes.analysis / totalDocs
   };
 
   // Oblicz formaty MIME i zabezpiecz przed błędami

@@ -3,13 +3,13 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Eraser } from 'lucide-react';
-import type { DocumentField } from '@/types/document-processing';
+import type { FieldWithConfidence } from '@/types/processing';
 
 interface SupplierDataGroupProps {
   title: string;
   confidence: number;
   completeness: number;
-  data: Record<string, DocumentField | undefined>;
+  data: Record<string, FieldWithConfidence | undefined>;
   fieldLabels: Record<string, string>;
   optionalFields?: string[];
 }
@@ -23,7 +23,7 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({
   optionalFields = []
 }) => {
   // Podziel pola na te z danymi i bez danych
-  const fieldsWithData: [string, DocumentField][] = [];
+  const fieldsWithData: [string, FieldWithConfidence][] = [];
   const fieldsWithoutData: string[] = [];
 
   Object.entries(fieldLabels).forEach(([key, label]) => {

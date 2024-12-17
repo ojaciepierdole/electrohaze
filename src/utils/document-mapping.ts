@@ -1,12 +1,12 @@
 // Funkcja mapująca surowe dane do naszej struktury
 import type { DocumentAnalysisResult, FieldWithConfidence, CustomerData, PPEData, CorrespondenceData, SupplierData, BillingData } from '@/types/processing';
-import type { DocumentField } from '@/types/processing';
+import type { DocumentField, AnalyzeResult } from '@azure/ai-form-recognizer';
 import { DateHelpers } from '@/types/common';
 import { safeValidateMappedResult } from '@/types/validation';
 import { Logger } from '@/lib/logger';
 import { formatDate, formatConsumption } from './text-formatting';
-import type { DocumentAnalysisResult } from '@/types/azure';
 import { normalizeAddress } from './data-processing/normalizers/address';
+import { determineOSDByPostalCode } from './data-processing/rules/osd';
 
 const logger = Logger.getInstance();
 
@@ -169,9 +169,30 @@ function parseNumber(value: string | undefined): number | undefined {
   return isNaN(num) ? undefined : num;
 }
 
+// Funkcja pomocnicza do tworzenia FieldWithConfidence
+function createFieldWithConfidence(content: string, confidence: number, source: string): FieldWithConfidence {
+  return {
+    content,
+    confidence,
+    metadata: {
+      fieldType: 'text',
+      transformationType: 'initial',
+      source
+    }
+  };
+}
+
 export function mapDocumentAnalysisResult(fields: Record<string, DocumentField>): DocumentAnalysisResult {
   // Inicjalizujemy wszystkie możliwe pola jako puste
-  const emptyField: FieldWithConfidence = { content: null, confidence: 0 };
+  const emptyField: FieldWithConfidence = { 
+    content: '', 
+    confidence: 0,
+    metadata: {
+      fieldType: 'text',
+      transformationType: 'initial',
+      source: 'empty'
+    }
+  };
   
   const mappedResult: DocumentAnalysisResult = {
     customerData: {
@@ -248,30 +269,15 @@ export function mapDocumentAnalysisResult(fields: Record<string, DocumentField>)
     if (value !== undefined) {
       // Mapujemy wartość na odpowiednie pole w strukturze
       if (mappedResult.customerData && key in mappedResult.customerData) {
-        mappedResult.customerData[key as keyof CustomerData] = {
-          content: value,
-          confidence: field.confidence || 0
-        };
+        mappedResult.customerData[key as keyof CustomerData] = createFieldWithConfidence(value, field.confidence || 0, 'azure');
       } else if (mappedResult.ppeData && key in mappedResult.ppeData) {
-        mappedResult.ppeData[key as keyof PPEData] = {
-          content: value,
-          confidence: field.confidence || 0
-        };
+        mappedResult.ppeData[key as keyof PPEData] = createFieldWithConfidence(value, field.confidence || 0, 'azure');
       } else if (mappedResult.correspondenceData && key in mappedResult.correspondenceData) {
-        mappedResult.correspondenceData[key as keyof CorrespondenceData] = {
-          content: value,
-          confidence: field.confidence || 0
-        };
+        mappedResult.correspondenceData[key as keyof CorrespondenceData] = createFieldWithConfidence(value, field.confidence || 0, 'azure');
       } else if (mappedResult.supplierData && key in mappedResult.supplierData) {
-        mappedResult.supplierData[key as keyof SupplierData] = {
-          content: value,
-          confidence: field.confidence || 0
-        };
+        mappedResult.supplierData[key as keyof SupplierData] = createFieldWithConfidence(value, field.confidence || 0, 'azure');
       } else if (mappedResult.billingData && key in mappedResult.billingData) {
-        mappedResult.billingData[key as keyof BillingData] = {
-          content: value,
-          confidence: field.confidence || 0
-        };
+        mappedResult.billingData[key as keyof BillingData] = createFieldWithConfidence(value, field.confidence || 0, 'azure');
       }
     }
   });
@@ -280,7 +286,7 @@ export function mapDocumentAnalysisResult(fields: Record<string, DocumentField>)
 }
 
 // Funkcja pomocnicza do mapowania odpowiedzi z Azure na nasz format
-export function mapAzureResponse(response: DocumentAnalysisResult): DocumentAnalysisResult {
+export function mapAzureResponse(response: AnalyzeResult): DocumentAnalysisResult {
   if (!response.documents || !Array.isArray(response.documents) || response.documents.length === 0) {
     return {};
   }
@@ -293,13 +299,14 @@ export function mapAzureResponse(response: DocumentAnalysisResult): DocumentAnal
   // Normalizuj dane adresowe
   const dpFields = firstDocument.fields;
   const dpAddress = normalizeAddress(
-    {
-      content: dpFields.dpStreet?.content || '',
-      confidence: dpFields.dpStreet?.confidence || 0
-    },
+    createFieldWithConfidence(dpFields.dpStreet?.content || '', dpFields.dpStreet?.confidence || 0, 'azure'),
     {},
     'dp'
   );
+
+  // Określ OSD na podstawie kodu pocztowego
+  const osdName = determineOSDByPostalCode(dpFields.dpPostalCode?.content);
+  const osdConfidence = osdName ? 1.0 : 0;
 
   // Zachowaj oryginalne wartości dla pól adresowych
   const mappedFields = {
@@ -315,7 +322,12 @@ export function mapAzureResponse(response: DocumentAnalysisResult): DocumentAnal
     dpUnit: dpFields.dpUnit ? {
       ...dpFields.dpUnit,
       content: dpAddress.dpUnit || dpFields.dpUnit.content
-    } : undefined
+    } : undefined,
+    OSD_name: createFieldWithConfidence(
+      osdName || '',
+      osdConfidence,
+      'postal_code_mapping'
+    )
   };
 
   return {

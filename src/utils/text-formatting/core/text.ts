@@ -7,10 +7,14 @@ export interface TextNormalizationOptions {
   toLower?: boolean;
   removeSpecialChars?: boolean;
   removeDiacritics?: boolean;
+  trim?: boolean;
 }
 
 /**
  * Normalizuje tekst według podanych opcji
+ * @param value Tekst do normalizacji
+ * @param options Opcje normalizacji
+ * @returns Znormalizowany tekst lub null jeśli wejście jest nullem/undefined
  */
 export function normalizeText(
   value: string | null | undefined,
@@ -22,10 +26,16 @@ export function normalizeText(
     toUpper = false,
     toLower = false,
     removeSpecialChars = false,
-    removeDiacritics = false
+    removeDiacritics = false,
+    trim = true
   } = options;
 
-  let normalized = value.trim().replace(/\s+/g, ' ');
+  let normalized = value;
+  
+  // Usuń zbędne białe znaki
+  if (trim) {
+    normalized = normalized.trim().replace(/\s+/g, ' ');
+  }
   
   if (removeDiacritics) {
     normalized = normalized.normalize('NFD').replace(/[\u0300-\u036f]/g, '');

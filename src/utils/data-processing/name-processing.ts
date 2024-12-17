@@ -2,6 +2,20 @@ import { FieldWithConfidence } from '@/types/processing';
 import { splitPersonName } from '@/utils/text-formatting/person';
 import { mergeFieldsWithConfidence } from '@/utils/text-formatting';
 
+// Funkcja pomocnicza do tworzenia FieldWithConfidence
+function createFieldWithConfidence(content: string | undefined | null, confidence: number, source: string): FieldWithConfidence | undefined {
+  if (!content) return undefined;
+  return {
+    content,
+    confidence,
+    metadata: {
+      fieldType: 'text',
+      transformationType: 'initial',
+      source
+    }
+  };
+}
+
 // Funkcja do wzbogacania danych osobowych
 export function enrichPersonData(
   mainData: { firstName?: FieldWithConfidence; lastName?: FieldWithConfidence; fullName?: FieldWithConfidence } | undefined,
@@ -24,8 +38,8 @@ export function enrichPersonData(
     const { firstName, lastName } = splitPersonName(mainData.fullName.content);
     if (firstName && lastName) {
       splitMainName = {
-        firstName: { content: firstName, confidence: mainData.fullName.confidence },
-        lastName: { content: lastName, confidence: mainData.fullName.confidence }
+        firstName: createFieldWithConfidence(firstName, mainData.fullName.confidence, 'fullName'),
+        lastName: createFieldWithConfidence(lastName, mainData.fullName.confidence, 'fullName')
       };
     }
   }
@@ -36,8 +50,8 @@ export function enrichPersonData(
     const { firstName, lastName } = splitPersonName(mainData.firstName.content);
     if (firstName && lastName) {
       splitFirstName = {
-        firstName: { content: firstName, confidence: mainData.firstName.confidence },
-        lastName: { content: lastName, confidence: mainData.firstName.confidence }
+        firstName: createFieldWithConfidence(firstName, mainData.firstName.confidence, 'firstName'),
+        lastName: createFieldWithConfidence(lastName, mainData.firstName.confidence, 'firstName')
       };
     }
   }
@@ -48,26 +62,26 @@ export function enrichPersonData(
     const { firstName, lastName } = splitPersonName(mainData.lastName.content);
     if (firstName && lastName) {
       splitLastName = {
-        firstName: { content: firstName, confidence: mainData.lastName.confidence },
-        lastName: { content: lastName, confidence: mainData.lastName.confidence }
+        firstName: createFieldWithConfidence(firstName, mainData.lastName.confidence, 'lastName'),
+        lastName: createFieldWithConfidence(lastName, mainData.lastName.confidence, 'lastName')
       };
     }
   }
 
   // Wzbogać imię
-  const enrichedFirstName = mergeFieldsWithConfidence([
+  const mergedFirstName = mergeFieldsWithConfidence([
     { field: splitMainName?.firstName || splitFirstName?.firstName || splitLastName?.firstName || mainData?.firstName, weight: mainWeight },
     { field: correspondenceData?.firstName, weight: correspondenceWeight }
   ], { confidenceThreshold });
 
   // Wzbogać nazwisko
-  const enrichedLastName = mergeFieldsWithConfidence([
+  const mergedLastName = mergeFieldsWithConfidence([
     { field: splitMainName?.lastName || splitFirstName?.lastName || splitLastName?.lastName || mainData?.lastName, weight: mainWeight },
     { field: correspondenceData?.lastName, weight: correspondenceWeight }
   ], { confidenceThreshold });
 
   return {
-    firstName: enrichedFirstName,
-    lastName: enrichedLastName
+    firstName: mergedFirstName ? createFieldWithConfidence(mergedFirstName.content, mergedFirstName.confidence, 'merged') : undefined,
+    lastName: mergedLastName ? createFieldWithConfidence(mergedLastName.content, mergedLastName.confidence, 'merged') : undefined
   };
 } 

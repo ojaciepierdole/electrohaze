@@ -1,17 +1,18 @@
 import { DocumentField } from '@azure/ai-form-recognizer';
 import { AbortSignalLike } from '@azure/abort-controller';
 import { Alert } from '@/lib/alert-service';
-import { 
-  ISODateString, 
-  AddressData, 
-  PersonData, 
-  BillingPeriod, 
-  BaseDataGroup 
-} from './common';
 
 export interface FieldWithConfidence {
-  content: string | null;
+  content: string;
   confidence: number;
+  isEnriched?: boolean;
+  metadata: {
+    fieldType?: string;
+    transformationType?: string;
+    originalValue?: string;
+    source?: string;
+    [key: string]: unknown;
+  };
 }
 
 export type FieldGroupKey = 
@@ -444,4 +445,22 @@ export function toUpperCaseValues<T extends Record<string, string | undefined>>(
     result[key as keyof T] = value?.toUpperCase() as T[keyof T];
   }
   return result;
+}
+
+export interface TransformationContext {
+  value: string;
+  confidence: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface TransformationResult {
+  value: string;
+  confidence: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface TransformationRule {
+  name: string;
+  description: string;
+  transform: (context: TransformationContext) => TransformationResult;
 }

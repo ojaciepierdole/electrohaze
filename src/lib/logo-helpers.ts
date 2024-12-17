@@ -35,4 +35,14 @@ export function getDomain(supplierName: string): string {
 
   // Jeśli nie znaleziono mapowania, zwracamy domyślną domenę
   return 'orange.pl';
+}
+
+/**
+ * Generuje URL do logo dostawcy na podstawie jego nazwy
+ * @param supplierName Nazwa dostawcy
+ * @returns URL do logo dostawcy
+ */
+export function getLogoUrl(supplierName: string): string {
+  const domain = getDomain(supplierName);
+  return `https://logo.clearbit.com/${domain}`;
 } 

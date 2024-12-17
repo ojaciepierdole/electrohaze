@@ -55,6 +55,24 @@ export interface AddressNormalizationResult {
   };
 }
 
+// Wynik przetwarzania adresu
+export interface AddressData {
+  raw: string;
+  normalized: string;
+  parts: {
+    street: string;
+    building: string;
+    unit: string;
+    city: string;
+    postalCode: string;
+  };
+  metadata: {
+    isComplete: boolean;
+    hasUnit: boolean;
+    confidence: number;
+  };
+}
+
 // Stałe dla adresów
 export const ADDRESS_CONSTANTS = {
   // Prefiksy do usunięcia

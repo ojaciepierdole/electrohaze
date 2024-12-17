@@ -1,6 +1,41 @@
-import type { FieldWithConfidence } from './types';
+import type { FieldWithConfidence } from '@/types/processing';
+import type { DocumentField } from '@/types/document';
 import { mergeFieldsWithConfidence } from './person';
 import { normalizeAddress } from '../data-processing/normalizers/address';
+
+// Funkcja pomocnicza do konwersji DocumentField na string
+function getFieldContent(field: DocumentField | undefined): string | null {
+  return field?.content || null;
+}
+
+// Funkcja pomocnicza do konwersji DocumentField na FieldWithConfidence
+function convertToFieldWithConfidence(field: DocumentField | undefined, source: string): FieldWithConfidence | undefined {
+  if (!field || !field.content) return undefined;
+  return {
+    content: field.content,
+    confidence: field.confidence,
+    metadata: {
+      fieldType: field.metadata?.fieldType || 'text',
+      transformationType: field.metadata?.transformationType || 'initial',
+      originalValue: field.metadata?.originalValue,
+      source,
+      ...field.metadata
+    }
+  };
+}
+
+// Funkcja pomocnicza do tworzenia nowego FieldWithConfidence
+function createFieldWithConfidence(content: string, confidence: number, source: string): FieldWithConfidence {
+  return {
+    content,
+    confidence,
+    metadata: {
+      fieldType: 'text',
+      transformationType: 'initial',
+      source
+    }
+  };
+}
 
 // Funkcja do rozdzielania połączonego adresu
 export function splitAddressLine(addressLine: string | null): {
@@ -120,68 +155,68 @@ export function enrichAddressFields(
 
   // Normalizuj dane adresowe
   const normalizedMain = mainFields?.street ? 
-    normalizeAddress({ content: mainFields.street.content, confidence: mainFields.street.confidence }, {}, '') :
+    normalizeAddress(createFieldWithConfidence(mainFields.street.content, mainFields.street.confidence, 'main'), {}, 'supplier') :
     null;
 
   const normalizedCorrespondence = correspondenceFields?.street ?
-    normalizeAddress({ content: correspondenceFields.street.content, confidence: correspondenceFields.street.confidence }, {}, 'pa') :
+    normalizeAddress(createFieldWithConfidence(correspondenceFields.street.content, correspondenceFields.street.confidence, 'correspondence'), {}, 'pa') :
     null;
 
   const normalizedDelivery = deliveryFields?.street ?
-    normalizeAddress({ content: deliveryFields.street.content, confidence: deliveryFields.street.confidence }, {}, 'dp') :
+    normalizeAddress(createFieldWithConfidence(deliveryFields.street.content, deliveryFields.street.confidence, 'delivery'), {}, 'dp') :
     null;
 
   // Jeśli mamy pełny adres w jednym polu, rozdziel go
   let splitDeliveryAddress = undefined;
   if (deliveryFields?.fullAddress?.content) {
     const normalized = normalizeAddress(
-      { content: deliveryFields.fullAddress.content, confidence: deliveryFields.fullAddress.confidence },
+      createFieldWithConfidence(deliveryFields.fullAddress.content, deliveryFields.fullAddress.confidence, 'fullAddress'),
       {},
       'dp'
     );
     
     if (normalized.dpStreet) {
       splitDeliveryAddress = {
-        street: { content: normalized.dpStreet, confidence: deliveryFields.fullAddress.confidence },
-        building: normalized.dpBuilding ? { content: normalized.dpBuilding, confidence: deliveryFields.fullAddress.confidence } : undefined,
-        unit: normalized.dpUnit ? { content: normalized.dpUnit, confidence: deliveryFields.fullAddress.confidence } : undefined
+        street: createFieldWithConfidence(normalized.dpStreet.content, deliveryFields.fullAddress.confidence, 'fullAddress'),
+        building: normalized.dpBuilding ? createFieldWithConfidence(normalized.dpBuilding.content, deliveryFields.fullAddress.confidence, 'fullAddress') : undefined,
+        unit: normalized.dpUnit ? createFieldWithConfidence(normalized.dpUnit.content, deliveryFields.fullAddress.confidence, 'fullAddress') : undefined
       };
     }
   }
 
   // Wzbogać ulicę
   const enrichedStreet = mergeFieldsWithConfidence([
-    { field: normalizedMain?.Street ? { content: normalizedMain.Street, confidence: mainFields?.street?.confidence || 0 } : undefined, weight: mainWeight },
-    { field: normalizedCorrespondence?.paStreet ? { content: normalizedCorrespondence.paStreet, confidence: correspondenceFields?.street?.confidence || 0 } : undefined, weight: correspondenceWeight },
-    { field: normalizedDelivery?.dpStreet ? { content: normalizedDelivery.dpStreet, confidence: deliveryFields?.street?.confidence || 0 } : undefined || splitDeliveryAddress?.street, weight: deliveryWeight }
+    { field: normalizedMain?.dpStreet ? createFieldWithConfidence(normalizedMain.dpStreet.content, mainFields?.street?.confidence || 0, 'main') : undefined, weight: mainWeight },
+    { field: normalizedCorrespondence?.paStreet ? createFieldWithConfidence(normalizedCorrespondence.paStreet.content, correspondenceFields?.street?.confidence || 0, 'correspondence') : undefined, weight: correspondenceWeight },
+    { field: normalizedDelivery?.dpStreet ? createFieldWithConfidence(normalizedDelivery.dpStreet.content, deliveryFields?.street?.confidence || 0, 'delivery') : undefined, weight: deliveryWeight }
   ], { confidenceThreshold });
 
   // Wzbogać numer budynku
   const enrichedBuilding = mergeFieldsWithConfidence([
-    { field: mainFields?.building, weight: mainWeight },
-    { field: correspondenceFields?.building, weight: correspondenceWeight },
-    { field: deliveryFields?.building || splitDeliveryAddress?.building, weight: deliveryWeight }
+    { field: mainFields?.building ? convertToFieldWithConfidence(mainFields.building, 'main') : undefined, weight: mainWeight },
+    { field: correspondenceFields?.building ? convertToFieldWithConfidence(correspondenceFields.building, 'correspondence') : undefined, weight: correspondenceWeight },
+    { field: deliveryFields?.building ? convertToFieldWithConfidence(deliveryFields.building, 'delivery') : splitDeliveryAddress?.building, weight: deliveryWeight }
   ], { confidenceThreshold });
 
   // Wzbogać numer lokalu
   const enrichedUnit = mergeFieldsWithConfidence([
-    { field: mainFields?.unit, weight: mainWeight },
-    { field: correspondenceFields?.unit, weight: correspondenceWeight },
-    { field: deliveryFields?.unit || splitDeliveryAddress?.unit, weight: deliveryWeight }
+    { field: mainFields?.unit ? convertToFieldWithConfidence(mainFields.unit, 'main') : undefined, weight: mainWeight },
+    { field: correspondenceFields?.unit ? convertToFieldWithConfidence(correspondenceFields.unit, 'correspondence') : undefined, weight: correspondenceWeight },
+    { field: deliveryFields?.unit ? convertToFieldWithConfidence(deliveryFields.unit, 'delivery') : splitDeliveryAddress?.unit, weight: deliveryWeight }
   ], { confidenceThreshold });
 
   // Wzbogać kod pocztowy
   const enrichedPostalCode = mergeFieldsWithConfidence([
-    { field: mainFields?.postalCode, weight: mainWeight },
-    { field: correspondenceFields?.postalCode, weight: correspondenceWeight },
-    { field: deliveryFields?.postalCode, weight: deliveryWeight }
+    { field: mainFields?.postalCode ? convertToFieldWithConfidence(mainFields.postalCode, 'main') : undefined, weight: mainWeight },
+    { field: correspondenceFields?.postalCode ? convertToFieldWithConfidence(correspondenceFields.postalCode, 'correspondence') : undefined, weight: correspondenceWeight },
+    { field: deliveryFields?.postalCode ? convertToFieldWithConfidence(deliveryFields.postalCode, 'delivery') : undefined, weight: deliveryWeight }
   ], { confidenceThreshold });
 
   // Wzbogać miasto
   const enrichedCity = mergeFieldsWithConfidence([
-    { field: mainFields?.city, weight: mainWeight },
-    { field: correspondenceFields?.city, weight: correspondenceWeight },
-    { field: deliveryFields?.city, weight: deliveryWeight }
+    { field: mainFields?.city ? convertToFieldWithConfidence(mainFields.city, 'main') : undefined, weight: mainWeight },
+    { field: correspondenceFields?.city ? convertToFieldWithConfidence(correspondenceFields.city, 'correspondence') : undefined, weight: correspondenceWeight },
+    { field: deliveryFields?.city ? convertToFieldWithConfidence(deliveryFields.city, 'delivery') : undefined, weight: deliveryWeight }
   ], { confidenceThreshold });
 
   return {
@@ -194,53 +229,56 @@ export function enrichAddressFields(
 }
 
 // Funkcja do formatowania adresu
-export function formatAddress(value: string | null): string | null {
+export function formatAddress(value: DocumentField | string | null): string | null {
   if (!value) return null;
-  return value.replace(/,+$/, '').toUpperCase();
+  const content = typeof value === 'string' ? value : value.content;
+  if (!content) return null;
+  return content.replace(/,+$/, '').toUpperCase();
 }
 
 // Funkcja do formatowania kodu pocztowego
-export function formatPostalCode(value: string | null): string | null {
+export function formatPostalCode(value: DocumentField | string | null): string | null {
   if (!value) return null;
+  const content = typeof value === 'string' ? value : value.content;
+  if (!content) return null;
   // Usuń wszystkie białe znaki i formatuj jako XX-XXX
-  const cleaned = value.replace(/\s+/g, '');
+  const cleaned = content.replace(/\s+/g, '');
   if (cleaned.length === 5) {
     return `${cleaned.slice(0, 2)}-${cleaned.slice(2)}`;
   }
-  return value;
+  return content;
 }
 
 // Funkcja do formatowania miasta
-export function formatCity(value: string | null): string | null {
+export function formatCity(value: DocumentField | string | null): string | null {
   if (!value) return null;
-  return value.toUpperCase();
+  const content = typeof value === 'string' ? value : value.content;
+  if (!content) return null;
+  return content.toUpperCase();
 }
 
 // Funkcja do formatowania województwa
-export function formatProvince(value: string | null): string | null {
+export function formatProvince(value: DocumentField | string | null): string | null {
   if (!value) return null;
-  return value.toUpperCase();
+  const content = typeof value === 'string' ? value : value.content;
+  if (!content) return null;
+  return content.toUpperCase();
 }
 
 // Funkcja do formatowania ulicy
-export function formatStreet(value: string | null): string | null {
+export function formatStreet(value: DocumentField | string | null): string | null {
   if (!value) return null;
+  const content = typeof value === 'string' ? value : value.content;
+  if (!content) return null;
   
   // Usuń potencjalne duplikaty oddzielone znakiem nowej linii
-  const cleanedValue = value.split('\n')[0];
+  const cleanedValue = content.split('\n')[0];
   
   // Usuń prefiksy ulicy - dodajemy spację po prefiksie aby uniknąć usuwania części nazw
   const withoutPrefix = cleanedValue.replace(
     /^(?:UL|UL\.|ULICA|AL|AL\.|ALEJA|PL|PL\.|PLAC|RONDO|OS|OS\.|OSIEDLE)\s+/i,
     ''
   ).trim();
-  
-  console.log(`[formatStreet] Przetwarzanie ulicy:`, {
-    input: value,
-    afterCleaning: cleanedValue,
-    afterRemovingPrefix: withoutPrefix,
-    finalResult: withoutPrefix.toUpperCase()
-  });
   
   return withoutPrefix.toUpperCase();
 } 

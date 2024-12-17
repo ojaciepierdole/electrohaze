@@ -26,7 +26,6 @@ async function analyzeDocument(
   // Czasy przetwarzania
   let uploadTime = 0;
   let ocrTime = 0;
-  let analysisTime = 0;
 
   // Sprawdź cache
   if (file instanceof File) {

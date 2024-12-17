@@ -11,9 +11,6 @@ interface BatchProcessingResultsProps {
 }
 
 export function BatchProcessingResults({ results, onExport }: BatchProcessingResultsProps) {
-  // Oblicz całkowity czas przetwarzania
-  const totalTime = results.reduce((sum, result) => sum + result.processingTime, 0);
-
   return (
     <motion.div 
       className="space-y-4"
@@ -24,7 +21,6 @@ export function BatchProcessingResults({ results, onExport }: BatchProcessingRes
     >
       <DocumentList
         documents={results}
-        totalTime={totalTime}
         onExport={onExport}
       />
     </motion.div>

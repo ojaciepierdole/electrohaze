@@ -36,7 +36,11 @@ declare module 'recharts' {
 
   export interface TooltipProps {}
   export interface BarChartProps {
-    data: any[];
+    data: Array<{
+      label: string;
+      value: number;
+      [key: string]: unknown;
+    }>;
     margin?: {
       top?: number;
       right?: number;
@@ -59,12 +63,12 @@ declare module 'lucide-react' {
 declare global {
   namespace JSX {
     interface IntrinsicElements {
-      'responsive-container': any;
-      'bar-chart': any;
-      'x-axis': any;
-      'y-axis': any;
-      'tooltip': any;
-      'bar': any;
+      'responsive-container': React.DetailedHTMLProps<React.HTMLAttributes<HTMLDivElement>, HTMLDivElement>;
+      'bar-chart': React.DetailedHTMLProps<React.HTMLAttributes<HTMLDivElement>, HTMLDivElement>;
+      'x-axis': React.DetailedHTMLProps<React.HTMLAttributes<HTMLDivElement>, HTMLDivElement>;
+      'y-axis': React.DetailedHTMLProps<React.HTMLAttributes<HTMLDivElement>, HTMLDivElement>;
+      'tooltip': React.DetailedHTMLProps<React.HTMLAttributes<HTMLDivElement>, HTMLDivElement>;
+      'bar': React.DetailedHTMLProps<React.HTMLAttributes<HTMLDivElement>, HTMLDivElement>;
       html: React.DetailedHTMLProps<React.HtmlHTMLAttributes<HTMLHtmlElement>, HTMLHtmlElement>;
       head: React.DetailedHTMLProps<React.HTMLAttributes<HTMLHeadElement>, HTMLHeadElement>;
       link: React.DetailedHTMLProps<React.LinkHTMLAttributes<HTMLLinkElement>, HTMLLinkElement>;

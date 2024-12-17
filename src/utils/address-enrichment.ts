@@ -50,7 +50,7 @@ function areAddressesMatching(
     text.toLowerCase().trim()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '')
+      .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, '')
       .replace(/\s+/g, ' ');
 
   return normalizeText(street1) === normalizeText(street2) &&

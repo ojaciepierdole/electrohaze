@@ -36,7 +36,7 @@ export function useVirtualizedData<T>({
     });
     dataRef.current = data;
     setIsInitialized(false); // Reset przy zmianie danych
-  }, [data]);
+  }, [data, virtualizedData.length]);
 
   const totalItems = data.length;
   const totalPages = Math.ceil(totalItems / pageSize);
@@ -48,33 +48,14 @@ export function useVirtualizedData<T>({
 
     console.log('Inicjalizacja danych:', {
       pageSize,
-      preloadPages,
-      totalItems
+      currentPage,
+      totalItems: data.length
     });
 
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-
-    setIsLoading(true);
-    timeoutRef.current = setTimeout(() => {
-      const initialData = dataRef.current.slice(0, pageSize * preloadPages);
-      console.log('Ładowanie początkowych danych:', {
-        count: initialData.length,
-        pages: preloadPages
-      });
-      setVirtualizedData(initialData);
-      setCurrentPage(preloadPages);
-      setIsLoading(false);
-      setIsInitialized(true);
-    }, 0);
-
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, [data, pageSize, preloadPages, isInitialized, totalItems]);
+    const initialData = data.slice(0, pageSize);
+    setVirtualizedData(initialData);
+    setIsInitialized(true);
+  }, [isInitialized, data.length, pageSize, currentPage]);
 
   // Zoptymalizowana funkcja do ładowania kolejnej strony danych
   const loadMore = React.useCallback(() => {
@@ -140,7 +121,7 @@ export function useVirtualizedData<T>({
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [currentPage, hasMore, isLoading, loadMore, pageSize, virtualizedData.length, isInitialized]);
+  }, [currentPage, hasMore, isLoading, pageSize, isInitialized, virtualizedData.length, loadMore]);
 
   return {
     virtualizedData,

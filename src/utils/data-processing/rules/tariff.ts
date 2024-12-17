@@ -72,7 +72,8 @@ export const tariffRules: TransformationRule[] = [
             metadata: {
               originalValue,
               transformationType: 'normalizeTariffGroup',
-              matchedVariant: variant
+              matchedVariant: variant,
+              fieldType: 'string'
             }
           };
         }
@@ -84,7 +85,8 @@ export const tariffRules: TransformationRule[] = [
         metadata: {
           originalValue,
           transformationType: 'normalizeTariffGroup',
-          matchedVariant: null
+          matchedVariant: null,
+          fieldType: 'string'
         }
       };
     }
@@ -119,7 +121,8 @@ export const tariffRules: TransformationRule[] = [
             metadata: {
               originalValue,
               transformationType: 'normalizeOSDName',
-              matchedVariant: variant
+              matchedVariant: variant,
+              fieldType: 'string'
             }
           };
         }
@@ -131,7 +134,8 @@ export const tariffRules: TransformationRule[] = [
         metadata: {
           originalValue,
           transformationType: 'normalizeOSDName',
-          matchedVariant: null
+          matchedVariant: null,
+          fieldType: 'string'
         }
       };
     }

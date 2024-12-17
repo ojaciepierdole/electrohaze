@@ -1,15 +1,30 @@
 import { NormalizedAddress, ProcessingOptions, DataSection } from '../types';
 import { normalizeAddress, normalizePostalCode, normalizeCity } from '../normalizers/address';
+import { FieldWithConfidence } from '@/types/processing';
+
+// Funkcja pomocnicza do tworzenia FieldWithConfidence
+function createFieldWithConfidence(content: string | null | undefined, confidence: number, source: string): FieldWithConfidence | undefined {
+  if (!content) return undefined;
+  return {
+    content,
+    confidence,
+    metadata: {
+      fieldType: 'text',
+      transformationType: 'initial',
+      source
+    }
+  };
+}
 
 interface AddressSet {
-  firstName?: { content: string; confidence: number };
-  lastName?: { content: string; confidence: number };
-  street?: { content: string; confidence: number };
-  building?: { content: string; confidence: number };
-  unit?: { content: string; confidence: number };
-  postalCode?: { content: string; confidence: number };
-  city?: { content: string; confidence: number };
-  fullAddress?: { content: string; confidence: number };
+  firstName?: FieldWithConfidence;
+  lastName?: FieldWithConfidence;
+  street?: FieldWithConfidence;
+  building?: FieldWithConfidence;
+  unit?: FieldWithConfidence;
+  postalCode?: FieldWithConfidence;
+  city?: FieldWithConfidence;
+  fullAddress?: FieldWithConfidence;
 }
 
 interface WeightedAddress {
@@ -52,11 +67,23 @@ export function enrichAddress(
     const lastName = addressSet.lastName?.content || null;
 
     // Normalizuj ulicę
-    const streetNormalized = normalizeAddress(addressSet.street || addressSet.fullAddress, options, prefix);
+    const streetNormalized = normalizeAddress(
+      addressSet.street || addressSet.fullAddress,
+      options,
+      prefix
+    );
     
     // Normalizuj numer budynku i mieszkania
-    const buildingNormalized = normalizeAddress(addressSet.building, options, prefix);
-    const unitNormalized = normalizeAddress(addressSet.unit, options, prefix);
+    const buildingNormalized = normalizeAddress(
+      createFieldWithConfidence(addressSet.building?.content, addressSet.building?.confidence || 0, 'building'),
+      options,
+      prefix
+    );
+    const unitNormalized = normalizeAddress(
+      createFieldWithConfidence(addressSet.unit?.content, addressSet.unit?.confidence || 0, 'unit'),
+      options,
+      prefix
+    );
 
     // Normalizuj kod pocztowy i miasto
     const postalCode = normalizePostalCode(addressSet.postalCode?.content || null);
@@ -123,8 +150,8 @@ function checkAddressConsistency(
     // Sprawdź czy ulice są podobne
     if (reference.address[`${refPrefix}Street`] && address[`${prefix}Street`]) {
       const similarity = calculateStreetSimilarity(
-        reference.address[`${refPrefix}Street`],
-        address[`${prefix}Street`]
+        reference.address[`${refPrefix}Street`]?.content || null,
+        address[`${prefix}Street`]?.content || null
       );
       if (similarity > 0.8) {
         // Jeśli ulice są bardzo podobne, ale numery się różnią,

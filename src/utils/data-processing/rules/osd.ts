@@ -1,7 +1,7 @@
 import type { TransformationRule, TransformationContext, ProcessSectionContext, DocumentField } from '@/types/document-processing';
 import { normalizeText } from '@/utils/data-processing/core/normalization';
 import { getOSDInfoByPostalCode } from '@/utils/osd-mapping';
-import type { PPEData, CustomerData, CorrespondenceData, SupplierData } from '@/types/fields';
+import type { CustomerData, CorrespondenceData, SupplierData } from '@/types/fields';
 
 // Słownik poprawnych nazw OSD
 const OSD_NAMES = {
@@ -26,64 +26,58 @@ const OSD_NAMES = {
   'TAURON DYSTRYBUCJA': 'Tauron Dystrybucja SA',
   'TAURON DYSTRYBUCJA S A': 'Tauron Dystrybucja SA',
   'ENERGA OPERATOR': 'Energa-Operator SA',
-  'ENERGA OPERATOR S A': 'Energa-Operator SA'
+  'ENERGA OPERATOR S A': 'Energa-Operator SA',
+  // Dodatkowe warianty
+  'TARYFA ENERGA OPERATOR': 'Energa-Operator SA',
+  'TARYFA PGE DYSTRYBUCJA': 'PGE Dystrybucja SA',
+  'TARYFA TAURON DYSTRYBUCJA': 'Tauron Dystrybucja SA',
+  'TARYFA ENEA OPERATOR': 'Enea Operator Sp. z o.o.',
+  'TARYFA RWE STOEN': 'RWE Stoen Operator Sp. z o.o.',
+  'ENERGAOPERATOR': 'Energa-Operator SA',
+  'ENERGAOPERATORSA': 'Energa-Operator SA',
+  'TAURONDYSTRYBUCJA': 'Tauron Dystrybucja SA',
+  'TAURONDYSTRYBUCJASA': 'Tauron Dystrybucja SA',
+  'ENEAOPERATOR': 'Enea Operator Sp. z o.o.',
+  'ENEAOPERATORSPZOO': 'Enea Operator Sp. z o.o.',
+  'RWESTOENOPERATOR': 'RWE Stoen Operator Sp. z o.o.'
 } as const;
-
-// Funkcja do agresywnej normalizacji nazwy OSD
-function aggressiveNormalizeOSDName(value: string): string {
-  if (!value) return '';
-  
-  // Usuń wszystkie spacje i znaki specjalne
-  let normalized = value
-    .toUpperCase()
-    .replace(/\s+/g, '')
-    .replace(/[^A-Z0-9]/g, '')
-    .replace(/SPOLKAZOO/g, 'SPZOO')
-    .replace(/SPOLKAZO\.?O\.?/g, 'SPZOO')
-    .replace(/SP\.?Z\.?O\.?O\.?/g, 'SPZOO')
-    .replace(/S\.?A\.?/g, 'SA');
-  
-  console.log('[aggressiveNormalizeOSDName] After aggressive normalization:', { input: value, normalized });
-  return normalized;
-}
 
 // Funkcja do normalizacji nazwy OSD
 function normalizeOSDName(value: string): string {
-  if (!value) return '';
+  console.log('[normalizeOSDName] Start with value:', value);
   
-  console.log('[normalizeOSDName] Input value:', value);
+  if (!value) {
+    console.log('[normalizeOSDName] Empty value, returning empty string');
+    return '';
+  }
   
   // Normalizuj tekst do porównania
-  const normalized = normalizeText(value, { toUpper: true, removeSpecial: true }) || '';
-  console.log('[normalizeOSDName] After basic normalization:', normalized);
+  const normalized = normalizeText(value, { 
+    toUpper: true, 
+    removeSpecial: true,
+    normalizePolish: false 
+  });
   
-  // Szukaj dokładnego dopasowania
-  for (const [key, properName] of Object.entries(OSD_NAMES)) {
-    if (normalized === key) {
-      console.log('[normalizeOSDName] Found exact match:', { key, properName });
-      return properName;
-    }
+  console.log('[normalizeOSDName] After normalization:', normalized);
+  
+  // Jeśli normalizacja się nie powiodła, zwróć oryginalną wartość
+  if (!normalized) {
+    console.log('[normalizeOSDName] Normalization failed, returning original:', value);
+    return value;
   }
   
-  // Spróbuj agresywnej normalizacji
-  const aggressiveNormalized = aggressiveNormalizeOSDName(value);
-  for (const [key, properName] of Object.entries(OSD_NAMES)) {
-    const normalizedKey = aggressiveNormalizeOSDName(key);
-    if (aggressiveNormalized.includes(normalizedKey)) {
-      console.log('[normalizeOSDName] Found match after aggressive normalization:', { 
-        key, 
-        properName, 
-        normalizedKey, 
-        aggressiveNormalized 
-      });
-      return properName;
-    }
+  // Bezpośrednie sprawdzenie w słowniku
+  const exactMatch = OSD_NAMES[normalized as keyof typeof OSD_NAMES];
+  if (exactMatch) {
+    console.log('[normalizeOSDName] Found exact match:', exactMatch);
+    return exactMatch;
   }
   
-  // Szukaj częściowego dopasowania w oryginalnej normalizacji
+  // Szukaj częściowych dopasowań
   for (const [key, properName] of Object.entries(OSD_NAMES)) {
+    console.log('[normalizeOSDName] Checking key:', key, 'against normalized:', normalized);
     if (normalized.includes(key)) {
-      console.log('[normalizeOSDName] Found partial match:', { key, properName, normalized });
+      console.log('[normalizeOSDName] Found partial match:', { key, properName });
       return properName;
     }
   }
@@ -143,78 +137,171 @@ function findOSDByPostalCode(context?: ProcessSectionContext): { name: string; r
   return null;
 }
 
+// Mapowanie kodów pocztowych do OSD
+export const OSD_POSTAL_CODE_MAPPINGS: Record<string, string> = {
+  // ENERGA-OPERATOR
+  '80': 'ENERGA-OPERATOR',
+  '81': 'ENERGA-OPERATOR',
+  '82': 'ENERGA-OPERATOR',
+  '83': 'ENERGA-OPERATOR',
+  '84': 'ENERGA-OPERATOR',
+  '85': 'ENERGA-OPERATOR',
+  '86': 'ENERGA-OPERATOR',
+  '87': 'ENERGA-OPERATOR',
+  '88': 'ENERGA-OPERATOR',
+  '89': 'ENERGA-OPERATOR',
+  // STOEN OPERATOR
+  '00': 'STOEN OPERATOR',
+  '01': 'STOEN OPERATOR',
+  '02': 'STOEN OPERATOR',
+  '03': 'STOEN OPERATOR',
+  '04': 'STOEN OPERATOR',
+  // PGE DYSTRYBUCJA
+  '20': 'PGE DYSTRYBUCJA',
+  '21': 'PGE DYSTRYBUCJA',
+  '22': 'PGE DYSTRYBUCJA',
+  '23': 'PGE DYSTRYBUCJA',
+  '24': 'PGE DYSTRYBUCJA',
+  '26': 'PGE DYSTRYBUCJA',
+  '27': 'PGE DYSTRYBUCJA',
+  '08': 'PGE DYSTRYBUCJA',
+  '05': 'PGE DYSTRYBUCJA',
+  '07': 'PGE DYSTRYBUCJA',
+  // TAURON DYSTRYBUCJA
+  '30': 'TAURON DYSTRYBUCJA',
+  '31': 'TAURON DYSTRYBUCJA',
+  '32': 'TAURON DYSTRYBUCJA',
+  '33': 'TAURON DYSTRYBUCJA',
+  '34': 'TAURON DYSTRYBUCJA',
+  '40': 'TAURON DYSTRYBUCJA',
+  '41': 'TAURON DYSTRYBUCJA',
+  '42': 'TAURON DYSTRYBUCJA',
+  '43': 'TAURON DYSTRYBUCJA',
+  '44': 'TAURON DYSTRYBUCJA',
+  '45': 'TAURON DYSTRYBUCJA',
+  '46': 'TAURON DYSTRYBUCJA',
+  '47': 'TAURON DYSTRYBUCJA',
+  '48': 'TAURON DYSTRYBUCJA',
+  '49': 'TAURON DYSTRYBUCJA',
+  '50': 'TAURON DYSTRYBUCJA',
+  '51': 'TAURON DYSTRYBUCJA',
+  '52': 'TAURON DYSTRYBUCJA',
+  '53': 'TAURON DYSTRYBUCJA',
+  '54': 'TAURON DYSTRYBUCJA',
+  '55': 'TAURON DYSTRYBUCJA',
+  '56': 'TAURON DYSTRYBUCJA',
+  '57': 'TAURON DYSTRYBUCJA',
+  '58': 'TAURON DYSTRYBUCJA',
+  '59': 'TAURON DYSTRYBUCJA',
+  // ENEA OPERATOR
+  '60': 'ENEA OPERATOR',
+  '61': 'ENEA OPERATOR',
+  '62': 'ENEA OPERATOR',
+  '63': 'ENEA OPERATOR',
+  '64': 'ENEA OPERATOR',
+  '65': 'ENEA OPERATOR',
+  '66': 'ENEA OPERATOR',
+  '67': 'ENEA OPERATOR',
+  '68': 'ENEA OPERATOR',
+  '69': 'ENEA OPERATOR',
+  '70': 'ENEA OPERATOR',
+  '71': 'ENEA OPERATOR',
+  '72': 'ENEA OPERATOR',
+  '73': 'ENEA OPERATOR',
+  '74': 'ENEA OPERATOR',
+  '75': 'ENEA OPERATOR',
+  '76': 'ENEA OPERATOR',
+  '77': 'ENEA OPERATOR',
+  '78': 'ENEA OPERATOR',
+  '79': 'ENEA OPERATOR',
+};
+
+/**
+ * Określa OSD na podstawie kodu pocztowego
+ */
+export function determineOSDByPostalCode(postalCode: string | null | undefined): string | null {
+  console.log('[determineOSDByPostalCode] Start with postal code:', postalCode);
+  
+  if (!postalCode) {
+    console.log('[determineOSDByPostalCode] No postal code provided');
+    return null;
+  }
+  
+  // Wyczyść kod pocztowy ze znaków specjalnych
+  const cleanPostalCode = normalizeText(postalCode, {
+    removeSpecial: true,
+    normalizePolish: false
+  });
+  
+  console.log('[determineOSDByPostalCode] Cleaned postal code:', cleanPostalCode);
+
+  // Sprawdź czy mamy poprawny kod pocztowy po normalizacji
+  if (!cleanPostalCode) {
+    console.log('[determineOSDByPostalCode] Invalid postal code after cleaning');
+    return null;
+  }
+  
+  // Weź pierwsze dwie cyfry kodu pocztowego
+  const prefix = cleanPostalCode.substring(0, 2);
+  console.log('[determineOSDByPostalCode] Postal code prefix:', prefix);
+  
+  // Znajdź odpowiednie OSD
+  const osd = OSD_POSTAL_CODE_MAPPINGS[prefix];
+  console.log('[determineOSDByPostalCode] Found OSD:', osd);
+  
+  return osd || null;
+}
+
 // Reguły transformacji dla OSD
 export const osdRules: TransformationRule[] = [
   {
     name: 'normalize_osd_name',
-    description: 'Normalizacja nazwy OSD na podstawie danych dostawcy lub kodu pocztowego',
+    description: 'Normalizacja nazwy OSD',
     priority: 100,
     condition: (value, context) => {
-      console.log('[OSD Rule] Checking condition for OSD_name:', { value, context });
       return context.field === 'OSD_name';
     },
     transform: (value, context: TransformationContext) => {
-      console.log('[OSD Rule] Starting OSD_name transformation:', { value, context });
+      console.log('[OSD Rule] Starting OSD_name transformation with value:', value);
       
-      // Najpierw sprawdź czy mamy dane OSD od dostawcy
+      // Najpierw spróbuj znaleźć OSD na podstawie kodu pocztowego
       const supplierData = context.document?.supplier as SupplierData | undefined;
-      if (supplierData?.OSD_name?.content) {
-        console.log('[OSD Rule] Found OSD name in supplier context:', supplierData.OSD_name);
-        return {
-          value: supplierData.OSD_name.content,
-          confidence: supplierData.OSD_name.confidence || 0.8,
-          additionalFields: supplierData.OSD_region?.content ? {
-            OSD_region: {
-              value: supplierData.OSD_region.content,
-              confidence: supplierData.OSD_region.confidence || 0.8
-            }
-          } : undefined,
-          metadata: {
-            transformationType: 'osd_normalization',
-            fieldType: 'osd_name',
-            source: 'supplier'
-          }
-        };
-      }
-
-      // Jeśli nie mamy danych od dostawcy, spróbuj znormalizować nazwę OSD
-      const normalizedName = normalizeOSDName(value || '');
-      console.log('[OSD Rule] Normalized OSD name:', { input: value, normalized: normalizedName });
+      const postalCode = supplierData?.supplierPostalCode?.content;
       
-      // Jeśli nie udało się znormalizować nazwy, spróbuj znaleźć OSD na podstawie kodu pocztowego
-      if (normalizedName === value && context.document) {
-        const supplierFields = Object.entries(context.document.supplier || {}).reduce(
-          (acc, [key, value]) => ({ ...acc, [key]: value }),
-          {} as Record<string, DocumentField>
-        );
-        const osdInfo = findOSDByPostalCode({ supplier: supplierFields });
-        console.log('[OSD Rule] Found OSD by postal code:', osdInfo);
-        if (osdInfo) {
-          return {
-            value: osdInfo.name,
-            confidence: 0.8,
-            additionalFields: {
-              OSD_region: {
-                value: osdInfo.region,
-                confidence: 0.8
+      if (postalCode) {
+        console.log('[OSD Rule] Found postal code:', postalCode);
+        const osdFromPostal = determineOSDByPostalCode(postalCode);
+        if (osdFromPostal) {
+          console.log('[OSD Rule] Found OSD from postal code:', osdFromPostal);
+          // Normalizuj nazwę OSD znalezioną przez kod pocztowy
+          const normalizedFromPostal = normalizeOSDName(osdFromPostal);
+          if (normalizedFromPostal) {
+            return {
+              value: normalizedFromPostal,
+              confidence: 0.9,
+              metadata: {
+                transformationType: 'osd_normalization',
+                fieldType: 'osd_name',
+                source: 'postal_code',
+                originalValue: value
               }
-            },
-            metadata: {
-              transformationType: 'osd_normalization',
-              fieldType: 'osd_name',
-              source: 'postal_code'
-            }
-          };
+            };
+          }
         }
       }
       
+      // Jeśli nie udało się znaleźć przez kod pocztowy, normalizuj podaną wartość
+      console.log('[OSD Rule] Trying to normalize provided value:', value);
+      const normalizedName = normalizeOSDName(value || '');
+      
       return {
-        value: normalizedName || '',
+        value: normalizedName,
         confidence: normalizedName !== value ? 0.9 : 0.7,
         metadata: {
           transformationType: 'osd_normalization',
           fieldType: 'osd_name',
-          source: 'direct_match'
+          source: normalizedName !== value ? 'mapped' : 'original',
+          originalValue: value
         }
       };
     }
