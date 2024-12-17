@@ -135,6 +135,8 @@ export function AnalysisResultCard({
                   <div className="bg-white rounded-lg shadow p-4">
                     <SupplierDataGroup 
                       data={supplierData}
+                      ppeData={ppeData}
+                      customerData={customerData}
                     />
                   </div>
                 )}

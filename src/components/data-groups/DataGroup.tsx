@@ -84,22 +84,6 @@ export const DataGroup: React.FC<DataGroupProps> = ({
           </div>
         ))}
       </div>
-
-      {fieldsWithoutData.length > 0 && (
-        <>
-          <Separator className="my-4" />
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium text-gray-500">Brakujące dane</h4>
-            <div className="grid grid-cols-2 gap-2">
-              {fieldsWithoutData.map(key => (
-                <div key={key} className="text-sm text-gray-400">
-                  {fieldLabels[key]}
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 }; 

@@ -4,15 +4,48 @@ import React from 'react';
 import { DataGroup } from '@/components/data-groups/DataGroup';
 import type { DocumentField } from '@/types/document-processing';
 import { processSection } from '@/utils/data-processing';
-import type { SupplierData } from '@/types/fields';
+import type { SupplierData, PPEData, CustomerData } from '@/types/fields';
+import { normalizeOSDName, arePostalCodesCompatible } from '@/utils/data-processing/mappings/osd-mappings';
 
 interface SupplierDataGroupProps {
   data: Partial<SupplierData>;
+  ppeData?: Partial<PPEData>;
+  customerData?: Partial<CustomerData>;
 }
 
-export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({ data }) => {
+export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({ data, ppeData, customerData }) => {
   // Konwertuj dane do wymaganego formatu
   const processedData = processSection('supplier', data) as Record<string, DocumentField | undefined>;
+
+  // Normalizuj nazwę OSD na podstawie kodów pocztowych
+  const ppePostalCode = ppeData?.dpPostalCode?.content;
+  const customerPostalCode = customerData?.PostalCode?.content;
+
+  if (ppePostalCode && customerPostalCode && arePostalCodesCompatible(ppePostalCode, customerPostalCode)) {
+    const normalizedOSD = normalizeOSDName(ppePostalCode);
+    if (normalizedOSD) {
+      processedData.OSD_name = {
+        content: normalizedOSD.name,
+        confidence: 1,
+        isEnriched: true,
+        metadata: {
+          fieldType: 'string',
+          transformationType: 'osd_normalization',
+          originalValue: processedData.OSD_name?.content
+        }
+      };
+      processedData.OSD_region = {
+        content: normalizedOSD.region,
+        confidence: 1,
+        isEnriched: true,
+        metadata: {
+          fieldType: 'string',
+          transformationType: 'osd_normalization',
+          originalValue: processedData.OSD_region?.content
+        }
+      };
+    }
+  }
 
   // Przetwórz numer budynku i lokalu
   if (processedData.supplierBuilding?.content) {
