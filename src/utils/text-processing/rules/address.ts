@@ -13,11 +13,21 @@ import { STREET_PREFIXES } from '../../../utils/text-formatting/dictionaries/add
 export const addressNormalizationRule: TransformationRule = {
   name: 'address-normalization',
   description: 'Normalizuje format adresu',
-  transform: (context: TransformationContext): TransformationResult => {
+  priority: 100,
+  transform: (value: string, context: TransformationContext): TransformationResult => {
     try {
-      const { value, confidence } = context;
       if (!value) {
-        return { value: '', confidence: 0 };
+        return {
+          value: '',
+          content: '',
+          confidence: 0,
+          metadata: {
+            fieldType: 'text',
+            transformationType: 'address_normalization',
+            source: 'address_transform',
+            status: 'empty'
+          }
+        };
       }
 
       // Normalizuj tekst
@@ -31,13 +41,26 @@ export const addressNormalizationRule: TransformationRule = {
 
       return {
         value: withoutPrefix,
-        confidence
+        content: withoutPrefix,
+        confidence: context.confidence || 0,
+        metadata: {
+          fieldType: 'text',
+          transformationType: 'address_normalization',
+          source: 'address_transform',
+          status: 'transformed',
+          originalValue: value
+        }
       };
     } catch (error) {
       return {
         value: '',
+        content: '',
         confidence: 0,
         metadata: {
+          fieldType: 'text',
+          transformationType: 'address_normalization',
+          source: 'address_transform',
+          status: 'error',
           error: error instanceof Error ? error.message : 'Unknown error'
         }
       };
@@ -51,11 +74,21 @@ export const addressNormalizationRule: TransformationRule = {
 export const postalCodeValidationRule: TransformationRule = {
   name: 'postal-code-validation',
   description: 'Waliduje format kodu pocztowego',
-  transform: (context: TransformationContext): TransformationResult => {
+  priority: 200,
+  transform: (value: string, context: TransformationContext): TransformationResult => {
     try {
-      const { value, confidence } = context;
       if (!value) {
-        return { value: '', confidence: 0 };
+        return {
+          value: '',
+          content: '',
+          confidence: 0,
+          metadata: {
+            fieldType: 'postal_code',
+            transformationType: 'postal_code_validation',
+            source: 'address_transform',
+            status: 'empty'
+          }
+        };
       }
 
       // Usuń wszystkie znaki niebędące cyframi
@@ -63,7 +96,18 @@ export const postalCodeValidationRule: TransformationRule = {
 
       // Sprawdź czy mamy dokładnie 5 cyfr
       if (cleaned.length !== 5) {
-        return { value: '', confidence: 0 };
+        return {
+          value: '',
+          content: '',
+          confidence: 0,
+          metadata: {
+            fieldType: 'postal_code',
+            transformationType: 'postal_code_validation',
+            source: 'address_transform',
+            status: 'invalid',
+            originalValue: value
+          }
+        };
       }
 
       // Format XX-XXX
@@ -71,13 +115,26 @@ export const postalCodeValidationRule: TransformationRule = {
 
       return {
         value: formatted,
-        confidence
+        content: formatted,
+        confidence: context.confidence || 0,
+        metadata: {
+          fieldType: 'postal_code',
+          transformationType: 'postal_code_validation',
+          source: 'address_transform',
+          status: 'transformed',
+          originalValue: value
+        }
       };
     } catch (error) {
       return {
         value: '',
+        content: '',
         confidence: 0,
         metadata: {
+          fieldType: 'postal_code',
+          transformationType: 'postal_code_validation',
+          source: 'address_transform',
+          status: 'error',
           error: error instanceof Error ? error.message : 'Unknown error'
         }
       };

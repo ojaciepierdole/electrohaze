@@ -1,4 +1,5 @@
 import type { TextNormalizationOptions } from '../text-processing/core/types';
+import type { DocumentField, TransformationContext, TransformationResult, TransformationRule } from '@/types/processing';
 
 /**
  * Typy operacji formatowania
@@ -278,4 +279,42 @@ export class TextProcessor {
 
     return `${integerPart},${decimalPart}`;
   }
-} 
+
+  /**
+   * Przetwarza pole dokumentu według reguł
+   */
+  static processField(
+    field: DocumentField,
+    rules: TransformationRule[],
+    context: TransformationContext
+  ): TransformationResult {
+    // Sortuj reguły według priorytetu
+    const sortedRules = [...rules].sort((a, b) => 
+      (b.priority || 0) - (a.priority || 0)
+    );
+
+    // Zastosuj pierwszą pasującą regułę
+    for (const rule of sortedRules) {
+      if (!rule.condition || rule.condition(field.content, context)) {
+        return rule.transform(field.content, context);
+      }
+    }
+
+    // Jeśli żadna reguła nie pasuje, zwróć niezmienione pole
+    return {
+      value: field.content,
+      content: field.content,
+      confidence: field.confidence,
+      metadata: {
+        fieldType: 'text',
+        transformationType: 'unchanged',
+        source: 'text_processor',
+        status: 'unchanged',
+        originalValue: field.content
+      }
+    };
+  }
+}
+
+// Eksportuj singleton
+export const textProcessor = TextProcessor; 

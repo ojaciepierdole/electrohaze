@@ -1,6 +1,174 @@
 import { AbortSignalLike } from '@azure/abort-controller';
 import { Alert } from '@/lib/alert-service';
 
+export interface LegacyFields {
+  // Dane sprzedawcy
+  supplierName?: string;
+  OSD_name?: string;
+  spTaxID?: string;
+  OSD_region?: string;
+  spStreet?: string;
+  spBuilding?: string;
+  spUnit?: string;
+  spCity?: string;
+  spPostalCode?: string;
+  spProvince?: string;
+  spMunicipality?: string;
+  spDistrict?: string;
+  spIBAN?: string;
+  spPhoneNum?: string;
+  spWebUrl?: string;
+
+  // Dane klienta
+  BusinessName?: string;
+  FirstName?: string;
+  LastName?: string;
+  taxID?: string;
+  Street?: string;
+  Building?: string;
+  Unit?: string;
+  City?: string;
+  PostalCode?: string;
+  Province?: string;
+
+  // Adres korespondencyjny
+  paBusinessName?: string;
+  paFirstName?: string;
+  paLastName?: string;
+  paTitle?: string;
+  paStreet?: string;
+  paBuilding?: string;
+  paUnit?: string;
+  paCity?: string;
+  paPostalCode?: string;
+  paProvince?: string;
+  paMunicipality?: string;
+  paDistrict?: string;
+
+  // Miejsce dostawy
+  ppeNum?: string;
+  dpMeterID?: string;
+  dpStreet?: string;
+  dpBuilding?: string;
+  dpUnit?: string;
+  dpCity?: string;
+  dpPostalCode?: string;
+  dpProvince?: string;
+  dpMunicipality?: string;
+  dpDistrict?: string;
+  Tariff?: string;
+
+  // Dane faktury
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  dueDate?: string;
+  totalAmount?: string;
+  currency?: string;
+  invoiceType?: string;
+  BillingStartDate?: string;
+  BillingEndDate?: string;
+  periodStart?: string;
+  periodEnd?: string;
+  netAmount?: string;
+  vatAmount?: string;
+  vatRate?: string;
+
+  // Dane zużycia
+  BilledUsage?: string;
+  '12mUsage'?: string;
+  ReadingType?: string;
+
+  // Dane produktu
+  ProductName?: string;
+  productCode?: string;
+
+  // Dodatkowe dane
+  EnergySaleBreakdown?: string;
+  'Fortum_zużycie'?: string;
+  BillBreakdown?: string;
+}
+
+export interface ModernFields {
+  // Dane sprzedawcy
+  SupplierName: string;
+  SupplierTaxID?: string;
+  SupplierRegion?: string;
+  SupplierStreet?: string;
+  SupplierBuilding?: string;
+  SupplierUnit?: string;
+  SupplierCity?: string;
+  SupplierPostalCode?: string;
+  SupplierProvince?: string;
+  SupplierMunicipality?: string;
+  SupplierDistrict?: string;
+  SupplierIBAN?: string;
+  SupplierPhoneNum?: string;
+  SupplierWebURL?: string;
+
+  // Dane klienta
+  CustomerName: string;
+  CustomerTaxId?: string;
+  CustomerStreet?: string;
+  CustomerBuilding?: string;
+  CustomerUnit?: string;
+  CustomerCity?: string;
+  CustomerPostalCode?: string;
+  CustomerProvince?: string;
+
+  // Adres korespondencyjny
+  PostalName?: string;
+  PostalTitle?: string;
+  PostalStreet?: string;
+  PostalBuilding?: string;
+  PostalUnit?: string;
+  PostalCity?: string;
+  PostalPostalCode?: string;
+  PostalProvince?: string;
+  PostalMunicipality?: string;
+  PostalDistrict?: string;
+
+  // Miejsce dostawy
+  PPENumber?: string;
+  MeterID?: string;
+  DeliveryStreet?: string;
+  DeliveryBuilding?: string;
+  DeliveryUnit?: string;
+  DeliveryCity?: string;
+  DeliveryPostalCode?: string;
+  DeliveryProvince?: string;
+  DeliveryMunicipality?: string;
+  DeliveryDistrict?: string;
+  Tariff?: string;
+
+  // Dane faktury
+  InvoiceNumber?: string;
+  InvoiceDate?: string;
+  DueDate?: string;
+  TotalAmount?: string;
+  Currency?: string;
+  InvoiceType: string;
+  BillingStartDate?: string;
+  BillingEndDate?: string;
+  NetAmount?: string;
+  VatAmount?: string;
+  VatRate?: string;
+
+  // Dane zużycia
+  BilledUsage?: string;
+  ConsumptionUnit: string;
+  Usage12m?: string;
+  ReadingType?: string;
+
+  // Dane produktu
+  ProductName?: string;
+  ProductCode?: string;
+
+  // Dodatkowe dane
+  EnergySaleBreakdown?: string;
+  FortumUsage?: string;
+  BillBreakdown?: string;
+}
+
 export interface Point2D {
   x: number;
   y: number;
@@ -391,170 +559,43 @@ export interface DocumentAnalysisResult {
   metadata?: Record<string, unknown>;
 }
 
-export interface LegacyFields {
-  // Dane sprzedawcy
-  supplierName?: string;
-  OSD_name?: string;
-  spTaxID?: string;
-  OSD_region?: string;
-  spStreet?: string;
-  spBuilding?: string;
-  spUnit?: string;
-  spCity?: string;
-  spPostalCode?: string;
-  spProvince?: string;
-  spMunicipality?: string;
-  spDistrict?: string;
-  spIBAN?: string;
-  spPhoneNum?: string;
-  spWebUrl?: string;
-
-  // Dane klienta
-  BusinessName?: string;
-  FirstName?: string;
-  LastName?: string;
-  taxID?: string;
-  Street?: string;
-  Building?: string;
-  Unit?: string;
-  City?: string;
-  PostalCode?: string;
-  Province?: string;
-
-  // Adres korespondencyjny
-  paBusinessName?: string;
-  paFirstName?: string;
-  paLastName?: string;
-  paTitle?: string;
-  paStreet?: string;
-  paBuilding?: string;
-  paUnit?: string;
-  paCity?: string;
-  paPostalCode?: string;
-  paProvince?: string;
-  paMunicipality?: string;
-  paDistrict?: string;
-
-  // Miejsce dostawy
-  ppeNum?: string;
-  dpMeterID?: string;
-  dpStreet?: string;
-  dpBuilding?: string;
-  dpUnit?: string;
-  dpCity?: string;
-  dpPostalCode?: string;
-  dpProvince?: string;
-  dpMunicipality?: string;
-  dpDistrict?: string;
-  Tariff?: string;
-
-  // Dane faktury
-  invoiceNumber?: string;
-  invoiceDate?: string;
-  dueDate?: string;
-  totalAmount?: string;
-  currency?: string;
-  invoiceType?: string;
-  BillingStartDate?: string;
-  BillingEndDate?: string;
-  periodStart?: string;
-  periodEnd?: string;
-  netAmount?: string;
-  vatAmount?: string;
-  vatRate?: string;
-
-  // Dane zużycia
-  BilledUsage?: string;
-  '12mUsage'?: string;
-  ReadingType?: string;
-
-  // Dane produktu
-  ProductName?: string;
-  productCode?: string;
-
-  // Dodatkowe dane
-  EnergySaleBreakdown?: string;
-  'Fortum_zużycie'?: string;
-  BillBreakdown?: string;
+export interface ExtendedDocumentField extends DocumentField {
+  name: string;
+  type: string;
+  isRequired: boolean;
+  description: string;
+  group: FieldGroupKey;
+  confidence: number;
+  content: string;
+  metadata: {
+    fieldType: string;
+    transformationType: string;
+    originalValue: string;
+    source: string;
+    boundingRegions?: BoundingRegion[];
+    spans?: Array<{
+      offset: number;
+      length: number;
+    }>;
+    [key: string]: unknown;
+  };
 }
 
-export interface ModernFields {
-  // Dane sprzedawcy
-  SupplierName: string;
-  SupplierTaxID?: string;
-  SupplierRegion?: string;
-  SupplierStreet?: string;
-  SupplierBuilding?: string;
-  SupplierUnit?: string;
-  SupplierCity?: string;
-  SupplierPostalCode?: string;
-  SupplierProvince?: string;
-  SupplierMunicipality?: string;
-  SupplierDistrict?: string;
-  SupplierIBAN?: string;
-  SupplierPhoneNum?: string;
-  SupplierWebURL?: string;
-
-  // Dane klienta
-  CustomerName: string;
-  CustomerTaxId?: string;
-  CustomerStreet?: string;
-  CustomerBuilding?: string;
-  CustomerUnit?: string;
-  CustomerCity?: string;
-  CustomerPostalCode?: string;
-  CustomerProvince?: string;
-
-  // Adres korespondencyjny
-  PostalName?: string;
-  PostalTitle?: string;
-  PostalStreet?: string;
-  PostalBuilding?: string;
-  PostalUnit?: string;
-  PostalCity?: string;
-  PostalPostalCode?: string;
-  PostalProvince?: string;
-  PostalMunicipality?: string;
-  PostalDistrict?: string;
-
-  // Miejsce dostawy
-  PPENumber?: string;
-  MeterID?: string;
-  DeliveryStreet?: string;
-  DeliveryBuilding?: string;
-  DeliveryUnit?: string;
-  DeliveryCity?: string;
-  DeliveryPostalCode?: string;
-  DeliveryProvince?: string;
-  DeliveryMunicipality?: string;
-  DeliveryDistrict?: string;
-  Tariff?: string;
-
-  // Dane faktury
-  InvoiceNumber?: string;
-  InvoiceDate?: string;
-  DueDate?: string;
-  TotalAmount?: string;
-  Currency?: string;
-  InvoiceType: string;
-  BillingStartDate?: string;
-  BillingEndDate?: string;
-  NetAmount?: string;
-  VatAmount?: string;
-  VatRate?: string;
-
-  // Dane zużycia
-  BilledUsage?: string;
-  ConsumptionUnit: string;
-  Usage12m?: string;
-  ReadingType?: string;
-
-  // Dane produktu
-  ProductName?: string;
-  ProductCode?: string;
-
-  // Dodatkowe dane
-  EnergySaleBreakdown?: string;
-  FortumUsage?: string;
-  BillBreakdown?: string;
+export interface MappedDocumentResult {
+  success: boolean;
+  documentId: string;
+  fileName: string;
+  fields: Record<string, DocumentField>;
+  errors?: string[];
+  confidence: number;
+  metadata?: Record<string, unknown>;
+  modelId?: string;
+  status: string;
+  createdOn: string;
+  lastUpdatedOn: string;
+  ppe?: Partial<PPEData>;
+  customer?: Partial<CustomerData>;
+  correspondence?: Partial<CorrespondenceData>;
+  supplier?: Partial<SupplierData>;
+  billing?: Partial<BillingData>;
 }

@@ -18,7 +18,7 @@ export function validateMappedResult(result: MappedDocumentResult): boolean {
     }
 
     // Sprawdź czy wszystkie sekcje danych są obecne
-    if (!result.customerData || !result.ppeData || !result.correspondenceData || !result.supplierData || !result.billingData) {
+    if (!result.customer || !result.ppe || !result.correspondence || !result.supplier || !result.billing) {
       logger.error('Brak wymaganych sekcji danych w wyniku mapowania');
       return false;
     }
@@ -31,7 +31,8 @@ export function validateMappedResult(result: MappedDocumentResult): boolean {
 
     return true;
   } catch (error) {
-    logger.error('Błąd podczas walidacji wyniku mapowania:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Nieznany błąd';
+    logger.error('Błąd podczas walidacji wyniku mapowania:', { error: errorMessage });
     return false;
   }
 }
