@@ -24,6 +24,7 @@ interface AnalysisResultCardProps {
   correspondenceData?: Partial<CorrespondenceData>;
   supplierData?: Partial<SupplierData>;
   billingData?: Partial<BillingData>;
+  usability: boolean;
 }
 
 export function AnalysisResultCard({ 
@@ -33,7 +34,8 @@ export function AnalysisResultCard({
   customerData,
   correspondenceData,
   supplierData,
-  billingData
+  billingData,
+  usability
 }: AnalysisResultCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -52,9 +54,6 @@ export function AnalysisResultCard({
   // Oblicz kompletność dokumentu
   const completeness = calculateDocumentCompleteness(sections);
 
-  // Oblicz przydatność dokumentu
-  const isUsable = calculateUsability(sections);
-
   return (
     <>
       <tr 
@@ -72,7 +71,7 @@ export function AnalysisResultCard({
         </td>
         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
           <div className="flex items-center justify-center">
-            {isUsable ? (
+            {usability ? (
               <div className="flex items-center gap-1 text-green-600">
                 <CheckCircle2 className="w-5 h-5" />
                 <span>Tak</span>

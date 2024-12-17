@@ -14,6 +14,7 @@ interface AnalysisSummaryProps {
   documents: ProcessingResult[];
   totalTime?: number;
   onExport?: () => void;
+  usabilityResults?: boolean[];
 }
 
 function createDocumentField(value: any): DocumentField {
@@ -89,7 +90,7 @@ function mapFields(fields: Record<string, any>): {
   return result;
 }
 
-export function AnalysisSummary({ documents, totalTime, onExport }: AnalysisSummaryProps) {
+export function AnalysisSummary({ documents, totalTime, onExport, usabilityResults = [] }: AnalysisSummaryProps) {
   // Oblicz średnią pewność dla wszystkich dokumentów
   const averageConfidence = documents.reduce((acc, doc) => {
     const fields = doc.modelResults[0]?.fields || {};
@@ -104,8 +105,8 @@ export function AnalysisSummary({ documents, totalTime, onExport }: AnalysisSumm
     return acc + calculateAverageConfidence(sections);
   }, 0) / documents.length;
 
-  // Oblicz kompletność i przydatność dla wszystkich dokumentów
-  const documentsStats = documents.map(doc => {
+  // Oblicz średnią kompletność
+  const averageCompleteness = documents.reduce((acc, doc) => {
     const fields = doc.modelResults[0]?.fields || {};
     const mappedFields = mapFields(fields);
     const sections = {
@@ -115,18 +116,12 @@ export function AnalysisSummary({ documents, totalTime, onExport }: AnalysisSumm
       supplier: mappedFields.supplierData,
       billing: mappedFields.billingData
     };
-    
-    return {
-      completeness: calculateDocumentCompleteness(sections),
-      isUsable: calculateUsability(sections)
-    };
-  });
-
-  // Oblicz średnią kompletność
-  const averageCompleteness = documentsStats.reduce((acc, doc) => acc + doc.completeness, 0) / documentsStats.length;
+    return acc + calculateDocumentCompleteness(sections);
+  }, 0) / documents.length;
 
   // Oblicz procent przydatnych dokumentów
-  const usablePercentage = documentsStats.filter(doc => doc.isUsable).length / documentsStats.length;
+  const usableCount = (usabilityResults || []).filter(Boolean).length;
+  const usablePercentage = usabilityResults?.length ? usableCount / usabilityResults.length : 0;
 
   return (
     <Card className="p-4">
@@ -159,7 +154,7 @@ export function AnalysisSummary({ documents, totalTime, onExport }: AnalysisSumm
           <p className="text-sm text-muted-foreground">Przydatne dokumenty</p>
           <p className="text-2xl font-semibold">{(usablePercentage * 100).toFixed(1)}%</p>
           <p className="text-sm text-muted-foreground">
-            ({documentsStats.filter(doc => doc.isUsable).length} z {documentsStats.length})
+            ({usableCount} z {usabilityResults?.length || 0})
           </p>
         </div>
       </div>

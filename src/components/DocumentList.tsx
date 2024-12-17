@@ -85,7 +85,6 @@ function mapFields(fields: Record<string, any>): {
 }
 
 export function DocumentList({ documents, totalTime, onExport }: DocumentListProps) {
-  // Dodaj stan dla paginacji
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
   
@@ -95,8 +94,56 @@ export function DocumentList({ documents, totalTime, onExport }: DocumentListPro
   const currentDocuments = documents.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(documents.length / itemsPerPage);
 
+  // Oblicz przydatność dla wszystkich dokumentów
+  const documentResults = documents.map(doc => {
+    const fields = doc.modelResults?.[0]?.fields || {};
+    const mappedFields = mapFields(fields);
+    
+    const sections = {
+      ppe: mappedFields.ppeData as Record<string, DocumentField>,
+      customer: mappedFields.customerData as Record<string, DocumentField>,
+      correspondence: mappedFields.correspondenceData as Record<string, DocumentField>,
+      supplier: mappedFields.supplierData as Record<string, DocumentField>,
+      billing: mappedFields.billingData as Record<string, DocumentField>
+    };
+
+    // Sprawdź czy mamy pole Tariff
+    if (!sections.ppe?.TariffGroup && fields.Tariff) {
+      if (!sections.ppe) sections.ppe = {};
+      sections.ppe.TariffGroup = {
+        content: fields.Tariff.content || '',
+        confidence: fields.Tariff.confidence || 0,
+        metadata: {
+          fieldType: 'text',
+          transformationType: 'mapped',
+          originalValue: fields.Tariff.content
+        }
+      };
+    }
+
+    console.log('Document sections before usability check:', sections);
+    const usability = calculateUsability(sections);
+    console.log('Usability result:', usability);
+
+    return {
+      ...mappedFields,
+      usability
+    };
+  });
+
+  // Oblicz wyniki przydatności dla wszystkich dokumentów
+  const usabilityResults = documentResults.map(r => r.usability);
+  console.log('All usability results:', usabilityResults);
+
   return (
     <div className="space-y-6">
+      <AnalysisSummary 
+        documents={documents}
+        totalTime={totalTime}
+        onExport={onExport}
+        usabilityResults={usabilityResults}
+      />
+      
       <div className="bg-white border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-300">
@@ -121,50 +168,20 @@ export function DocumentList({ documents, totalTime, onExport }: DocumentListPro
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
               {currentDocuments.map((doc, index) => {
-                const mappedData = doc.mappedData || {};
-                const fields = doc.modelResults[0]?.fields || {};
-                
-                const data = {
-                  ppeData: mappedData.ppeData || mapFields(fields).ppeData,
-                  customerData: mappedData.customerData || mapFields(fields).customerData,
-                  correspondenceData: mappedData.correspondenceData || mapFields(fields).correspondenceData,
-                  supplierData: mappedData.supplierData || mapFields(fields).supplierData,
-                  billingData: mappedData.billingData || mapFields(fields).billingData,
-                };
-
-                // Przygotuj sekcje dla calculateUsability
-                const sections = {
-                  ppe: data.ppeData,
-                  customer: data.customerData,
-                  correspondence: data.correspondenceData,
-                  supplier: data.supplierData,
-                  billing: data.billingData
-                };
-
-                // Jeśli nie ma TariffGroup, ale jest Tariff w danych, użyj go
-                if (!sections.ppe?.TariffGroup && fields.Tariff) {
-                  if (!sections.ppe) sections.ppe = {};
-                  sections.ppe.TariffGroup = {
-                    content: fields.Tariff.content,
-                    confidence: fields.Tariff.confidence,
-                    metadata: {
-                      fieldType: 'text',
-                      transformationType: 'mapped',
-                      originalValue: fields.Tariff.content
-                    }
-                  };
-                }
-
-                const usability = calculateUsability(sections);
-
-                console.log('Document sections for usability:', sections);
+                const result = documentResults[indexOfFirstItem + index];
+                if (!result) return null;
 
                 return (
                   <AnalysisResultCard
                     key={index}
                     fileName={doc.fileName}
-                    confidence={doc.modelResults[0]?.confidence || 0}
-                    {...data}
+                    confidence={doc.modelResults?.[0]?.confidence || 0}
+                    ppeData={result.ppeData}
+                    customerData={result.customerData}
+                    correspondenceData={result.correspondenceData}
+                    supplierData={result.supplierData}
+                    billingData={result.billingData}
+                    usability={result.usability}
                   />
                 );
               })}

@@ -6,7 +6,6 @@ import { FileList } from '@/components/FileList';
 import { ModelSelector } from '@/components/ModelSelector';
 import { ProcessingProgress } from '@/components/ProcessingProgress';
 import { BatchProcessingResults } from '@/components/BatchProcessingResults';
-import { AnalysisSummary } from '@/components/AnalysisSummary';
 import { useDocumentProcessing } from '@/hooks/useDocumentProcessing';
 import { useDocumentIntelligenceModels } from '@/hooks/useDocumentIntelligenceModels';
 import { useProcessingStore } from '@/stores/processing-store';
@@ -229,17 +228,6 @@ export function ProcessingClient() {
       {/* Wyniki przetwarzania */}
       {processingStatus.results.length > 0 && !isProcessing && (
         <>
-          <AnalysisSummary
-            documents={processingStatus.results}
-            totalTime={totalProcessingTime}
-            onExport={() => {
-              addToast(
-                'info',
-                'Info',
-                'Funkcja eksportu wyników będzie dostępna wkrótce'
-              );
-            }}
-          />
           <BatchProcessingResults
             results={processingStatus.results}
           />
