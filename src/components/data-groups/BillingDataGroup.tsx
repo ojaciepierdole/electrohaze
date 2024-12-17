@@ -11,20 +11,36 @@ interface BillingDataGroupProps {
 }
 
 export const BillingDataGroup: React.FC<BillingDataGroupProps> = ({ data }) => {
-  // Przetwórz dane rozliczeniowe
-  const processedData = processSection<BillingData>('billing', data);
+  // Konwertuj dane do wymaganego formatu
+  const processedData = processSection('billing', data) as Record<string, DocumentField | undefined>;
+
+  // Oblicz średnią pewność dla pól z danymi
+  const fieldsWithConfidence = Object.values(processedData)
+    .filter((field): field is DocumentField => field?.confidence !== undefined);
+  const averageConfidence = fieldsWithConfidence.length > 0
+    ? fieldsWithConfidence.reduce((acc, field) => acc + field.confidence, 0) / fieldsWithConfidence.length
+    : 0;
+
+  // Oblicz kompletność
+  const requiredFields = ['billingStartDate', 'billingEndDate', 'billedUsage'];
+  const filledRequiredFields = requiredFields.filter(key => processedData[key]?.content).length;
+  const completeness = Math.round((filledRequiredFields / requiredFields.length) * 100);
 
   return (
     <DataGroup
       title="Dane rozliczeniowe"
+      confidence={averageConfidence}
+      completeness={completeness}
       data={processedData}
       fieldLabels={{
-        billingStartDate: 'Data początkowa',
-        billingEndDate: 'Data końcowa',
-        billedUsage: 'Zużycie',
-        usage12m: 'Zużycie 12m'
+        billingStartDate: 'Data rozpoczęcia rozliczenia',
+        billingEndDate: 'Data zakończenia rozliczenia',
+        billedUsage: 'Zużycie w okresie rozliczeniowym (kWh)',
+        '12mUsage': 'Zużycie w ostatnich 12 miesiącach (kWh)'
       }}
-      optionalFields={['usage12m']}
+      optionalFields={[
+        '12mUsage'
+      ]}
     />
   );
 }; 

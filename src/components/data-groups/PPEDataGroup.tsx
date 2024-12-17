@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { DataGroup } from '@/components/data-groups/DataGroup';
 import type { DocumentField } from '@/types/document-processing';
@@ -9,12 +11,26 @@ interface PPEDataGroupProps {
 }
 
 export const PPEDataGroup: React.FC<PPEDataGroupProps> = ({ data }) => {
-  // Przetwórz dane PPE
-  const processedData = processSection<PPEData>('ppe', data);
+  // Konwertuj dane do wymaganego formatu
+  const processedData = processSection('ppe', data) as Record<string, DocumentField | undefined>;
+
+  // Oblicz średnią pewność dla pól z danymi
+  const fieldsWithConfidence = Object.values(processedData)
+    .filter((field): field is DocumentField => field?.confidence !== undefined);
+  const averageConfidence = fieldsWithConfidence.length > 0
+    ? fieldsWithConfidence.reduce((acc, field) => acc + field.confidence, 0) / fieldsWithConfidence.length
+    : 0;
+
+  // Oblicz kompletność
+  const requiredFields = ['ppeNum', 'TariffGroup'];
+  const filledRequiredFields = requiredFields.filter(key => processedData[key]?.content).length;
+  const completeness = Math.round((filledRequiredFields / requiredFields.length) * 100);
 
   return (
     <DataGroup
       title="Dane PPE"
+      confidence={averageConfidence}
+      completeness={completeness}
       data={processedData}
       fieldLabels={{
         ppeNum: 'Numer PPE',
@@ -35,11 +51,7 @@ export const PPEDataGroup: React.FC<PPEDataGroupProps> = ({ data }) => {
         'MeterNumber',
         'ContractNumber',
         'ContractType',
-        'dpStreet',
-        'dpBuilding',
         'dpUnit',
-        'dpPostalCode',
-        'dpCity',
         'dpMunicipality',
         'dpDistrict',
         'dpProvince'

@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { DataGroup } from '@/components/data-groups/DataGroup';
 import type { DocumentField } from '@/types/document-processing';
@@ -9,15 +11,26 @@ interface CorrespondenceDataGroupProps {
 }
 
 export const CorrespondenceDataGroup: React.FC<CorrespondenceDataGroupProps> = ({ data }) => {
-  console.log('CorrespondenceDataGroup input:', data);
+  // Konwertuj dane do wymaganego formatu
+  const processedData = processSection('correspondence', data) as Record<string, DocumentField | undefined>;
 
-  // Przetwórz dane adresu korespondencyjnego
-  const processedData = processSection<CorrespondenceData>('correspondence', data);
-  console.log('CorrespondenceDataGroup processedData:', processedData);
+  // Oblicz średnią pewność dla pól z danymi
+  const fieldsWithConfidence = Object.values(processedData)
+    .filter((field): field is DocumentField => field?.confidence !== undefined);
+  const averageConfidence = fieldsWithConfidence.length > 0
+    ? fieldsWithConfidence.reduce((acc, field) => acc + field.confidence, 0) / fieldsWithConfidence.length
+    : 0;
+
+  // Oblicz kompletność
+  const requiredFields = ['paStreet', 'paBuilding', 'paPostalCode', 'paCity'];
+  const filledRequiredFields = requiredFields.filter(key => processedData[key]?.content).length;
+  const completeness = Math.round((filledRequiredFields / requiredFields.length) * 100);
 
   return (
     <DataGroup
       title="Adres korespondencyjny"
+      confidence={averageConfidence}
+      completeness={completeness}
       data={processedData}
       fieldLabels={{
         paFirstName: 'Imię',
@@ -28,18 +41,14 @@ export const CorrespondenceDataGroup: React.FC<CorrespondenceDataGroupProps> = (
         paBuilding: 'Numer budynku',
         paUnit: 'Numer lokalu',
         paPostalCode: 'Kod pocztowy',
-        paCity: 'Miejscowość',
-        paProvince: 'Województwo',
-        paMunicipality: 'Gmina',
-        paDistrict: 'Powiat'
+        paCity: 'Miejscowość'
       }}
       optionalFields={[
+        'paFirstName',
+        'paLastName',
         'paBusinessName',
         'paTitle',
-        'paUnit',
-        'paProvince',
-        'paMunicipality',
-        'paDistrict'
+        'paUnit'
       ]}
     />
   );

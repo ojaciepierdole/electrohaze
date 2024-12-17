@@ -7,8 +7,7 @@ export default function Home() {
     <main className="container mx-auto py-8 px-4">
       <div className="max-w-5xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold">Analiza dokumentów PDF</h1>
-          <p className="text-gray-500 mt-2">
+          <p className="text-gray-500">
             Przetwarzaj dokumenty PDF używając modeli OCR Azure Document Intelligence
           </p>
         </div>

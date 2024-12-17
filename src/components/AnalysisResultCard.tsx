@@ -7,16 +7,18 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatPercentage } from '@/utils/text-formatting';
 import { calculateDocumentCompleteness, calculateUsability, calculateAverageConfidence } from '@/utils/data-processing/completeness/confidence';
-import { PPEDataGroup } from './data-groups/PPEDataGroup';
-import { CustomerDataGroup } from './data-groups/CustomerDataGroup';
-import { CorrespondenceDataGroup } from './data-groups/CorrespondenceDataGroup';
-import { SupplierDataGroup } from './data-groups/SupplierDataGroup';
-import { BillingDataGroup } from './data-groups/BillingDataGroup';
+import { PPEDataGroup } from '@/components/data-groups/PPEDataGroup';
+import { CustomerDataGroup } from '@/components/data-groups/CustomerDataGroup';
+import { SupplierDataGroup } from '@/components/data-groups/SupplierDataGroup';
+import { DataGroup } from '@/components/data-groups/DataGroup';
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
-import type { DocumentField } from '@/types/document';
+import type { DocumentField } from '@/types/document-processing';
 import type { DocumentSections } from '@/utils/data-processing/completeness/confidence';
 import { Badge } from './ui/badge';
 import { cn } from '@/lib/utils';
+import { processSection } from '@/utils/data-processing';
+import { CorrespondenceDataGroup } from './data-groups/CorrespondenceDataGroup';
+import { BillingDataGroup } from './data-groups/BillingDataGroup';
 
 interface AnalysisResultCardProps {
   fileName: string;
@@ -128,83 +130,39 @@ export function AnalysisResultCard({
           <td colSpan={6} className="p-0">
             <div className="border-t border-gray-200">
               <div className="p-4 space-y-6">
-                {/* Dane dostawcy */}
-                {supplierData && (
+                {/* PPE Data */}
+                {ppeData && (
                   <div className="bg-white rounded-lg shadow p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
-                        Sprzedawca
-                        <Badge variant="secondary" className={getConfidenceBgColor(confidence)}>
-                          {(confidence * 100).toFixed(0)}%
-                        </Badge>
-                      </h3>
-                    </div>
-                    <SupplierDataGroup
-                      data={supplierData}
-                      ppeData={ppeData}
-                      customerData={customerData}
-                      correspondenceData={correspondenceData}
+                    <PPEDataGroup 
+                      data={ppeData}
                     />
                   </div>
                 )}
 
-                {/* Dane PPE */}
-                {ppeData && (
-                  <div className="bg-white rounded-lg shadow p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
-                        Dane PPE
-                        <Badge variant="secondary" className={getConfidenceBgColor(confidence)}>
-                          {(confidence * 100).toFixed(0)}%
-                        </Badge>
-                      </h3>
-                    </div>
-                    <PPEDataGroup data={ppeData} />
-                  </div>
-                )}
-
-                {/* Dane klienta */}
+                {/* Customer Data */}
                 {customerData && (
                   <div className="bg-white rounded-lg shadow p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
-                        Dane klienta
-                        <Badge variant="secondary" className={getConfidenceBgColor(confidence)}>
-                          {(confidence * 100).toFixed(0)}%
-                        </Badge>
-                      </h3>
-                    </div>
-                    <CustomerDataGroup data={customerData} />
+                    <CustomerDataGroup 
+                      data={customerData}
+                    />
                   </div>
                 )}
 
-                {/* Adres korespondencyjny */}
+                {/* Correspondence Data */}
                 {correspondenceData && (
                   <div className="bg-white rounded-lg shadow p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
-                        Adres korespondencyjny
-                        <Badge variant="secondary" className={getConfidenceBgColor(confidence)}>
-                          {(confidence * 100).toFixed(0)}%
-                        </Badge>
-                      </h3>
-                    </div>
-                    <CorrespondenceDataGroup data={correspondenceData} />
+                    <CorrespondenceDataGroup 
+                      data={correspondenceData}
+                    />
                   </div>
                 )}
 
-                {/* Dane rozliczeniowe */}
+                {/* Billing Data */}
                 {billingData && (
                   <div className="bg-white rounded-lg shadow p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
-                        Dane rozliczeniowe
-                        <Badge variant="secondary" className={getConfidenceBgColor(confidence)}>
-                          {(confidence * 100).toFixed(0)}%
-                        </Badge>
-                      </h3>
-                    </div>
-                    <BillingDataGroup data={billingData} />
+                    <BillingDataGroup 
+                      data={billingData}
+                    />
                   </div>
                 )}
               </div>

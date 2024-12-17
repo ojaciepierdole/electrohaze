@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { DataGroup } from '@/components/data-groups/DataGroup';
 import type { DocumentField } from '@/types/document-processing';
@@ -9,12 +11,26 @@ interface CustomerDataGroupProps {
 }
 
 export const CustomerDataGroup: React.FC<CustomerDataGroupProps> = ({ data }) => {
-  // Przetwórz dane klienta
-  const processedData = processSection<CustomerData>('customer', data);
+  // Konwertuj dane do wymaganego formatu
+  const processedData = processSection('customer', data) as Record<string, DocumentField | undefined>;
+
+  // Oblicz średnią pewność dla pól z danymi
+  const fieldsWithConfidence = Object.values(processedData)
+    .filter((field): field is DocumentField => field?.confidence !== undefined);
+  const averageConfidence = fieldsWithConfidence.length > 0
+    ? fieldsWithConfidence.reduce((acc, field) => acc + field.confidence, 0) / fieldsWithConfidence.length
+    : 0;
+
+  // Oblicz kompletność
+  const requiredFields = ['FirstName', 'LastName', 'Street', 'Building', 'PostalCode', 'City'];
+  const filledRequiredFields = requiredFields.filter(key => processedData[key]?.content).length;
+  const completeness = Math.round((filledRequiredFields / requiredFields.length) * 100);
 
   return (
     <DataGroup
       title="Dane klienta"
+      confidence={averageConfidence}
+      completeness={completeness}
       data={processedData}
       fieldLabels={{
         FirstName: 'Imię',
