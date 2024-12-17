@@ -2,6 +2,8 @@ import { AnalysisResultCard } from './AnalysisResultCard';
 import { AnalysisSummary } from './AnalysisSummary';
 import type { ProcessingResult } from '@/types/processing';
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
+import { calculateUsability } from '@/utils/data-processing/completeness/confidence';
+import type { DocumentField } from '@/types/document';
 import { useState } from 'react';
 import { Button } from './ui/button';
 
@@ -18,6 +20,8 @@ function mapFields(fields: Record<string, any>): {
   supplierData: Partial<SupplierData>;
   billingData: Partial<BillingData>;
 } {
+  console.log('Input fields from Azure:', fields);
+
   const result = {
     ppeData: {} as Partial<PPEData>,
     customerData: {} as Partial<CustomerData>,
@@ -27,9 +31,19 @@ function mapFields(fields: Record<string, any>): {
   };
 
   // Mapuj pola PPE
-  ['ppeNum', 'MeterNumber', 'Tariff', 'ContractNumber', 'ContractType', 'dpStreet', 'dpBuilding', 'dpUnit', 'dpPostalCode', 'dpCity', 'dpProvince', 'dpMunicipality', 'dpDistrict', 'dpMeterID'].forEach(key => {
+  const ppeFields = ['ppeNum', 'MeterNumber', 'TariffGroup', 'ContractNumber', 'ContractType', 'dpStreet', 'dpBuilding', 'dpUnit', 'dpPostalCode', 'dpCity', 'dpProvince', 'dpMunicipality', 'dpDistrict', 'dpMeterID'];
+  
+  console.log('Checking PPE fields mapping:');
+  ppeFields.forEach(key => {
     if (key in fields) {
+      console.log(`Found ${key}:`, fields[key]);
       result.ppeData[key as keyof PPEData] = fields[key];
+    } else if (key === 'TariffGroup' && 'Tariff' in fields) {
+      // Jeśli nie ma TariffGroup, ale jest Tariff, użyj go jako TariffGroup
+      console.log('Using Tariff as TariffGroup:', fields['Tariff']);
+      result.ppeData.TariffGroup = fields['Tariff'];
+    } else {
+      console.log(`Missing ${key}`);
     }
   });
 
@@ -66,6 +80,7 @@ function mapFields(fields: Record<string, any>): {
     }
   });
 
+  console.log('Final PPE data:', result.ppeData);
   return result;
 }
 
@@ -82,11 +97,6 @@ export function DocumentList({ documents, totalTime, onExport }: DocumentListPro
 
   return (
     <div className="space-y-6">
-      <AnalysisSummary 
-        documents={documents}
-        totalTime={totalTime}
-        onExport={onExport}
-      />
       <div className="bg-white border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-300">
@@ -121,6 +131,33 @@ export function DocumentList({ documents, totalTime, onExport }: DocumentListPro
                   supplierData: mappedData.supplierData || mapFields(fields).supplierData,
                   billingData: mappedData.billingData || mapFields(fields).billingData,
                 };
+
+                // Przygotuj sekcje dla calculateUsability
+                const sections = {
+                  ppe: data.ppeData,
+                  customer: data.customerData,
+                  correspondence: data.correspondenceData,
+                  supplier: data.supplierData,
+                  billing: data.billingData
+                };
+
+                // Jeśli nie ma TariffGroup, ale jest Tariff w danych, użyj go
+                if (!sections.ppe?.TariffGroup && fields.Tariff) {
+                  if (!sections.ppe) sections.ppe = {};
+                  sections.ppe.TariffGroup = {
+                    content: fields.Tariff.content,
+                    confidence: fields.Tariff.confidence,
+                    metadata: {
+                      fieldType: 'text',
+                      transformationType: 'mapped',
+                      originalValue: fields.Tariff.content
+                    }
+                  };
+                }
+
+                const usability = calculateUsability(sections);
+
+                console.log('Document sections for usability:', sections);
 
                 return (
                   <AnalysisResultCard

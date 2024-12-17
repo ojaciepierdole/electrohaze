@@ -3,7 +3,7 @@ import type { DocumentField } from './document';
 /**
  * Dane punktu poboru energii (PPE)
  */
-export interface PPEData extends Record<string, DocumentField> {
+export interface PPEData {
   ppeNum: DocumentField;
   MeterNumber: DocumentField;
   TariffGroup: DocumentField;
@@ -17,12 +17,13 @@ export interface PPEData extends Record<string, DocumentField> {
   Municipality?: DocumentField;
   District?: DocumentField;
   Province?: DocumentField;
+  [key: string]: DocumentField | undefined;
 }
 
 /**
  * Dane klienta
  */
-export interface CustomerData extends Record<string, DocumentField> {
+export interface CustomerData {
   FirstName?: DocumentField;
   LastName?: DocumentField;
   BusinessName?: DocumentField;
@@ -32,12 +33,13 @@ export interface CustomerData extends Record<string, DocumentField> {
   Unit?: DocumentField;
   PostalCode?: DocumentField;
   City?: DocumentField;
+  [key: string]: DocumentField | undefined;
 }
 
 /**
  * Dane adresu korespondencyjnego
  */
-export interface CorrespondenceData extends Record<string, DocumentField> {
+export interface CorrespondenceData {
   paFirstName?: DocumentField;
   paLastName?: DocumentField;
   paBusinessName?: DocumentField;
@@ -47,12 +49,13 @@ export interface CorrespondenceData extends Record<string, DocumentField> {
   paUnit?: DocumentField;
   paPostalCode?: DocumentField;
   paCity?: DocumentField;
+  [key: string]: DocumentField | undefined;
 }
 
 /**
  * Dane dostawcy
  */
-export interface SupplierData extends Record<string, DocumentField> {
+export interface SupplierData {
   supplierName: DocumentField;
   supplierTaxID: DocumentField;
   supplierStreet?: DocumentField;
@@ -67,16 +70,18 @@ export interface SupplierData extends Record<string, DocumentField> {
   supplierWebsite?: DocumentField;
   OSD_name?: DocumentField;
   OSD_region?: DocumentField;
+  [key: string]: DocumentField | undefined;
 }
 
 /**
  * Dane rozliczeniowe
  */
-export interface BillingData extends Record<string, DocumentField> {
+export interface BillingData {
   billingStartDate?: DocumentField;
   billingEndDate?: DocumentField;
   billedUsage?: DocumentField;
   '12mUsage'?: DocumentField;
+  [key: string]: DocumentField | undefined;
 }
 
 // Komponenty adresowe

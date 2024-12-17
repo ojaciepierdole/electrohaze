@@ -1,5 +1,6 @@
 import { NormalizedAddress, ProcessingOptions } from '../types';
 import { FieldWithConfidence } from '../../../types/common';
+import { DocumentField } from '@/types/document';
 import {
   AddressPrefix,
   AddressStreetKey,
@@ -18,6 +19,22 @@ const {
 } = ADDRESS_CONSTANTS;
 
 const PRESERVED_PREFIXES = Object.values(PREFIX_MAPPINGS);
+
+/**
+ * Tworzy obiekt DocumentField
+ */
+function createDocumentField(value: string | null, confidence: number = 1): DocumentField | null {
+  if (!value) return null;
+  
+  return {
+    content: value,
+    confidence,
+    metadata: {
+      fieldType: 'address',
+      transformationType: 'normalized'
+    }
+  };
+}
 
 export function getEmptyAddressComponents(): AddressComponents {
   return {
@@ -229,7 +246,6 @@ export function normalizeAddress(
 
   // Jeśli to pole zawiera pełny adres (np. "UL GIEŁDOWA 4C/29")
   if (field.content.includes(' ')) {
-    const components = splitAddressLine(field.content, prefix);
     const result = {
       ...emptyAddress,
       confidence: field.confidence
@@ -243,65 +259,25 @@ export function normalizeAddress(
       const preservedPrefix = PRESERVED_PREFIXES.find(p => prefixStr.startsWith(p));
       const streetPart = streetMatch[1].trim().toUpperCase();
       const streetKey = `${prefix}Street` as AddressStreetKey;
-      result[streetKey] = preservedPrefix ? `${preservedPrefix} ${streetPart}` : streetPart;
-    } else {
-      const streetKey = `${prefix}Street` as AddressStreetKey;
-      result[streetKey] = components[streetKey];
+      result[streetKey] = createDocumentField(preservedPrefix ? `${preservedPrefix} ${streetPart}` : streetPart, field.confidence);
     }
 
-    // Zachowaj oryginalny format numeru z ukośnikiem
-    const numberPart = field.content.match(/\s+(\d+.*?)$/);
-    if (numberPart) {
-      const { building, unit } = normalizeAddressNumbers(numberPart[1]);
-      if (building && unit) {
-        const buildingKey = `${prefix}Building` as AddressBuildingKey;
-        const unitKey = `${prefix}Unit` as AddressUnitKey;
-        result[buildingKey] = building;
-        result[unitKey] = unit;
-      } else if (building) {
-        const buildingKey = `${prefix}Building` as AddressBuildingKey;
-        result[buildingKey] = building;
+    // Przetwórz numery
+    const numbersMatch = field.content.match(/\d+[A-Z]?(?:\/\d+[A-Z]?)?$/i);
+    if (numbersMatch) {
+      const { building, unit } = normalizeAddressNumbers(numbersMatch[0]);
+      const buildingKey = `${prefix}Building` as AddressBuildingKey;
+      const unitKey = `${prefix}Unit` as AddressUnitKey;
+      result[buildingKey] = createDocumentField(building, field.confidence);
+      if (unit) {
+        result[unitKey] = createDocumentField(unit, field.confidence);
       }
     }
 
-    console.log(`[normalizeAddress] Po przetworzeniu pełnego adresu:`, result);
     return result;
   }
-  
-  // Jeśli to pojedyncze pole (np. samo "4C/29" lub sama ulica)
-  const { building, unit } = normalizeAddressNumbers(field.content);
-  const result = {
-    ...emptyAddress,
-    confidence: field.confidence
-  };
 
-  // Jeśli nie udało się sparsować numeru, traktuj jako ulicę (bez prefixu)
-  if (!building && !unit) {
-    const streetValue = field.content.toUpperCase();
-    const prefixMatch = streetValue.match(new RegExp(`^(${REMOVABLE_PREFIXES.join('|')}|${PRESERVED_PREFIXES.join('|')})\\b\\s+(.+)$`, 'i'));
-    if (prefixMatch) {
-      const prefixStr = prefixMatch[1].trim().toUpperCase();
-      const preservedPrefix = PRESERVED_PREFIXES.find(p => prefixStr.startsWith(p));
-      const streetPart = prefixMatch[2].trim();
-      const streetKey = `${prefix}Street` as AddressStreetKey;
-      result[streetKey] = preservedPrefix ? `${preservedPrefix} ${streetPart}` : streetPart;
-    } else {
-      const streetKey = `${prefix}Street` as AddressStreetKey;
-      result[streetKey] = streetValue;
-    }
-  } else {
-    if (building) {
-      const buildingKey = `${prefix}Building` as AddressBuildingKey;
-      result[buildingKey] = building;
-    }
-    if (unit) {
-      const unitKey = `${prefix}Unit` as AddressUnitKey;
-      result[unitKey] = unit;
-    }
-  }
-
-  console.log(`[normalizeAddress] Po przetworzeniu pojedynczego pola:`, result);
-  return result;
+  return emptyAddress;
 }
 
 export function splitAddressLine(line: string | null, prefix: AddressPrefix = 'dp'): AddressComponents {

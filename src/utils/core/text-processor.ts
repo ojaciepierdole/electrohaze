@@ -1,12 +1,24 @@
 /**
  * Typy operacji formatowania
  */
-type FormatType = 'address' | 'name' | 'number' | 'title' | 'date' | 'amount';
+type FormatType = 
+  | 'text'
+  | 'name'
+  | 'address'
+  | 'number'
+  | 'title'
+  | 'date'
+  | 'amount'
+  | 'postal_code'
+  | 'phone'
+  | 'email'
+  | 'tax_id'
+  | 'bank_account';
 
 /**
  * Typy operacji cache'owania
  */
-type CacheType = FormatType | 'clean' | 'postal_code' | 'building_number' | 'date_format' | 'amount_format';
+type CacheType = FormatType | 'clean' | 'building_number' | 'date_format' | 'amount_format';
 
 /**
  * Klucz cache'a

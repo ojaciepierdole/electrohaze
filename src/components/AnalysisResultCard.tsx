@@ -13,6 +13,8 @@ import { CorrespondenceDataGroup } from './data-groups/CorrespondenceDataGroup';
 import { SupplierDataGroup } from './data-groups/SupplierDataGroup';
 import { BillingDataGroup } from './data-groups/BillingDataGroup';
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
+import type { DocumentField } from '@/types/document';
+import type { DocumentSections } from '@/utils/data-processing/completeness/confidence';
 
 interface AnalysisResultCardProps {
   fileName: string;
@@ -35,32 +37,23 @@ export function AnalysisResultCard({
 }: AnalysisResultCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
+  // Konwertuj dane do wymaganego formatu
+  const sections: DocumentSections = {
+    ppe: ppeData as Record<string, DocumentField>,
+    customer: customerData as Record<string, DocumentField>,
+    correspondence: correspondenceData as Record<string, DocumentField>,
+    supplier: supplierData as Record<string, DocumentField>,
+    billing: billingData as Record<string, DocumentField>
+  };
+
   // Oblicz średnią pewność ze wszystkich pól
-  const confidence = calculateAverageConfidence({
-    ppe: ppeData,
-    customer: customerData,
-    correspondence: correspondenceData,
-    supplier: supplierData,
-    billing: billingData
-  });
+  const confidence = calculateAverageConfidence(sections);
 
   // Oblicz kompletność dokumentu
-  const completeness = calculateDocumentCompleteness({
-    ppe: ppeData,
-    customer: customerData,
-    correspondence: correspondenceData,
-    supplier: supplierData,
-    billing: billingData
-  });
+  const completeness = calculateDocumentCompleteness(sections);
 
   // Oblicz przydatność dokumentu
-  const isUsable = calculateUsability({
-    ppe: ppeData,
-    customer: customerData,
-    correspondence: correspondenceData,
-    supplier: supplierData,
-    billing: billingData
-  });
+  const isUsable = calculateUsability(sections);
 
   return (
     <>
@@ -80,9 +73,15 @@ export function AnalysisResultCard({
         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
           <div className="flex items-center justify-center">
             {isUsable ? (
-              <CheckCircle2 className="w-5 h-5 text-green-500" />
+              <div className="flex items-center gap-1 text-green-600">
+                <CheckCircle2 className="w-5 h-5" />
+                <span>Tak</span>
+              </div>
             ) : (
-              <XCircle className="w-5 h-5 text-red-500" />
+              <div className="flex items-center gap-1 text-red-600">
+                <XCircle className="w-5 h-5" />
+                <span>Nie</span>
+              </div>
             )}
           </div>
         </td>

@@ -8,6 +8,7 @@ import { formatPercentage } from '@/utils/text-formatting';
 import { calculateDocumentCompleteness, calculateUsability, calculateAverageConfidence } from '@/utils/data-processing/completeness/confidence';
 import type { ProcessingResult } from '@/types/processing';
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
+import type { DocumentField } from '@/types/document';
 
 interface AnalysisSummaryProps {
   documents: ProcessingResult[];
@@ -15,46 +16,61 @@ interface AnalysisSummaryProps {
   onExport?: () => void;
 }
 
+function createDocumentField(value: any): DocumentField {
+  if (typeof value === 'object' && value !== null && 'content' in value) {
+    return value as DocumentField;
+  }
+  
+  return {
+    content: String(value),
+    confidence: 1,
+    metadata: {
+      fieldType: 'text',
+      transformationType: 'mapped'
+    }
+  };
+}
+
 function mapFields(fields: Record<string, any>): {
-  ppeData: Partial<PPEData>;
-  customerData: Partial<CustomerData>;
-  correspondenceData: Partial<CorrespondenceData>;
-  supplierData: Partial<SupplierData>;
-  billingData: Partial<BillingData>;
+  ppeData: Record<string, DocumentField>;
+  customerData: Record<string, DocumentField>;
+  correspondenceData: Record<string, DocumentField>;
+  supplierData: Record<string, DocumentField>;
+  billingData: Record<string, DocumentField>;
 } {
   const result = {
-    ppeData: {} as Partial<PPEData>,
-    customerData: {} as Partial<CustomerData>,
-    correspondenceData: {} as Partial<CorrespondenceData>,
-    supplierData: {} as Partial<SupplierData>,
-    billingData: {} as Partial<BillingData>
+    ppeData: {} as Record<string, DocumentField>,
+    customerData: {} as Record<string, DocumentField>,
+    correspondenceData: {} as Record<string, DocumentField>,
+    supplierData: {} as Record<string, DocumentField>,
+    billingData: {} as Record<string, DocumentField>
   };
 
   // Mapuj pola PPE
   ['ppeNum', 'MeterNumber', 'TariffGroup', 'ContractNumber', 'ContractType', 'dpStreet', 'dpBuilding', 'dpUnit', 'dpPostalCode', 'dpCity', 'dpProvince', 'dpMunicipality', 'dpDistrict', 'dpMeterID'].forEach(key => {
     if (key in fields) {
-      result.ppeData[key as keyof PPEData] = fields[key];
+      result.ppeData[key] = createDocumentField(fields[key]);
     }
   });
 
   // Mapuj pola klienta
   ['FirstName', 'LastName', 'BusinessName', 'taxID', 'Street', 'Building', 'Unit', 'PostalCode', 'City', 'Municipality', 'District', 'Province'].forEach(key => {
     if (key in fields) {
-      result.customerData[key as keyof CustomerData] = fields[key];
+      result.customerData[key] = createDocumentField(fields[key]);
     }
   });
 
   // Mapuj pola adresu korespondencyjnego
   ['paFirstName', 'paLastName', 'paBusinessName', 'paTitle', 'paStreet', 'paBuilding', 'paUnit', 'paPostalCode', 'paCity', 'paProvince', 'paMunicipality', 'paDistrict'].forEach(key => {
     if (key in fields) {
-      result.correspondenceData[key as keyof CorrespondenceData] = fields[key];
+      result.correspondenceData[key] = createDocumentField(fields[key]);
     }
   });
 
   // Mapuj pola dostawcy
   ['supplierName', 'spTaxID', 'spStreet', 'spBuilding', 'spUnit', 'spPostalCode', 'spCity', 'spProvince', 'spMunicipality', 'spDistrict', 'spIBAN', 'spPhoneNum', 'spWebUrl', 'OSD_name', 'OSD_region'].forEach(key => {
     if (key in fields) {
-      result.supplierData[key as keyof SupplierData] = fields[key];
+      result.supplierData[key] = createDocumentField(fields[key]);
     }
   });
 
@@ -63,10 +79,10 @@ function mapFields(fields: Record<string, any>): {
     const mappedKey = key === 'BillingStartDate' ? 'billingStartDate' :
                      key === 'BillingEndDate' ? 'billingEndDate' :
                      key === 'BilledUsage' ? 'billedUsage' :
-                     key === '12mUsage' ? 'usage12m' : key;
+                     key === '12mUsage' ? '12mUsage' : key;
     
     if (key in fields) {
-      result.billingData[mappedKey as keyof BillingData] = fields[key];
+      result.billingData[mappedKey] = createDocumentField(fields[key]);
     }
   });
 
@@ -129,18 +145,22 @@ export function AnalysisSummary({ documents, totalTime, onExport }: AnalysisSumm
           </Button>
         )}
       </div>
-      <div className="grid grid-cols-3 gap-4 mt-4">
+
+      <div className="grid grid-cols-3 gap-8 mt-4">
         <div>
-          <div className="text-sm font-medium">Średnia pewność</div>
-          <div className="text-2xl font-bold">{formatPercentage(averageConfidence)}</div>
+          <p className="text-sm text-muted-foreground">Średnia pewność</p>
+          <p className="text-2xl font-semibold">{(averageConfidence * 100).toFixed(1)}%</p>
         </div>
         <div>
-          <div className="text-sm font-medium">Średnia kompletność</div>
-          <div className="text-2xl font-bold">{formatPercentage(averageCompleteness)}</div>
+          <p className="text-sm text-muted-foreground">Średnia kompletność</p>
+          <p className="text-2xl font-semibold">{(averageCompleteness * 100).toFixed(1)}%</p>
         </div>
         <div>
-          <div className="text-sm font-medium">Przydatność</div>
-          <div className="text-2xl font-bold">{formatPercentage(usablePercentage)}</div>
+          <p className="text-sm text-muted-foreground">Przydatne dokumenty</p>
+          <p className="text-2xl font-semibold">{(usablePercentage * 100).toFixed(1)}%</p>
+          <p className="text-sm text-muted-foreground">
+            ({documentsStats.filter(doc => doc.isUsable).length} z {documentsStats.length})
+          </p>
         </div>
       </div>
     </Card>

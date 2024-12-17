@@ -1,7 +1,7 @@
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
 import type { DocumentField } from '@/types/document';
 
-interface DocumentSections {
+export interface DocumentSections {
   ppe?: Record<string, DocumentField>;
   customer?: Record<string, DocumentField>;
   correspondence?: Record<string, DocumentField>;
@@ -41,39 +41,63 @@ function isPersonalDataComplete(data: Record<string, DocumentField> | undefined,
   });
 }
 
+// Wagi dla sprawdzania przydatności
+const usabilityWeights = {
+  ppe: 0.4,        // Dane PPE są najważniejsze
+  customer: 0.3,   // Dane klienta są drugie w kolejności
+  address: 0.2,    // Adres jest trzeci
+  billing: 0.1     // Dane rozliczeniowe są opcjonalne
+};
+
 // Sprawdza czy dokument jest przydatny (ma wszystkie wymagane pola do podpisania umowy)
 export function calculateUsability(sections: DocumentSections): boolean {
-  // Sprawdź czy mamy numer PPE i taryfę
-  const hasPPEData = Boolean(
-    sections.ppe?.ppeNum?.content &&
-    sections.ppe?.TariffGroup?.content &&
-    sections.ppe?.MeterNumber?.content
-  );
+  // 1. Wymagane dane PPE
+  const ppeNum = sections.ppe?.ppeNum?.content;
+  const tariffGroup = sections.ppe?.TariffGroup?.content || sections.ppe?.Tariff?.content;
   
-  // Sprawdź czy mamy dane osobowe klienta
+  const hasPPEData = Boolean(ppeNum && tariffGroup);
+  
+  console.log('Debug calculateUsability:', {
+    ppeNum,
+    tariffGroup,
+    hasPPEData
+  });
+
+  // 2. Wymagane dane osobowe klienta
   const hasCustomerData = isPersonalDataComplete(sections.customer);
   
-  // Sprawdź czy mamy kompletny adres klienta lub korespondencyjny
+  console.log('Customer data:', {
+    hasCustomerData,
+    customerFields: sections.customer
+  });
+
+  // 3. Wymagany kompletny adres
+  const hasPPEAddress = isAddressComplete(sections.ppe, 'dp');
   const hasCustomerAddress = isAddressComplete(sections.customer);
   const hasCorrespondenceAddress = isAddressComplete(sections.correspondence, 'pa');
   
-  // Sprawdź czy mamy dane rozliczeniowe
-  const hasBillingData = Boolean(
-    sections.billing?.billingStartDate?.content &&
-    sections.billing?.billingEndDate?.content &&
-    sections.billing?.billedUsage?.content
-  );
+  const hasValidAddress = hasPPEAddress || hasCustomerAddress || hasCorrespondenceAddress;
   
-  // Dokument jest przydatny jeśli ma:
-  // 1. Dane PPE
-  // 2. Dane osobowe klienta
-  // 3. Przynajmniej jeden kompletny adres
-  // 4. Dane rozliczeniowe (opcjonalnie)
-  return Boolean(
-    hasPPEData && 
-    hasCustomerData && 
-    (hasCustomerAddress || hasCorrespondenceAddress)
-  );
+  console.log('Address validation:', {
+    hasPPEAddress,
+    hasCustomerAddress,
+    hasCorrespondenceAddress,
+    hasValidAddress
+  });
+
+  // Dokument jest przydatny tylko jeśli ma wszystkie wymagane dane
+  const isUsable = hasPPEData && hasCustomerData && hasValidAddress;
+  
+  console.log('Final usability:', {
+    isUsable,
+    conditions: {
+      hasPPEData,
+      hasCustomerData,
+      hasValidAddress
+    }
+  });
+
+  return isUsable;
 }
 
 interface SectionWeights {

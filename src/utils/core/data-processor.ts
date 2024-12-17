@@ -33,7 +33,12 @@ type FormatType =
   | 'number'
   | 'title'
   | 'date'
-  | 'amount';
+  | 'amount'
+  | 'postal_code'
+  | 'phone'
+  | 'email'
+  | 'tax_id'
+  | 'bank_account';
 
 /**
  * Konfiguracja pola
