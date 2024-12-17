@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/useToast';
 import { Button } from '@/components/ui/button';
 import { Upload, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AnimatePresence, motion } from 'framer-motion';
 
 export function ProcessingClient() {
   const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
@@ -108,44 +109,50 @@ export function ProcessingClient() {
     }
   }, [isProcessing, processingStatus.results.length]);
 
-  // Oblicz średnią pewność dla wszystkich dokumentów
-  const averageConfidence = processingStatus.results.length > 0
-    ? processingStatus.results.reduce((sum, result) => sum + result.confidence, 0) / processingStatus.results.length
-    : 0;
-
-  // Oblicz całkowity czas przetwarzania
-  const totalProcessingTime = processingStartTime && !isProcessing
-    ? Date.now() - processingStartTime
-    : processingStatus.results.reduce((sum, result) => sum + result.processingTime, 0);
-
   return (
-    <div className="container max-w-5xl mx-auto py-8 space-y-6">
-      {/* Sekcja parametrów */}
-      <Card className={cn(
-        "border-gray-900/10",
-        isProcessing ? "processing-progress collapsed" : ""
-      )}>
-        {isProcessing ? (
-          <ProcessingProgress
-            {...processingStatus}
-            onExpand={() => setIsParametersExpanded(true)}
-            onCollapse={() => setIsParametersExpanded(false)}
-            onReset={handleReset}
-          />
-        ) : (
-          <div className="p-4 space-y-4">
-            <button
-              onClick={() => setIsParametersExpanded(!isParametersExpanded)}
-              className="w-full flex items-center justify-between text-left"
-            >
-              <h2 className="text-lg font-semibold">Parametry analizy</h2>
+    <div className="space-y-6">
+      <Card>
+        {/* Nagłówek z przyciskiem zwijania/rozwijania */}
+        <div 
+          className={cn(
+            "p-4 border-b cursor-pointer transition-colors",
+            isParametersExpanded ? "bg-gray-50" : "hover:bg-gray-50"
+          )}
+          onClick={() => setIsParametersExpanded(!isParametersExpanded)}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-medium">Parametry analizy</h2>
+              {selectedFiles.length > 0 && (
+                <span className="text-sm text-gray-500">
+                  ({selectedFiles.length} {selectedFiles.length === 1 ? 'plik' : 'plików'})
+                </span>
+              )}
+            </div>
+            <button className="text-gray-500 hover:text-gray-700">
               {isParametersExpanded ? (
-                <ChevronUp className="h-4 w-4" />
+                <ChevronUp className="h-5 w-5" />
               ) : (
-                <ChevronDown className="h-4 w-4" />
+                <ChevronDown className="h-5 w-5" />
               )}
             </button>
+          </div>
+        </div>
 
+        {/* Zawartość karty */}
+        {isProcessing || processingStatus.results.length > 0 ? (
+          <div className="p-4">
+            <ProcessingProgress
+              isProcessing={isProcessing}
+              currentFileIndex={processingStatus.currentFileIndex || 0}
+              totalFiles={selectedFiles.length}
+              results={processingStatus.results}
+              error={processingStatus.error || null}
+              onReset={handleReset}
+            />
+          </div>
+        ) : (
+          <div className="p-4">
             {isParametersExpanded && (
               <>
                 <div className="grid grid-cols-2 gap-6">
@@ -226,13 +233,20 @@ export function ProcessingClient() {
       </Card>
 
       {/* Wyniki przetwarzania */}
-      {processingStatus.results.length > 0 && !isProcessing && (
-        <>
-          <BatchProcessingResults
-            results={processingStatus.results}
-          />
-        </>
-      )}
+      <AnimatePresence mode="wait">
+        {processingStatus.results.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <BatchProcessingResults
+              results={processingStatus.results}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 } 

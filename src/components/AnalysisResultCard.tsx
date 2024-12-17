@@ -6,20 +6,17 @@ import { ChevronDown, ChevronUp, CheckCircle2, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { formatPercentage } from '@/utils/text-formatting';
-import { calculateDocumentCompleteness, calculateUsability, calculateAverageConfidence } from '@/utils/data-processing/completeness/confidence';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import { calculateDocumentCompleteness, calculateAverageConfidence } from '@/utils/data-processing/completeness/confidence';
 import { PPEDataGroup } from '@/components/data-groups/PPEDataGroup';
 import { CustomerDataGroup } from '@/components/data-groups/CustomerDataGroup';
 import { SupplierDataGroup } from '@/components/data-groups/SupplierDataGroup';
-import { DataGroup } from '@/components/data-groups/DataGroup';
+import { CorrespondenceDataGroup } from './data-groups/CorrespondenceDataGroup';
+import { BillingDataGroup } from './data-groups/BillingDataGroup';
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
 import type { DocumentField } from '@/types/document-processing';
 import type { DocumentSections } from '@/utils/data-processing/completeness/confidence';
-import { Badge } from './ui/badge';
-import { cn } from '@/lib/utils';
-import { processSection } from '@/utils/data-processing';
-import { CorrespondenceDataGroup } from './data-groups/CorrespondenceDataGroup';
-import { BillingDataGroup } from './data-groups/BillingDataGroup';
 
 interface AnalysisResultCardProps {
   fileName: string;
@@ -47,18 +44,6 @@ export function AnalysisResultCard({
                    fileName.toLowerCase().match(/\.(jpg|jpeg)$/) ? 'JPEG' :
                    fileName.toLowerCase().endsWith('.png') ? 'PNG' : 'Nieznany';
 
-  const getConfidenceColor = (value: number) => {
-    if (value >= 0.9) return 'text-green-600';
-    if (value >= 0.7) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
-  const getConfidenceBgColor = (value: number) => {
-    if (value >= 0.9) return 'bg-green-50';
-    if (value >= 0.7) return 'bg-yellow-50';
-    return 'bg-red-50';
-  };
-
   // Konwertuj dane do wymaganego formatu
   const sections: DocumentSections = {
     ppe: ppeData as Record<string, DocumentField>,
@@ -79,64 +64,101 @@ export function AnalysisResultCard({
   return (
     <>
       <motion.tr 
-        onClick={toggleExpand}
+        layout
         className={cn(
-          "cursor-pointer hover:bg-gray-50",
+          "group cursor-pointer hover:bg-gray-50 transition-colors",
           isExpanded && "bg-gray-50"
         )}
-        layout
+        onClick={toggleExpand}
       >
-        <td className="py-4 pl-4 pr-3 text-sm sm:pl-6">
+        <motion.td
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.2 }}
+          className="py-4 pl-4 pr-3 text-sm sm:pl-6"
+        >
           <div className="font-medium text-gray-900">
             {supplierData?.supplierName?.content || 'Nieznany dostawca'}
           </div>
           <div className="text-gray-500 truncate max-w-[300px]" title={fileName}>
             {fileName}
           </div>
-        </td>
-        <td className="px-3 py-4 text-sm text-center">
-          <Badge variant="secondary">{mimeType}</Badge>
-        </td>
-        <td className="px-3 py-4 text-sm text-center">
+        </motion.td>
+        <motion.td
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.2, delay: 0.1 }}
+          className="px-3 py-4 text-sm text-center"
+        >
+          <Badge variant="secondary" className="bg-gray-50 text-gray-600">
+            {mimeType}
+          </Badge>
+        </motion.td>
+        <motion.td
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.2, delay: 0.2 }}
+          className="px-3 py-4 text-sm text-center"
+        >
           <Badge variant="secondary" className={cn(
-            confidence > 0.8 ? 'bg-green-50 text-green-700' : 
-            confidence > 0.6 ? 'bg-yellow-50 text-yellow-700' : 
+            confidence >= 0.9 ? 'bg-green-50 text-green-700' : 
+            confidence >= 0.7 ? 'bg-yellow-50 text-yellow-700' : 
             'bg-red-50 text-red-700'
           )}>
             {(confidence * 100).toFixed(0)}%
           </Badge>
-        </td>
-        <td className="px-3 py-4 text-sm text-center">
+        </motion.td>
+        <motion.td
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.2, delay: 0.3 }}
+          className="px-3 py-4 text-sm text-center"
+        >
           <Badge variant="secondary" className={cn(
-            completeness > 0.8 ? 'bg-green-50 text-green-700' : 
-            completeness > 0.6 ? 'bg-yellow-50 text-yellow-700' : 
+            completeness >= 0.8 ? 'bg-green-50 text-green-700' : 
+            completeness >= 0.6 ? 'bg-yellow-50 text-yellow-700' : 
             'bg-red-50 text-red-700'
           )}>
             {(completeness * 100).toFixed(0)}%
           </Badge>
-        </td>
-        <td className="px-3 py-4 text-sm text-center">
+        </motion.td>
+        <motion.td
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.2, delay: 0.4 }}
+          className="px-3 py-4 text-sm text-center"
+        >
           {usability ? (
             <CheckCircle2 className="w-5 h-5 text-green-500 mx-auto" />
           ) : (
             <XCircle className="w-5 h-5 text-red-500 mx-auto" />
           )}
-        </td>
-        <td className="relative py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-          <button
+        </motion.td>
+        <motion.td
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.2, delay: 0.5 }}
+          className="relative py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6"
+        >
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={(e) => {
               e.stopPropagation();
               toggleExpand();
             }}
-            className="text-blue-600 hover:text-blue-900"
+            className={cn(
+              "text-blue-600 hover:text-blue-900 transition-opacity",
+              !isExpanded && "opacity-0 group-hover:opacity-100"
+            )}
           >
             {isExpanded ? (
               <ChevronUp className="h-5 w-5" />
             ) : (
               <ChevronDown className="h-5 w-5" />
             )}
-          </button>
-        </td>
+          </Button>
+        </motion.td>
       </motion.tr>
 
       <AnimatePresence>

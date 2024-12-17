@@ -4,182 +4,113 @@ import * as React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { ChevronDown, ChevronUp, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ProcessingResult } from '@/types/processing';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ProcessingProgressProps {
   isProcessing: boolean;
   currentFileIndex: number;
-  currentFileName: string | null;
-  currentModelIndex: number;
-  currentModelId: string | null;
-  fileProgress: number;
-  totalProgress: number;
   totalFiles: number;
   results: ProcessingResult[];
   error: string | null;
-  onExpand?: () => void;
-  onCollapse?: () => void;
   onReset?: () => void;
 }
 
 export function ProcessingProgress({
   isProcessing,
   currentFileIndex,
-  currentFileName,
-  currentModelIndex,
-  currentModelId,
-  fileProgress,
-  totalProgress,
   totalFiles,
   results,
   error,
-  onExpand,
-  onCollapse,
   onReset
 }: ProcessingProgressProps) {
-  const [isExpanded, setIsExpanded] = React.useState(true);
-
-  const handleToggle = () => {
-    setIsExpanded(!isExpanded);
-    if (isExpanded) {
-      onCollapse?.();
-    } else {
-      onExpand?.();
-    }
-  };
-
-  const getStatusMessage = () => {
-    if (error) return 'Wystąpił błąd podczas przetwarzania';
-    if (!isProcessing && results.length === 0) return 'Oczekiwanie na rozpoczęcie';
-    if (!isProcessing && results.length > 0) return 'Przetwarzanie zakończone';
-    if (currentFileName && currentModelId) {
-      return `Przetwarzanie ${currentFileName} (${currentModelId})`;
-    }
-    return 'Przetwarzanie...';
-  };
-
-  const getStatusIcon = () => {
-    if (error) return <XCircle className="h-5 w-5 text-red-500" />;
-    if (!isProcessing && results.length > 0) return <CheckCircle2 className="h-5 w-5 text-green-500" />;
-    if (!isProcessing) return <AlertCircle className="h-5 w-5 text-gray-400" />;
-    return null;
-  };
-
-  // Oblicz rzeczywisty postęp
-  const actualFileProgress = Math.max(0, Math.min(100, fileProgress));
-  const actualTotalProgress = Math.max(0, Math.min(100, totalProgress));
+  // Oblicz postęp jako procent przetworzonych plików
+  const progress = totalFiles > 0 ? (currentFileIndex / totalFiles) * 100 : 0;
+  const isComplete = !isProcessing && currentFileIndex === totalFiles && !error;
 
   return (
-    <Card className={cn(
-      "processing-progress border-gray-900/10",
-      isExpanded ? "expanded" : "collapsed"
-    )}>
-      <div className="p-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            {getStatusIcon()}
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium truncate">
-                {getStatusMessage()}
-              </p>
-              {isProcessing && (
-                <p className="text-xs text-muted-foreground">
-                  Plik {currentFileIndex + 1} z {totalFiles}
-                </p>
-              )}
+    <Card className="border-gray-900/10">
+      <div className="p-4 space-y-4">
+        {/* Status i postęp */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">
+                {isProcessing ? 'Przetwarzanie...' : 
+                 error ? 'Błąd przetwarzania' : 
+                 isComplete ? 'Zakończono' : 'Zatrzymano'}
+              </span>
+              <span className="text-sm text-gray-500">
+                {currentFileIndex} z {totalFiles} plików
+              </span>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {!isProcessing && results.length > 0 && (
+            {(!isProcessing || isComplete) && onReset && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={onReset}
-                className="text-xs"
               >
                 Nowa analiza
               </Button>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleToggle}
-              className="p-2"
-            >
-              {isExpanded ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-            </Button>
+          </div>
+
+          {/* Pasek postępu */}
+          <div className="space-y-2">
+            <div className="h-2 relative rounded-full overflow-hidden bg-gray-100">
+              <Progress 
+                value={progress} 
+                className={cn(
+                  "h-2 transition-all duration-300 ease-in-out",
+                  error ? "bg-red-500" : 
+                  isComplete ? "bg-green-500" : undefined
+                )}
+              />
+            </div>
           </div>
         </div>
 
-        {isProcessing && (
-          <div className="mt-4 space-y-2">
-            <div className="h-2 relative rounded-full overflow-hidden bg-gray-100">
-              <Progress 
-                value={actualTotalProgress} 
-                className="h-2 transition-all duration-300 ease-in-out"
-              />
-            </div>
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Postęp całkowity</span>
-              <span>{Math.round(actualTotalProgress)}%</span>
-            </div>
-          </div>
-        )}
-
-        {isExpanded && error && (
-          <div className="mt-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">
-            {error}
-          </div>
-        )}
-
-        {isExpanded && isProcessing && (
-          <div className="mt-4 space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span>Przetwarzany plik</span>
-                <span className="font-medium">{currentFileName}</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span>Model</span>
-                <span className="font-medium">{currentModelId}</span>
-              </div>
-              <div className="h-1.5 relative rounded-full overflow-hidden bg-gray-100">
-                <Progress 
-                  value={actualFileProgress} 
-                  className="h-1.5 transition-all duration-300 ease-in-out"
-                />
-              </div>
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Postęp pliku</span>
-                <span>{Math.round(actualFileProgress)}%</span>
-              </div>
-            </div>
-
-            {results.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-medium">Przetworzone pliki</p>
-                <div className="space-y-1">
-                  {results.map((result, index) => (
-                    <div
-                      key={`${result.fileName}-${index}`}
-                      className="flex items-center justify-between text-xs"
-                    >
-                      <span className="truncate flex-1">{result.fileName}</span>
-                      <span className="text-muted-foreground ml-2">
-                        {(result.confidence * 100).toFixed(1)}%
-                      </span>
+        {/* Lista przetworzonych plików */}
+        {results.length > 0 && (
+          <div className="space-y-2">
+            <div className="max-h-[200px] overflow-y-auto space-y-1">
+              <AnimatePresence initial={false}>
+                {results.map((result, index) => (
+                  <motion.div
+                    key={`${result.fileName}-${index}`}
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex items-center justify-between py-1 text-sm"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      {result.confidence >= 0.8 ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                      )}
+                      <span className="truncate">{result.fileName}</span>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                    <span className={cn(
+                      "ml-2 flex-shrink-0",
+                      result.confidence >= 0.8 ? "text-green-600" : "text-red-600"
+                    )}>
+                      {(result.confidence * 100).toFixed(0)}%
+                    </span>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          </div>
+        )}
+
+        {/* Komunikat błędu */}
+        {error && (
+          <div className="p-3 bg-red-50 text-red-700 rounded-md text-sm">
+            {error}
           </div>
         )}
       </div>

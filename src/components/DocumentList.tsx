@@ -6,6 +6,9 @@ import { calculateUsability } from '@/utils/data-processing/completeness/confide
 import type { DocumentField } from '@/types/document';
 import { useState } from 'react';
 import { Button } from './ui/button';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CheckCircle2, XCircle, ChevronDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface DocumentListProps {
   documents: ProcessingResult[];
@@ -170,24 +173,34 @@ export function DocumentList({ documents, totalTime, onExport }: DocumentListPro
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
-              {currentDocuments.map((doc, index) => {
-                const result = documentResults[indexOfFirstItem + index];
-                if (!result) return null;
+              <AnimatePresence initial={false}>
+                {currentDocuments.map((doc, index) => {
+                  const result = documentResults[indexOfFirstItem + index];
+                  if (!result) return null;
 
-                return (
-                  <AnalysisResultCard
-                    key={index}
-                    fileName={doc.fileName}
-                    confidence={doc.modelResults?.[0]?.confidence || 0}
-                    ppeData={result.ppeData}
-                    customerData={result.customerData}
-                    correspondenceData={result.correspondenceData}
-                    supplierData={result.supplierData}
-                    billingData={result.billingData}
-                    usability={result.usability}
-                  />
-                );
-              })}
+                  const sections = {
+                    ppe: result.ppeData as Record<string, DocumentField>,
+                    customer: result.customerData as Record<string, DocumentField>,
+                    correspondence: result.correspondenceData as Record<string, DocumentField>,
+                    supplier: result.supplierData as Record<string, DocumentField>,
+                    billing: result.billingData as Record<string, DocumentField>
+                  };
+
+                  return (
+                    <AnalysisResultCard
+                      key={`${doc.fileName}-${index}`}
+                      fileName={doc.fileName}
+                      confidence={doc.modelResults?.[0]?.confidence || 0}
+                      ppeData={result.ppeData}
+                      customerData={result.customerData}
+                      correspondenceData={result.correspondenceData}
+                      supplierData={result.supplierData}
+                      billingData={result.billingData}
+                      usability={result.usability}
+                    />
+                  );
+                })}
+              </AnimatePresence>
             </tbody>
           </table>
         </div>

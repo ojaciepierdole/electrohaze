@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { insertDocumentWithData, DocumentInsertData } from '@/lib/supabase/document-helpers';
 import { useToast } from '@/hooks/useToast';
 import { useProcessingStore } from '@/stores/processing-store';
-import type { ProcessingResult } from '@/types/processing';
+import type { ProcessingResult, BatchProcessingStatus } from '@/types/processing';
 
 interface ProcessingState {
   isProcessing: boolean;
@@ -27,20 +27,22 @@ export function useDocumentProcessing() {
   const { addToast } = useToast();
   const setProcessingStatus = useProcessingStore(state => state.setProcessingStatus);
 
-  useEffect(() => {
-    return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
-    };
+  const cleanupEventSource = useCallback(() => {
+    if (eventSourceRef.current) {
+      console.log('Cleaning up EventSource');
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
   }, []);
 
+  useEffect(() => {
+    return () => {
+      cleanupEventSource();
+    };
+  }, [cleanupEventSource]);
+
   const setupProgressTracking = () => {
-    if (eventSourceRef.current) {
-      console.log('Closing existing EventSource');
-      eventSourceRef.current.close();
-    }
+    cleanupEventSource();
 
     const url = `/api/analyze/progress?sessionId=${sessionIdRef.current}`;
     console.log('Setting up EventSource:', url);
@@ -81,11 +83,7 @@ export function useDocumentProcessing() {
 
     eventSourceRef.current.onerror = (error) => {
       console.error('EventSource error:', error);
-      if (eventSourceRef.current) {
-        console.log('Closing EventSource due to error');
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
+      cleanupEventSource();
     };
   };
 
@@ -99,7 +97,7 @@ export function useDocumentProcessing() {
         isPaused: false
       }));
 
-      const initialStatus = {
+      const initialStatus: BatchProcessingStatus = {
         isProcessing: true,
         currentFileIndex: 0,
         currentFileName: files[0]?.name ?? null,
@@ -139,12 +137,12 @@ export function useDocumentProcessing() {
 
       const results = await response.json();
       
-      const finalStatus = {
+      const finalStatus: BatchProcessingStatus = {
         isProcessing: false,
-        currentFileIndex: files.length - 1,
-        currentFileName: files[files.length - 1]?.name ?? null,
-        currentModelIndex: modelIds.length - 1,
-        currentModelId: modelIds[modelIds.length - 1] ?? null,
+        currentFileIndex: files.length,
+        currentFileName: null,
+        currentModelIndex: modelIds.length,
+        currentModelId: null,
         fileProgress: 100,
         totalProgress: 100,
         totalFiles: files.length,
@@ -154,27 +152,34 @@ export function useDocumentProcessing() {
 
       console.log('Setting final status:', finalStatus);
       setProcessingStatus(finalStatus);
-      setState(prev => ({ ...prev, progress: 100 }));
+      setState(prev => ({ ...prev, progress: 100, isProcessing: false }));
 
-      if (eventSourceRef.current) {
-        console.log('Closing EventSource after completion');
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
+      cleanupEventSource();
 
       return results;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
+        const abortStatus: BatchProcessingStatus = {
+          isProcessing: false,
+          currentFileIndex: 0,
+          currentFileName: null,
+          currentModelIndex: 0,
+          currentModelId: null,
+          fileProgress: 0,
+          totalProgress: 0,
+          totalFiles: 0,
+          results: [],
+          error: 'Przetwarzanie zostało anulowane'
+        };
+
         setState(prev => ({
           ...prev,
-          error: 'Przetwarzanie zostało anulowane',
+          error: abortStatus.error,
           isProcessing: false,
           isPaused: false
         }));
-        setProcessingStatus({
-          isProcessing: false,
-          error: 'Przetwarzanie zostało anulowane'
-        });
+        setProcessingStatus(abortStatus);
+
         addToast(
           'info',
           'Anulowano',
@@ -182,14 +187,26 @@ export function useDocumentProcessing() {
         );
       } else {
         const errorMessage = error instanceof Error ? error.message : 'Nieznany błąd podczas przetwarzania';
+        const errorStatus: BatchProcessingStatus = {
+          isProcessing: false,
+          currentFileIndex: 0,
+          currentFileName: null,
+          currentModelIndex: 0,
+          currentModelId: null,
+          fileProgress: 0,
+          totalProgress: 0,
+          totalFiles: 0,
+          results: [],
+          error: errorMessage
+        };
+
         setState(prev => ({
           ...prev,
           error: errorMessage,
+          isProcessing: false
         }));
-        setProcessingStatus({
-          isProcessing: false,
-          error: errorMessage
-        });
+        setProcessingStatus(errorStatus);
+
         addToast(
           'error',
           'Błąd',
@@ -197,20 +214,28 @@ export function useDocumentProcessing() {
         );
       }
 
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
-
+      cleanupEventSource();
       throw error;
     } finally {
       setState(prev => ({ ...prev, isProcessing: false }));
+      setProcessingStatus({
+        isProcessing: false,
+        currentFileName: null,
+        currentModelId: null,
+        fileProgress: 0,
+        totalProgress: 0
+      });
+      if (abortControllerRef.current) {
+        abortControllerRef.current = null;
+      }
     }
   };
 
   const pauseProcessing = () => {
     setState(prev => ({ ...prev, isPaused: true }));
-    // TODO: Implement actual pause functionality on the backend
+    setProcessingStatus({
+      isProcessing: false
+    });
     addToast(
       'info',
       'Wstrzymano',
@@ -220,7 +245,9 @@ export function useDocumentProcessing() {
 
   const resumeProcessing = () => {
     setState(prev => ({ ...prev, isPaused: false }));
-    // TODO: Implement actual resume functionality on the backend
+    setProcessingStatus({
+      isProcessing: true
+    });
     addToast(
       'info',
       'Wznowiono',
@@ -233,12 +260,21 @@ export function useDocumentProcessing() {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    cleanupEventSource();
     setState(prev => ({ 
       ...prev, 
       isProcessing: false, 
       isPaused: false,
       progress: 0 
     }));
+    setProcessingStatus({
+      isProcessing: false,
+      currentFileName: null,
+      currentModelId: null,
+      fileProgress: 0,
+      totalProgress: 0,
+      results: []
+    });
   };
 
   const saveDocument = async (documentData: DocumentInsertData) => {
@@ -247,7 +283,7 @@ export function useDocumentProcessing() {
         ...prev, 
         isProcessing: true, 
         error: null,
-        lastSavedDocument: documentData // Optymistyczna aktualizacja
+        lastSavedDocument: documentData
       }));
       
       setState(prev => ({ ...prev, progress: 30 }));
@@ -267,7 +303,7 @@ export function useDocumentProcessing() {
       setState(prev => ({
         ...prev,
         error: error instanceof Error ? error.message : 'Nieznany błąd',
-        lastSavedDocument: null // Cofnij optymistyczną aktualizację
+        lastSavedDocument: null
       }));
 
       addToast(
@@ -279,6 +315,9 @@ export function useDocumentProcessing() {
       throw error;
     } finally {
       setState(prev => ({ ...prev, isProcessing: false }));
+      setProcessingStatus({
+        isProcessing: false
+      });
     }
   };
 
