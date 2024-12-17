@@ -27,8 +27,8 @@ export const PPEDataGroup: React.FC<PPEDataGroupProps> = ({ data }) => {
       processedData.dpUnit = {
         content: unitNumber.trim(),
         confidence: processedData.dpBuilding.confidence,
-        boundingBox: processedData.dpBuilding.boundingBox,
-        isEnriched: processedData.dpBuilding.isEnriched
+        isEnriched: processedData.dpBuilding.isEnriched,
+        metadata: processedData.dpBuilding.metadata
       };
     }
   }

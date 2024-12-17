@@ -27,8 +27,8 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({ data }) =>
       processedData.supplierUnit = {
         content: unitNumber.trim(),
         confidence: processedData.supplierBuilding.confidence,
-        boundingBox: processedData.supplierBuilding.boundingBox,
-        isEnriched: processedData.supplierBuilding.isEnriched
+        isEnriched: processedData.supplierBuilding.isEnriched,
+        metadata: processedData.supplierBuilding.metadata
       };
     }
   }

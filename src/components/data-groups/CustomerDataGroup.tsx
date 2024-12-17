@@ -27,8 +27,8 @@ export const CustomerDataGroup: React.FC<CustomerDataGroupProps> = ({ data }) =>
       processedData.Unit = {
         content: unitNumber.trim(),
         confidence: processedData.Building.confidence,
-        boundingBox: processedData.Building.boundingBox,
-        isEnriched: processedData.Building.isEnriched
+        isEnriched: processedData.Building.isEnriched,
+        metadata: processedData.Building.metadata
       };
     }
   }

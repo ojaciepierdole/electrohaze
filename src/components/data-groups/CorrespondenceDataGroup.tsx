@@ -27,8 +27,8 @@ export const CorrespondenceDataGroup: React.FC<CorrespondenceDataGroupProps> = (
       processedData.paUnit = {
         content: unitNumber.trim(),
         confidence: processedData.paBuilding.confidence,
-        boundingBox: processedData.paBuilding.boundingBox,
-        isEnriched: processedData.paBuilding.isEnriched
+        isEnriched: processedData.paBuilding.isEnriched,
+        metadata: processedData.paBuilding.metadata
       };
     }
   }
