@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, CheckCircle2, XCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatPercentage } from '@/utils/text-formatting';
@@ -73,47 +74,60 @@ export function AnalysisResultCard({
   // Oblicz kompletność dokumentu
   const completeness = calculateDocumentCompleteness(sections);
 
+  const toggleExpand = () => setIsExpanded(!isExpanded);
+
   return (
     <>
-      <tr className={cn(
-        "hover:bg-gray-50 transition-colors",
-        isExpanded && "bg-gray-50"
-      )}>
+      <motion.tr 
+        onClick={toggleExpand}
+        className={cn(
+          "cursor-pointer hover:bg-gray-50",
+          isExpanded && "bg-gray-50"
+        )}
+        layout
+      >
         <td className="py-4 pl-4 pr-3 text-sm sm:pl-6">
           <div className="font-medium text-gray-900">
             {supplierData?.supplierName?.content || 'Nieznany dostawca'}
           </div>
-          <div className="text-gray-500">{fileName}</div>
+          <div className="text-gray-500 truncate max-w-[300px]" title={fileName}>
+            {fileName}
+          </div>
         </td>
         <td className="px-3 py-4 text-sm text-center">
           <Badge variant="secondary">{mimeType}</Badge>
         </td>
-        <td className={cn(
-          "px-3 py-4 text-sm text-center",
-          getConfidenceColor(confidence)
-        )}>
-          {(confidence * 100).toFixed(0)}%
+        <td className="px-3 py-4 text-sm text-center">
+          <Badge variant="secondary" className={cn(
+            confidence > 0.8 ? 'bg-green-50 text-green-700' : 
+            confidence > 0.6 ? 'bg-yellow-50 text-yellow-700' : 
+            'bg-red-50 text-red-700'
+          )}>
+            {(confidence * 100).toFixed(0)}%
+          </Badge>
         </td>
-        <td className={cn(
-          "px-3 py-4 text-sm text-center",
-          getConfidenceColor(completeness)
-        )}>
-          {(completeness * 100).toFixed(0)}%
+        <td className="px-3 py-4 text-sm text-center">
+          <Badge variant="secondary" className={cn(
+            completeness > 0.8 ? 'bg-green-50 text-green-700' : 
+            completeness > 0.6 ? 'bg-yellow-50 text-yellow-700' : 
+            'bg-red-50 text-red-700'
+          )}>
+            {(completeness * 100).toFixed(0)}%
+          </Badge>
         </td>
         <td className="px-3 py-4 text-sm text-center">
           {usability ? (
-            <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
-              Tak
-            </span>
+            <CheckCircle2 className="w-5 h-5 text-green-500 mx-auto" />
           ) : (
-            <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/20">
-              Nie
-            </span>
+            <XCircle className="w-5 h-5 text-red-500 mx-auto" />
           )}
         </td>
         <td className="relative py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
           <button
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleExpand();
+            }}
             className="text-blue-600 hover:text-blue-900"
           >
             {isExpanded ? (
@@ -123,64 +137,102 @@ export function AnalysisResultCard({
             )}
           </button>
         </td>
-      </tr>
+      </motion.tr>
 
-      {isExpanded && (
-        <tr>
-          <td colSpan={6} className="p-0">
-            <div className="border-t border-gray-200">
-              <div className="p-4 space-y-6">
-                {/* Supplier Data */}
-                {supplierData && (
-                  <div className="bg-white rounded-lg shadow p-4">
-                    <SupplierDataGroup 
-                      data={supplierData}
-                      ppeData={ppeData}
-                      customerData={customerData}
-                    />
-                  </div>
-                )}
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.tr
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          >
+            <td colSpan={6} className="p-0">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="border-t border-gray-200"
+              >
+                <div className="p-4 space-y-6">
+                  {/* Supplier Data */}
+                  {supplierData && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 }}
+                      className="bg-white rounded-lg shadow p-4"
+                    >
+                      <SupplierDataGroup 
+                        data={supplierData}
+                        ppeData={ppeData}
+                        customerData={customerData}
+                      />
+                    </motion.div>
+                  )}
 
-                {/* PPE Data */}
-                {ppeData && (
-                  <div className="bg-white rounded-lg shadow p-4">
-                    <PPEDataGroup 
-                      data={ppeData}
-                    />
-                  </div>
-                )}
+                  {/* PPE Data */}
+                  {ppeData && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                      className="bg-white rounded-lg shadow p-4"
+                    >
+                      <PPEDataGroup 
+                        data={ppeData}
+                      />
+                    </motion.div>
+                  )}
 
-                {/* Customer Data */}
-                {customerData && (
-                  <div className="bg-white rounded-lg shadow p-4">
-                    <CustomerDataGroup 
-                      data={customerData}
-                    />
-                  </div>
-                )}
+                  {/* Customer Data */}
+                  {customerData && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 }}
+                      className="bg-white rounded-lg shadow p-4"
+                    >
+                      <CustomerDataGroup 
+                        data={customerData}
+                      />
+                    </motion.div>
+                  )}
 
-                {/* Correspondence Data */}
-                {correspondenceData && (
-                  <div className="bg-white rounded-lg shadow p-4">
-                    <CorrespondenceDataGroup 
-                      data={correspondenceData}
-                    />
-                  </div>
-                )}
+                  {/* Correspondence Data */}
+                  {correspondenceData && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.4 }}
+                      className="bg-white rounded-lg shadow p-4"
+                    >
+                      <CorrespondenceDataGroup 
+                        data={correspondenceData}
+                      />
+                    </motion.div>
+                  )}
 
-                {/* Billing Data */}
-                {billingData && (
-                  <div className="bg-white rounded-lg shadow p-4">
-                    <BillingDataGroup 
-                      data={billingData}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          </td>
-        </tr>
-      )}
+                  {/* Billing Data */}
+                  {billingData && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 }}
+                      className="bg-white rounded-lg shadow p-4"
+                    >
+                      <BillingDataGroup 
+                        data={billingData}
+                      />
+                    </motion.div>
+                  )}
+                </div>
+              </motion.div>
+            </td>
+          </motion.tr>
+        )}
+      </AnimatePresence>
     </>
   );
 } 

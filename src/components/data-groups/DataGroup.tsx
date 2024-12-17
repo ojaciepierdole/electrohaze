@@ -36,23 +36,28 @@ export const DataGroup: React.FC<DataGroupProps> = ({
   });
 
   return (
-    <div className="rounded-2xl border">
+    <div className="rounded-lg border">
       <div className="bg-gray-50">
-        <div className="flex items-center justify-between px-6 py-4">
-          <h3 className="text-xl font-medium">{title}</h3>
-          <Badge variant="secondary" className={`${
-            confidence > 0.8 ? 'bg-green-50 text-green-700' : 
-            confidence > 0.6 ? 'bg-yellow-50 text-yellow-700' : 
-            'bg-red-50 text-red-700'
-          }`}>
-            {Math.round(confidence * 100)}%
-          </Badge>
+        <div className="flex items-center justify-between px-4 py-4">
+          <div className="flex items-center gap-4">
+            <h3 className="text-xl font-medium">{title}</h3>
+            <Badge variant="secondary" className={`${
+              confidence > 0.8 ? 'bg-green-50 text-green-700' : 
+              confidence > 0.6 ? 'bg-yellow-50 text-yellow-700' : 
+              'bg-red-50 text-red-700'
+            }`}>
+              {Math.round(confidence * 100)}%
+            </Badge>
+          </div>
+          <div className="text-sm text-gray-500">
+            Kompletność {completeness}%
+          </div>
         </div>
       </div>
 
       <div className="divide-y">
         {fieldsWithData.map(([key, field]) => (
-          <div key={key} className="flex items-center justify-between px-6 py-3">
+          <div key={key} className="flex items-center justify-between px-4 py-3">
             <div className="flex items-center gap-2">
               <span className="text-gray-600">{fieldLabels[key]}</span>
             </div>
