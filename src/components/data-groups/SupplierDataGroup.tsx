@@ -14,6 +14,25 @@ export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({ data }) =>
   // Konwertuj dane do wymaganego formatu
   const processedData = processSection('supplier', data) as Record<string, DocumentField | undefined>;
 
+  // Przetwórz numer budynku i lokalu
+  if (processedData.supplierBuilding?.content) {
+    const [buildingNumber, unitNumber] = processedData.supplierBuilding.content.split('/');
+    if (buildingNumber) {
+      processedData.supplierBuilding = {
+        ...processedData.supplierBuilding,
+        content: buildingNumber.trim()
+      };
+    }
+    if (unitNumber) {
+      processedData.supplierUnit = {
+        content: unitNumber.trim(),
+        confidence: processedData.supplierBuilding.confidence,
+        boundingBox: processedData.supplierBuilding.boundingBox,
+        isEnriched: processedData.supplierBuilding.isEnriched
+      };
+    }
+  }
+
   // Oblicz średnią pewność dla pól z danymi
   const fieldsWithConfidence = Object.values(processedData)
     .filter((field): field is DocumentField => field?.confidence !== undefined);

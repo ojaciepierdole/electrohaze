@@ -14,6 +14,25 @@ export const CorrespondenceDataGroup: React.FC<CorrespondenceDataGroupProps> = (
   // Konwertuj dane do wymaganego formatu
   const processedData = processSection('correspondence', data) as Record<string, DocumentField | undefined>;
 
+  // Przetwórz numer budynku i lokalu
+  if (processedData.paBuilding?.content) {
+    const [buildingNumber, unitNumber] = processedData.paBuilding.content.split('/');
+    if (buildingNumber) {
+      processedData.paBuilding = {
+        ...processedData.paBuilding,
+        content: buildingNumber.trim()
+      };
+    }
+    if (unitNumber) {
+      processedData.paUnit = {
+        content: unitNumber.trim(),
+        confidence: processedData.paBuilding.confidence,
+        boundingBox: processedData.paBuilding.boundingBox,
+        isEnriched: processedData.paBuilding.isEnriched
+      };
+    }
+  }
+
   // Oblicz średnią pewność dla pól z danymi
   const fieldsWithConfidence = Object.values(processedData)
     .filter((field): field is DocumentField => field?.confidence !== undefined);

@@ -14,6 +14,25 @@ export const PPEDataGroup: React.FC<PPEDataGroupProps> = ({ data }) => {
   // Konwertuj dane do wymaganego formatu
   const processedData = processSection('ppe', data) as Record<string, DocumentField | undefined>;
 
+  // Przetwórz numer budynku i lokalu
+  if (processedData.dpBuilding?.content) {
+    const [buildingNumber, unitNumber] = processedData.dpBuilding.content.split('/');
+    if (buildingNumber) {
+      processedData.dpBuilding = {
+        ...processedData.dpBuilding,
+        content: buildingNumber.trim()
+      };
+    }
+    if (unitNumber) {
+      processedData.dpUnit = {
+        content: unitNumber.trim(),
+        confidence: processedData.dpBuilding.confidence,
+        boundingBox: processedData.dpBuilding.boundingBox,
+        isEnriched: processedData.dpBuilding.isEnriched
+      };
+    }
+  }
+
   // Oblicz średnią pewność dla pól z danymi
   const fieldsWithConfidence = Object.values(processedData)
     .filter((field): field is DocumentField => field?.confidence !== undefined);
