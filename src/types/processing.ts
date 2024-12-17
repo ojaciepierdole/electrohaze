@@ -176,6 +176,10 @@ export interface ProcessingResult {
   };
   performanceStats?: PerformanceStats[];
   alerts?: Alert[];
+  uploadTime?: number;
+  ocrTime?: number;
+  analysisTime?: number;
+  mimeType?: string;
 }
 
 export interface AnalysisField {

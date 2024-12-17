@@ -102,6 +102,7 @@ export function ProcessingClient() {
   React.useEffect(() => {
     if (!isProcessing && processingStatus.results.length > 0) {
       setSelectedFiles([]);
+      setIsParametersExpanded(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -120,7 +121,7 @@ export function ProcessingClient() {
             "p-4 border-b cursor-pointer transition-colors",
             isParametersExpanded ? "bg-gray-50" : "hover:bg-gray-50"
           )}
-          onClick={() => !isProcessing && setIsParametersExpanded(!isParametersExpanded)}
+          onClick={() => setIsParametersExpanded(!isParametersExpanded)}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -136,6 +137,10 @@ export function ProcessingClient() {
                 "text-gray-500 hover:text-gray-700",
                 isProcessing && "opacity-50 cursor-not-allowed"
               )}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsParametersExpanded(!isParametersExpanded);
+              }}
               disabled={isProcessing}
             >
               {isParametersExpanded ? (
@@ -149,93 +154,101 @@ export function ProcessingClient() {
 
         {/* Zawartość karty */}
         {(isProcessing || processingStatus.results.length > 0) ? (
-          <div className="p-4">
-            <ProcessingProgress
-              isProcessing={isProcessing}
-              currentFileIndex={processingStatus.currentFileIndex || 0}
-              totalFiles={processingStatus.totalFiles}
-              results={processingStatus.results}
-              error={processingStatus.error || null}
-              onReset={handleReset}
-            />
+          <div className={cn("overflow-hidden transition-all duration-200", 
+            isParametersExpanded ? "max-h-[500px]" : "max-h-0"
+          )}>
+            <div className="p-4">
+              <ProcessingProgress
+                isProcessing={isProcessing}
+                currentFileIndex={processingStatus.currentFileIndex || 0}
+                totalFiles={processingStatus.totalFiles}
+                results={processingStatus.results}
+                error={processingStatus.error || null}
+                onReset={handleReset}
+              />
+            </div>
           </div>
         ) : (
-          <div className="p-4">
-            {isParametersExpanded && (
-              <>
-                <div className="grid grid-cols-2 gap-6">
-                  {/* Lewa kolumna - wybór modeli */}
-                  <div>
-                    <ModelSelector
-                      models={models}
-                      selectedModels={selectedModels}
-                      onSelectionChange={setSelectedModels}
-                      isLoading={isLoadingModels}
-                      isDisabled={isProcessing}
-                    />
-                  </div>
+          <div className={cn("overflow-hidden transition-all duration-200",
+            isParametersExpanded ? "max-h-[500px]" : "max-h-0"
+          )}>
+            <div className="p-4">
+              {isParametersExpanded && (
+                <>
+                  <div className="grid grid-cols-2 gap-6">
+                    {/* Lewa kolumna - wybór modeli */}
+                    <div>
+                      <ModelSelector
+                        models={models}
+                        selectedModels={selectedModels}
+                        onSelectionChange={setSelectedModels}
+                        isLoading={isLoadingModels}
+                        isDisabled={isProcessing}
+                      />
+                    </div>
 
-                  {/* Prawa kolumna - wybór plików */}
-                  <div className="space-y-4">
-                    <Card className="p-4">
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between gap-4">
-                          <input
-                            ref={fileInputRef}
-                            type="file"
-                            multiple
-                            accept=".pdf,.jpg,.jpeg,.png"
-                            onChange={(e) => handleFilesSelected(e.target.files)}
-                            className="hidden"
-                            id="file-upload"
-                          />
-                          <Button
-                            variant="outline"
-                            asChild
-                            className="flex-1"
-                            disabled={isProcessing}
-                          >
-                            <label htmlFor="file-upload" className="cursor-pointer">
-                              <Upload className="h-4 w-4 mr-2" />
-                              Wybierz pliki
-                            </label>
-                          </Button>
-                          {selectedFiles.length > 0 && (
+                    {/* Prawa kolumna - wybór plików */}
+                    <div className="space-y-4">
+                      <Card className="p-4">
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between gap-4">
+                            <input
+                              ref={fileInputRef}
+                              type="file"
+                              multiple
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => handleFilesSelected(e.target.files)}
+                              className="hidden"
+                              id="file-upload"
+                            />
                             <Button
-                              variant="ghost"
-                              onClick={handleClearFiles}
+                              variant="outline"
+                              asChild
+                              className="flex-1"
                               disabled={isProcessing}
-                              className="text-red-500 hover:text-red-600 hover:bg-red-50"
                             >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Usuń wszystkie
+                              <label htmlFor="file-upload" className="cursor-pointer">
+                                <Upload className="h-4 w-4 mr-2" />
+                                Wybierz pliki
+                              </label>
                             </Button>
-                          )}
+                            {selectedFiles.length > 0 && (
+                              <Button
+                                variant="ghost"
+                                onClick={handleClearFiles}
+                                disabled={isProcessing}
+                                className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Usuń wszystkie
+                              </Button>
+                            )}
+                          </div>
+
+                          <FileList
+                            files={selectedFiles}
+                            onRemove={handleFileRemove}
+                            maxHeight="calc(3 * (4rem + 0.75rem) - 0.75rem)"
+                          />
                         </div>
-
-                        <FileList
-                          files={selectedFiles}
-                          onRemove={handleFileRemove}
-                          maxHeight="calc(3 * (4rem + 0.75rem) - 0.75rem)"
-                        />
-                      </div>
-                    </Card>
+                      </Card>
+                    </div>
                   </div>
-                </div>
 
-                {/* Przycisk przetwarzania */}
-                {(selectedFiles.length > 0 && selectedModels.length > 0) && (
-                  <Button
-                    onClick={handleProcessing}
-                    disabled={isProcessing}
-                    className="w-full mt-4"
-                    size="lg"
-                  >
-                    {isProcessing ? 'Przetwarzanie...' : 'Rozpocznij analizę'}
-                  </Button>
-                )}
-              </>
-            )}
+                  {/* Przycisk przetwarzania */}
+                  {(selectedFiles.length > 0 && selectedModels.length > 0) && (
+                    <Button
+                      onClick={handleProcessing}
+                      disabled={isProcessing}
+                      className="w-full mt-4"
+                      size="lg"
+                    >
+                      {isProcessing ? 'Przetwarzanie...' : 'Rozpocznij analizę'}
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         )}
       </Card>
