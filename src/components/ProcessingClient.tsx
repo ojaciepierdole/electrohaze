@@ -75,7 +75,6 @@ export function ProcessingClient() {
       return;
     }
 
-    setIsParametersExpanded(false);
     setProcessingStartTime(Date.now());
 
     try {
@@ -109,6 +108,9 @@ export function ProcessingClient() {
     }
   }, [isProcessing, processingStatus.results.length]);
 
+  // Sprawdź, czy analiza jest zakończona
+  const isAnalysisComplete = !isProcessing && processingStatus.results.length > 0;
+
   return (
     <div className="space-y-6">
       <Card>
@@ -118,18 +120,24 @@ export function ProcessingClient() {
             "p-4 border-b cursor-pointer transition-colors",
             isParametersExpanded ? "bg-gray-50" : "hover:bg-gray-50"
           )}
-          onClick={() => setIsParametersExpanded(!isParametersExpanded)}
+          onClick={() => !isProcessing && setIsParametersExpanded(!isParametersExpanded)}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-medium">Parametry analizy</h2>
-              {selectedFiles.length > 0 && (
+              {processingStatus.results.length > 0 && (
                 <span className="text-sm text-gray-500">
-                  ({selectedFiles.length} {selectedFiles.length === 1 ? 'plik' : 'plików'})
+                  ({processingStatus.results.length} {processingStatus.results.length === 1 ? 'plik' : 'plików'})
                 </span>
               )}
             </div>
-            <button className="text-gray-500 hover:text-gray-700">
+            <button 
+              className={cn(
+                "text-gray-500 hover:text-gray-700",
+                isProcessing && "opacity-50 cursor-not-allowed"
+              )}
+              disabled={isProcessing}
+            >
               {isParametersExpanded ? (
                 <ChevronUp className="h-5 w-5" />
               ) : (
@@ -140,12 +148,12 @@ export function ProcessingClient() {
         </div>
 
         {/* Zawartość karty */}
-        {isProcessing || processingStatus.results.length > 0 ? (
+        {(isProcessing || processingStatus.results.length > 0) ? (
           <div className="p-4">
             <ProcessingProgress
               isProcessing={isProcessing}
               currentFileIndex={processingStatus.currentFileIndex || 0}
-              totalFiles={selectedFiles.length}
+              totalFiles={processingStatus.totalFiles}
               results={processingStatus.results}
               error={processingStatus.error || null}
               onReset={handleReset}

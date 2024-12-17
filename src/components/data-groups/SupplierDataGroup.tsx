@@ -1,113 +1,88 @@
 'use client';
 
 import React from 'react';
-import { DataGroup } from '@/components/data-groups/DataGroup';
+import { Badge } from '@/components/ui/badge';
+import { Eraser } from 'lucide-react';
 import type { DocumentField } from '@/types/document-processing';
-import { processSection } from '@/utils/data-processing';
-import type { SupplierData, PPEData, CustomerData } from '@/types/fields';
-import { normalizeOSDName, arePostalCodesCompatible } from '@/utils/data-processing/mappings/osd-mappings';
 
 interface SupplierDataGroupProps {
-  data: Partial<SupplierData>;
-  ppeData?: Partial<PPEData>;
-  customerData?: Partial<CustomerData>;
+  title: string;
+  confidence: number;
+  completeness: number;
+  data: Record<string, DocumentField | undefined>;
+  fieldLabels: Record<string, string>;
+  optionalFields?: string[];
 }
 
-export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({ data, ppeData, customerData }) => {
-  // Konwertuj dane do wymaganego formatu
-  const processedData = processSection('supplier', data) as Record<string, DocumentField | undefined>;
+export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({ 
+  title, 
+  confidence,
+  completeness,
+  data, 
+  fieldLabels,
+  optionalFields = []
+}) => {
+  // Podziel pola na te z danymi i bez danych
+  const fieldsWithData: [string, DocumentField][] = [];
+  const fieldsWithoutData: string[] = [];
 
-  // Normalizuj nazwę OSD na podstawie kodów pocztowych
-  const ppePostalCode = ppeData?.dpPostalCode?.content;
-  const customerPostalCode = customerData?.PostalCode?.content;
-
-  if (ppePostalCode && customerPostalCode && arePostalCodesCompatible(ppePostalCode, customerPostalCode)) {
-    const normalizedOSD = normalizeOSDName(ppePostalCode);
-    if (normalizedOSD) {
-      processedData.OSD_name = {
-        content: normalizedOSD.name,
-        confidence: 1,
-        isEnriched: true,
-        metadata: {
-          fieldType: 'string',
-          transformationType: 'osd_normalization',
-          originalValue: processedData.OSD_name?.content
-        }
-      };
-      processedData.OSD_region = {
-        content: normalizedOSD.region,
-        confidence: 1,
-        isEnriched: true,
-        metadata: {
-          fieldType: 'string',
-          transformationType: 'osd_normalization',
-          originalValue: processedData.OSD_region?.content
-        }
-      };
+  Object.entries(fieldLabels).forEach(([key, label]) => {
+    if (data[key]?.content) {
+      fieldsWithData.push([key, data[key]!]);
+    } else if (!optionalFields.includes(key)) {
+      fieldsWithoutData.push(key);
     }
-  }
-
-  // Przetwórz numer budynku i lokalu
-  if (processedData.supplierBuilding?.content) {
-    const [buildingNumber, unitNumber] = processedData.supplierBuilding.content.split('/');
-    if (buildingNumber) {
-      processedData.supplierBuilding = {
-        ...processedData.supplierBuilding,
-        content: buildingNumber.trim()
-      };
-    }
-    if (unitNumber) {
-      processedData.supplierUnit = {
-        content: unitNumber.trim(),
-        confidence: processedData.supplierBuilding.confidence,
-        isEnriched: processedData.supplierBuilding.isEnriched,
-        metadata: processedData.supplierBuilding.metadata
-      };
-    }
-  }
-
-  // Oblicz średnią pewność dla pól z danymi
-  const fieldsWithConfidence = Object.values(processedData)
-    .filter((field): field is DocumentField => field?.confidence !== undefined);
-  const averageConfidence = fieldsWithConfidence.length > 0
-    ? fieldsWithConfidence.reduce((acc, field) => acc + field.confidence, 0) / fieldsWithConfidence.length
-    : 0;
-
-  // Oblicz kompletność
-  const requiredFields = ['supplierName', 'OSD_name', 'OSD_region'];
-  const filledRequiredFields = requiredFields.filter(key => processedData[key]?.content).length;
-  const completeness = Math.round((filledRequiredFields / requiredFields.length) * 100);
+  });
 
   return (
-    <DataGroup
-      title="Sprzedawca"
-      confidence={averageConfidence}
-      completeness={completeness}
-      data={processedData}
-      fieldLabels={{
-        supplierName: 'Sprzedawca',
-        OSD_name: 'Nazwa OSD',
-        OSD_region: 'Region OSD',
-        supplierTaxID: 'NIP',
-        supplierStreet: 'Ulica',
-        supplierBuilding: 'Numer budynku',
-        supplierUnit: 'Numer lokalu',
-        supplierPostalCode: 'Kod pocztowy',
-        supplierCity: 'Miejscowość',
-        supplierBankAccount: 'Numer konta',
-        supplierBankName: 'Nazwa banku',
-        supplierEmail: 'Email',
-        supplierPhone: 'Telefon',
-        supplierWebsite: 'Strona WWW'
-      }}
-      optionalFields={[
-        'supplierUnit',
-        'supplierBankAccount',
-        'supplierBankName',
-        'supplierEmail',
-        'supplierPhone',
-        'supplierWebsite'
-      ]}
-    />
+    <div className="rounded-lg border">
+      <div className="bg-gray-50">
+        <div className="flex items-center justify-between px-4 py-4">
+          <div className="flex items-center gap-4">
+            <h3 className="text-xl font-medium">{title}</h3>
+            <Badge variant="secondary" className={`${
+              confidence > 0.8 ? 'bg-green-50 text-green-700' : 
+              confidence > 0.6 ? 'bg-yellow-50 text-yellow-700' : 
+              'bg-red-50 text-red-700'
+            }`}>
+              {Math.round(confidence * 100)}%
+            </Badge>
+          </div>
+          <div className="text-sm text-gray-500">
+            Kompletność {completeness}%
+          </div>
+        </div>
+      </div>
+
+      <div className="divide-y">
+        {fieldsWithData.map(([key, field]) => (
+          <div key={key} className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-600">{fieldLabels[key]}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-gray-900">
+                {field.content}
+              </span>
+              {field.confidence && (
+                <div className="flex items-center gap-1">
+                  <span className={`w-2 h-2 rounded-full ${
+                    field.confidence > 0.8 ? 'bg-green-500' : 
+                    field.confidence > 0.6 ? 'bg-yellow-500' : 
+                    'bg-red-500'
+                  }`} />
+                  <span className="text-xs text-gray-500">
+                    {Math.round(field.confidence * 100)}%
+                  </span>
+                </div>
+              )}
+              {field.isEnriched && (
+                <Eraser className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }; 

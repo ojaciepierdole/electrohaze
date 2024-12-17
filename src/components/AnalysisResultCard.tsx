@@ -14,6 +14,7 @@ import { CustomerDataGroup } from '@/components/data-groups/CustomerDataGroup';
 import { SupplierDataGroup } from '@/components/data-groups/SupplierDataGroup';
 import { CorrespondenceDataGroup } from './data-groups/CorrespondenceDataGroup';
 import { BillingDataGroup } from './data-groups/BillingDataGroup';
+import { processSupplierData, calculateSupplierConfidence, calculateSupplierCompleteness } from '@/utils/data-processing/sections/supplier';
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
 import type { DocumentField } from '@/types/document-processing';
 import type { DocumentSections } from '@/utils/data-processing/completeness/confidence';
@@ -181,15 +182,40 @@ export function AnalysisResultCard({
                   {/* Supplier Data */}
                   {supplierData && (
                     <motion.div
-                      initial={{ opacity: 0, y: -20 }}
+                      initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.1 }}
                       className="bg-white rounded-lg shadow p-4"
                     >
                       <SupplierDataGroup 
-                        data={supplierData}
-                        ppeData={ppeData}
-                        customerData={customerData}
+                        title="Sprzedawca"
+                        data={processSupplierData(supplierData || {})}
+                        confidence={calculateSupplierConfidence(processSupplierData(supplierData || {}))}
+                        completeness={calculateSupplierCompleteness(processSupplierData(supplierData || {}))}
+                        fieldLabels={{
+                          supplierName: 'Sprzedawca',
+                          OSD_name: 'Nazwa OSD',
+                          OSD_region: 'Region OSD',
+                          supplierTaxID: 'NIP',
+                          supplierStreet: 'Ulica',
+                          supplierBuilding: 'Numer budynku',
+                          supplierUnit: 'Numer lokalu',
+                          supplierPostalCode: 'Kod pocztowy',
+                          supplierCity: 'Miejscowość',
+                          supplierBankAccount: 'Numer konta',
+                          supplierBankName: 'Nazwa banku',
+                          supplierEmail: 'Email',
+                          supplierPhone: 'Telefon',
+                          supplierWebsite: 'Strona WWW'
+                        }}
+                        optionalFields={[
+                          'supplierUnit',
+                          'supplierBankAccount',
+                          'supplierBankName',
+                          'supplierEmail',
+                          'supplierPhone',
+                          'supplierWebsite'
+                        ]}
                       />
                     </motion.div>
                   )}

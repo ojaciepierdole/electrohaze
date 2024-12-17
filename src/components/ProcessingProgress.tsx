@@ -43,7 +43,7 @@ export function ProcessingProgress({
                  isComplete ? 'Zakończono' : 'Zatrzymano'}
               </span>
               <span className="text-sm text-gray-500">
-                {currentFileIndex} z {totalFiles} plików
+                {results.length} z {totalFiles} plików
               </span>
             </div>
             {(!isProcessing || isComplete) && onReset && (
