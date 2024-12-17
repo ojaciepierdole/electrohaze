@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { formatPercentage } from '@/utils/text-formatting';
@@ -9,12 +10,13 @@ import { calculateDocumentCompleteness, calculateUsability, calculateAverageConf
 import type { ProcessingResult } from '@/types/processing';
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
 import type { DocumentField } from '@/types/document';
+import { cn } from '@/lib/utils';
 
 interface AnalysisSummaryProps {
   documents: ProcessingResult[];
   totalTime?: number;
   onExport?: () => void;
-  usabilityResults?: boolean[];
+  usabilityResults: boolean[];
 }
 
 function createDocumentField(value: any): DocumentField {
@@ -90,72 +92,114 @@ function mapFields(fields: Record<string, any>): {
   return result;
 }
 
-export function AnalysisSummary({ documents, totalTime, onExport, usabilityResults = [] }: AnalysisSummaryProps) {
-  // Oblicz średnią pewność dla wszystkich dokumentów
-  const averageConfidence = documents.reduce((acc, doc) => {
-    const fields = doc.modelResults[0]?.fields || {};
-    const mappedFields = mapFields(fields);
-    const sections = {
-      ppe: mappedFields.ppeData,
-      customer: mappedFields.customerData,
-      correspondence: mappedFields.correspondenceData,
-      supplier: mappedFields.supplierData,
-      billing: mappedFields.billingData
-    };
-    return acc + calculateAverageConfidence(sections);
-  }, 0) / documents.length;
+export function AnalysisSummary({ documents, totalTime, onExport, usabilityResults }: AnalysisSummaryProps) {
+  // Oblicz średnią pewność
+  const averageConfidence = documents.length > 0
+    ? documents.reduce((sum, doc) => sum + (doc.confidence || 0), 0) / documents.length
+    : 0;
 
-  // Oblicz średnią kompletność
-  const averageCompleteness = documents.reduce((acc, doc) => {
-    const fields = doc.modelResults[0]?.fields || {};
-    const mappedFields = mapFields(fields);
-    const sections = {
-      ppe: mappedFields.ppeData,
-      customer: mappedFields.customerData,
-      correspondence: mappedFields.correspondenceData,
-      supplier: mappedFields.supplierData,
-      billing: mappedFields.billingData
-    };
-    return acc + calculateDocumentCompleteness(sections);
-  }, 0) / documents.length;
+  // Oblicz rozkład pewności
+  const confidenceDistribution = {
+    high: documents.filter(doc => doc.confidence >= 0.9).length,
+    medium: documents.filter(doc => doc.confidence >= 0.7 && doc.confidence < 0.9).length,
+    low: documents.filter(doc => doc.confidence < 0.7).length,
+  };
+
+  // Oblicz średni czas na dokument
+  const averageTimePerDocument = totalTime && documents.length > 0
+    ? totalTime / documents.length
+    : 0;
 
   // Oblicz procent przydatnych dokumentów
-  const usableCount = (usabilityResults || []).filter(Boolean).length;
-  const usablePercentage = usabilityResults?.length ? usableCount / usabilityResults.length : 0;
+  const usableDocuments = usabilityResults.filter(Boolean).length;
+  const usabilityPercentage = documents.length > 0
+    ? (usableDocuments / documents.length) * 100
+    : 0;
 
   return (
-    <Card className="p-4">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold">Podsumowanie analizy</h2>
-          <div className="text-sm text-muted-foreground">
-            Przeanalizowano {documents.length} {documents.length === 1 ? 'dokument' : 'dokumentów'}
-            {totalTime !== undefined && ` w ${(totalTime / 1000).toFixed(1)}s`}
-          </div>
+    <Card className="p-6">
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Podsumowanie analizy</h2>
+          {onExport && (
+            <Button onClick={onExport} variant="outline" size="sm">
+              <Download className="w-4 h-4 mr-2" />
+              Eksportuj wyniki
+            </Button>
+          )}
         </div>
-        {onExport && (
-          <Button onClick={onExport} variant="outline" size="sm">
-            <Download className="w-4 h-4 mr-2" />
-            Eksportuj wyniki
-          </Button>
-        )}
-      </div>
 
-      <div className="grid grid-cols-3 gap-8 mt-4">
-        <div>
-          <p className="text-sm text-muted-foreground">Średnia pewność</p>
-          <p className="text-2xl font-semibold">{(averageConfidence * 100).toFixed(1)}%</p>
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground">Średnia kompletność</p>
-          <p className="text-2xl font-semibold">{(averageCompleteness * 100).toFixed(1)}%</p>
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground">Przydatne dokumenty</p>
-          <p className="text-2xl font-semibold">{(usablePercentage * 100).toFixed(1)}%</p>
-          <p className="text-sm text-muted-foreground">
-            ({usableCount} z {usabilityResults?.length || 0})
-          </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Liczba dokumentów */}
+          <div className="bg-white p-4 rounded-lg border">
+            <div className="text-sm font-medium text-gray-500">Przeanalizowane dokumenty</div>
+            <div className="mt-1 flex items-baseline justify-between">
+              <div className="text-2xl font-semibold">{documents.length}</div>
+              {averageTimePerDocument > 0 && (
+                <div className="text-sm text-gray-500">
+                  {(averageTimePerDocument / 1000).toFixed(1)}s / dokument
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Średnia pewność */}
+          <div className="bg-white p-4 rounded-lg border">
+            <div className="text-sm font-medium text-gray-500">Średnia pewność</div>
+            <div className="mt-1 flex items-baseline justify-between">
+              <div className={cn(
+                "text-2xl font-semibold",
+                averageConfidence >= 0.9 ? "text-green-600" :
+                averageConfidence >= 0.7 ? "text-yellow-600" :
+                "text-red-600"
+              )}>
+                {(averageConfidence * 100).toFixed(1)}%
+              </div>
+            </div>
+          </div>
+
+          {/* Rozkład pewności */}
+          <div className="bg-white p-4 rounded-lg border">
+            <div className="text-sm font-medium text-gray-500">Rozkład pewności</div>
+            <div className="mt-1 space-y-1">
+              <div className="flex justify-between items-center">
+                <Badge variant="secondary" className="bg-green-50 text-green-700">
+                  Wysoka (&ge;90%)
+                </Badge>
+                <span className="text-sm font-medium">{confidenceDistribution.high}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <Badge variant="secondary" className="bg-yellow-50 text-yellow-700">
+                  Średnia (70-89%)
+                </Badge>
+                <span className="text-sm font-medium">{confidenceDistribution.medium}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <Badge variant="secondary" className="bg-red-50 text-red-700">
+                  Niska (&lt;70%)
+                </Badge>
+                <span className="text-sm font-medium">{confidenceDistribution.low}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Przydatne dokumenty */}
+          <div className="bg-white p-4 rounded-lg border">
+            <div className="text-sm font-medium text-gray-500">Przydatne dokumenty</div>
+            <div className="mt-1 flex items-baseline justify-between">
+              <div className="text-2xl font-semibold">
+                {usableDocuments} z {documents.length}
+              </div>
+              <div className={cn(
+                "text-sm font-medium",
+                usabilityPercentage >= 90 ? "text-green-600" :
+                usabilityPercentage >= 70 ? "text-yellow-600" :
+                "text-red-600"
+              )}>
+                {usabilityPercentage.toFixed(1)}%
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </Card>

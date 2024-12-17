@@ -15,6 +15,8 @@ import { BillingDataGroup } from './data-groups/BillingDataGroup';
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
 import type { DocumentField } from '@/types/document';
 import type { DocumentSections } from '@/utils/data-processing/completeness/confidence';
+import { Badge } from './ui/badge';
+import { cn } from '@/lib/utils';
 
 interface AnalysisResultCardProps {
   fileName: string;
@@ -38,6 +40,21 @@ export function AnalysisResultCard({
   usability
 }: AnalysisResultCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const mimeType = fileName.toLowerCase().endsWith('.pdf') ? 'PDF' : 
+                   fileName.toLowerCase().match(/\.(jpg|jpeg)$/) ? 'JPEG' :
+                   fileName.toLowerCase().endsWith('.png') ? 'PNG' : 'Nieznany';
+
+  const getConfidenceColor = (value: number) => {
+    if (value >= 0.9) return 'text-green-600';
+    if (value >= 0.7) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getConfidenceBgColor = (value: number) => {
+    if (value >= 0.9) return 'bg-green-50';
+    if (value >= 0.7) return 'bg-yellow-50';
+    return 'bg-red-50';
+  };
 
   // Konwertuj dane do wymaganego formatu
   const sections: DocumentSections = {
@@ -56,72 +73,141 @@ export function AnalysisResultCard({
 
   return (
     <>
-      <tr 
-        className={`${isExpanded ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
-          {supplierData?.supplierName?.content || 'Nieznany dostawca'}
-        </td>
-        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-center">
-          {formatPercentage(confidence)}
-        </td>
-        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-center">
-          {formatPercentage(completeness)}
-        </td>
-        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-          <div className="flex items-center justify-center">
-            {usability ? (
-              <div className="flex items-center gap-1 text-green-600">
-                <CheckCircle2 className="w-5 h-5" />
-                <span>Tak</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1 text-red-600">
-                <XCircle className="w-5 h-5" />
-                <span>Nie</span>
-              </div>
-            )}
+      <tr className={cn(
+        "hover:bg-gray-50 transition-colors",
+        isExpanded && "bg-gray-50"
+      )}>
+        <td className="py-4 pl-4 pr-3 text-sm sm:pl-6">
+          <div className="font-medium text-gray-900">
+            {supplierData?.supplierName?.content || 'Nieznany dostawca'}
           </div>
+          <div className="text-gray-500">{fileName}</div>
         </td>
-        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-auto"
+        <td className="px-3 py-4 text-sm text-center">
+          <Badge variant="secondary">{mimeType}</Badge>
+        </td>
+        <td className={cn(
+          "px-3 py-4 text-sm text-center",
+          getConfidenceColor(confidence)
+        )}>
+          {(confidence * 100).toFixed(0)}%
+        </td>
+        <td className={cn(
+          "px-3 py-4 text-sm text-center",
+          getConfidenceColor(completeness)
+        )}>
+          {(completeness * 100).toFixed(0)}%
+        </td>
+        <td className="px-3 py-4 text-sm text-center">
+          {usability ? (
+            <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+              Tak
+            </span>
+          ) : (
+            <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/20">
+              Nie
+            </span>
+          )}
+        </td>
+        <td className="relative py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="text-blue-600 hover:text-blue-900"
           >
             {isExpanded ? (
-              <ChevronUp className="w-4 h-4" />
+              <ChevronUp className="h-5 w-5" />
             ) : (
-              <ChevronDown className="w-4 h-4" />
+              <ChevronDown className="h-5 w-5" />
             )}
-          </Button>
+          </button>
         </td>
       </tr>
+
       {isExpanded && (
         <tr>
-          <td colSpan={5} className="px-4 py-4 bg-gray-50 border-t border-gray-200">
-            <div className="space-y-6">
-              {supplierData && (
-                <SupplierDataGroup
-                  data={supplierData}
-                  ppeData={ppeData}
-                  customerData={customerData}
-                  correspondenceData={correspondenceData}
-                />
-              )}
-              {ppeData && (
-                <PPEDataGroup data={ppeData} />
-              )}
-              {customerData && (
-                <CustomerDataGroup data={customerData} />
-              )}
-              {correspondenceData && (
-                <CorrespondenceDataGroup data={correspondenceData} />
-              )}
-              {billingData && (
-                <BillingDataGroup data={billingData} />
-              )}
+          <td colSpan={6} className="p-0">
+            <div className="border-t border-gray-200">
+              <div className="p-4 space-y-6">
+                {/* Dane dostawcy */}
+                {supplierData && (
+                  <div className="bg-white rounded-lg shadow p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+                        Sprzedawca
+                        <Badge variant="secondary" className={getConfidenceBgColor(confidence)}>
+                          {(confidence * 100).toFixed(0)}%
+                        </Badge>
+                      </h3>
+                    </div>
+                    <SupplierDataGroup
+                      data={supplierData}
+                      ppeData={ppeData}
+                      customerData={customerData}
+                      correspondenceData={correspondenceData}
+                    />
+                  </div>
+                )}
+
+                {/* Dane PPE */}
+                {ppeData && (
+                  <div className="bg-white rounded-lg shadow p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+                        Dane PPE
+                        <Badge variant="secondary" className={getConfidenceBgColor(confidence)}>
+                          {(confidence * 100).toFixed(0)}%
+                        </Badge>
+                      </h3>
+                    </div>
+                    <PPEDataGroup data={ppeData} />
+                  </div>
+                )}
+
+                {/* Dane klienta */}
+                {customerData && (
+                  <div className="bg-white rounded-lg shadow p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+                        Dane klienta
+                        <Badge variant="secondary" className={getConfidenceBgColor(confidence)}>
+                          {(confidence * 100).toFixed(0)}%
+                        </Badge>
+                      </h3>
+                    </div>
+                    <CustomerDataGroup data={customerData} />
+                  </div>
+                )}
+
+                {/* Adres korespondencyjny */}
+                {correspondenceData && (
+                  <div className="bg-white rounded-lg shadow p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+                        Adres korespondencyjny
+                        <Badge variant="secondary" className={getConfidenceBgColor(confidence)}>
+                          {(confidence * 100).toFixed(0)}%
+                        </Badge>
+                      </h3>
+                    </div>
+                    <CorrespondenceDataGroup data={correspondenceData} />
+                  </div>
+                )}
+
+                {/* Dane rozliczeniowe */}
+                {billingData && (
+                  <div className="bg-white rounded-lg shadow p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+                        Dane rozliczeniowe
+                        <Badge variant="secondary" className={getConfidenceBgColor(confidence)}>
+                          {(confidence * 100).toFixed(0)}%
+                        </Badge>
+                      </h3>
+                    </div>
+                    <BillingDataGroup data={billingData} />
+                  </div>
+                )}
+              </div>
             </div>
           </td>
         </tr>
