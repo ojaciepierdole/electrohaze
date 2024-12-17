@@ -123,11 +123,20 @@ export function AnalysisSummary({ documents, totalTime, onExport, usabilityResul
     analysis: doc.analysisTime || 0
   }));
 
+  // Oblicz średnie czasy dla wszystkich dokumentów
+  const totalTimes = {
+    total: processingTimes.reduce((sum, times) => sum + times.total, 0),
+    upload: processingTimes.reduce((sum, times) => sum + times.upload, 0),
+    ocr: processingTimes.reduce((sum, times) => sum + times.ocr, 0),
+    analysis: processingTimes.reduce((sum, times) => sum + times.analysis, 0)
+  };
+
+  // Oblicz średnie czasy na dokument
   const averageTimes = {
-    total: processingTimes.reduce((sum, times) => sum + times.total, 0) / totalDocs,
-    upload: processingTimes.reduce((sum, times) => sum + times.upload, 0) / totalDocs,
-    ocr: processingTimes.reduce((sum, times) => sum + times.ocr, 0) / totalDocs,
-    analysis: processingTimes.reduce((sum, times) => sum + times.analysis, 0) / totalDocs
+    total: totalTimes.total / totalDocs,
+    upload: totalTimes.upload / totalDocs,
+    ocr: totalTimes.ocr / totalDocs,
+    analysis: totalTimes.analysis / totalDocs
   };
 
   // Oblicz formaty MIME i zabezpiecz przed błędami
@@ -168,19 +177,19 @@ export function AnalysisSummary({ documents, totalTime, onExport, usabilityResul
               <div className="space-y-1 text-sm text-gray-500">
                 <div className="flex justify-between">
                   <span>Upload:</span>
-                  <span>{(averageTimes.upload / 1000).toFixed(1)}s</span>
+                  <span>{(totalTimes.upload / 1000).toFixed(1)}s</span>
                 </div>
                 <div className="flex justify-between">
                   <span>OCR:</span>
-                  <span>{(averageTimes.ocr / 1000).toFixed(1)}s</span>
+                  <span>{(totalTimes.ocr / 1000).toFixed(1)}s</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Analiza:</span>
-                  <span>{(averageTimes.analysis / 1000).toFixed(1)}s</span>
+                  <span>{(totalTimes.analysis / 1000).toFixed(1)}s</span>
                 </div>
                 <div className="flex justify-between font-medium">
                   <span>Całkowity:</span>
-                  <span>{(averageTimes.total / 1000).toFixed(1)}s</span>
+                  <span>{(totalTimes.total / 1000).toFixed(1)}s</span>
                 </div>
               </div>
             </div>

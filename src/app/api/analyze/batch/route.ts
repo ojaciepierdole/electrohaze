@@ -23,6 +23,11 @@ async function analyzeDocument(
   const fileName = file instanceof File ? file.name : 'blob';
   console.log(`[${index}] Rozpoczynam analizę pliku ${fileName} modelem ${modelId}`);
 
+  // Czasy przetwarzania
+  let uploadTime = 0;
+  let ocrTime = 0;
+  let analysisTime = 0;
+
   // Sprawdź cache
   if (file instanceof File) {
     const cachedResult = cacheManager.get(file.name, modelId);
@@ -45,14 +50,20 @@ async function analyzeDocument(
       
       return {
         ...cachedResult,
-        processingTime: 0 // Zerujemy czas przetwarzania dla wyników z cache
+        processingTime: 0,
+        uploadTime: 0,
+        ocrTime: 0,
+        analysisTime: 0
       };
     }
   }
 
+  // Mierz czas uploadu
+  const uploadStartTime = Date.now();
   const arrayBuffer = await file.arrayBuffer();
   const fileSize = Math.round(arrayBuffer.byteLength / 1024);
-  console.log(`[${index}] Przygotowano dane do wysłania (${fileSize}KB)`);
+  uploadTime = Date.now() - uploadStartTime;
+  console.log(`[${index}] Przygotowano dane do wysłania (${fileSize}KB) w ${uploadTime}ms`);
   
   // Jeśli plik jest skompresowany, rozpakuj go
   const fileData = file.type === 'application/octet-stream' 
@@ -64,8 +75,12 @@ async function analyzeDocument(
   
   // Dla pojedynczego pliku, użyj krótszego interwału pollowania
   const poller = await client.beginAnalyzeDocument(modelId, fileData);
-  const pollingInterval = isSingleFile ? 1000 : 2000; // 1 sekunda dla pojedynczego pliku, 2 sekundy dla wsadowego
+  const pollingInterval = isSingleFile ? 1000 : 2000;
   
+  // Mierz czas OCR (od rozpoczęcia do pierwszego poll)
+  ocrTime = Date.now() - azureStartTime;
+  console.log(`[${index}] Rozpoczęto przetwarzanie OCR w Azure (${ocrTime}ms)`);
+
   console.log(`[${index}] Rozpoczęto przetwarzanie w Azure (${Date.now() - azureStartTime}ms)`);
 
   // Funkcja do aktualizacji postępu podczas pollowania
@@ -111,6 +126,9 @@ async function analyzeDocument(
           pageCount: result.pages?.length || 1
         }],
         processingTime: Date.now() - startTime,
+        uploadTime,
+        ocrTime,
+        analysisTime: Date.now() - (azureStartTime + ocrTime),
         mappedData: {
           fileName: fileName
         },
@@ -124,7 +142,8 @@ async function analyzeDocument(
           name: 'azure_processing',
           duration: azureTime,
           timestamp: new Date().toISOString()
-        }]
+        }],
+        mimeType: file instanceof File ? file.type : 'application/octet-stream'
       };
       
       if (file instanceof File) {
@@ -167,6 +186,9 @@ async function analyzeDocument(
         pageCount: result.pages?.length || 1
       }],
       processingTime: Date.now() - startTime,
+      uploadTime,
+      ocrTime,
+      analysisTime: Date.now() - (azureStartTime + ocrTime),
       mappedData: {
         fileName: fileName
       },
@@ -180,7 +202,8 @@ async function analyzeDocument(
         name: 'azure_processing',
         duration: azureTime,
         timestamp: new Date().toISOString()
-      }]
+      }],
+      mimeType: file instanceof File ? file.type : 'application/octet-stream'
     };
 
     if (file instanceof File) {
