@@ -130,6 +130,15 @@ export function AnalysisResultCard({
           <td colSpan={6} className="p-0">
             <div className="border-t border-gray-200">
               <div className="p-4 space-y-6">
+                {/* Supplier Data */}
+                {supplierData && (
+                  <div className="bg-white rounded-lg shadow p-4">
+                    <SupplierDataGroup 
+                      data={supplierData}
+                    />
+                  </div>
+                )}
+
                 {/* PPE Data */}
                 {ppeData && (
                   <div className="bg-white rounded-lg shadow p-4">
