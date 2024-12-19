@@ -1,9 +1,7 @@
 'use client';
 
 import React from 'react';
-import { DataGroup } from '@/components/data-groups/DataGroup';
 import type { FieldWithConfidence } from '@/types/processing';
-import { processSection } from '@/utils/data-processing';
 import type { CustomerData } from '@/types/fields';
 
 interface CustomerDataGroupProps {
@@ -11,73 +9,82 @@ interface CustomerDataGroupProps {
 }
 
 export const CustomerDataGroup: React.FC<CustomerDataGroupProps> = ({ data }) => {
-  // Konwertuj dane do wymaganego formatu
-  const processedData = processSection('customer', data) as Record<string, FieldWithConfidence | undefined>;
+  const fieldLabels: Record<string, string> = {
+    FirstName: 'Imię',
+    LastName: 'Nazwisko',
+    BusinessName: 'Nazwa firmy',
+    taxID: 'NIP',
+    Street: 'Ulica',
+    Building: 'Numer budynku',
+    Unit: 'Numer lokalu',
+    PostalCode: 'Kod pocztowy',
+    City: 'Miejscowość',
+    Municipality: 'Gmina',
+    District: 'Powiat',
+    Province: 'Województwo'
+  };
+
+  const optionalFields = [
+    'BusinessName',
+    'taxID',
+    'Unit',
+    'Municipality',
+    'District',
+    'Province'
+  ];
 
   // Przetwórz numer budynku i lokalu
-  if (processedData.Building?.content) {
-    const [buildingNumber, unitNumber] = processedData.Building.content.split('/');
+  if (data.Building?.content) {
+    const [buildingNumber, unitNumber] = data.Building.content.split('/');
     if (buildingNumber) {
-      processedData.Building = {
-        ...processedData.Building,
+      data.Building = {
+        ...data.Building,
         content: buildingNumber.trim()
       };
     }
-    if (unitNumber) {
-      processedData.Unit = {
+    if (unitNumber && !data.Unit) {
+      data.Unit = {
         content: unitNumber.trim(),
-        confidence: processedData.Building.confidence,
+        confidence: data.Building.confidence,
         metadata: {
           fieldType: 'text',
           transformationType: 'split',
           source: 'derived',
           status: 'success',
-          originalValue: processedData.Building.content
+          originalValue: data.Building.content
         }
       };
     }
   }
 
-  // Oblicz średnią pewność dla pól z danymi
-  const fieldsWithConfidence = Object.values(processedData)
-    .filter((field): field is FieldWithConfidence => field?.confidence !== undefined);
-  const averageConfidence = fieldsWithConfidence.length > 0
-    ? fieldsWithConfidence.reduce((acc, field) => acc + field.confidence, 0) / fieldsWithConfidence.length
-    : 0;
-
-  // Oblicz kompletność
-  const requiredFields = ['FirstName', 'LastName', 'Street', 'Building', 'PostalCode', 'City'];
-  const filledRequiredFields = requiredFields.filter(key => processedData[key]?.content).length;
-  const completeness = Math.round((filledRequiredFields / requiredFields.length) * 100);
-
   return (
-    <DataGroup
-      title="Dane klienta"
-      confidence={averageConfidence}
-      completeness={completeness}
-      data={processedData}
-      fieldLabels={{
-        FirstName: 'Imię',
-        LastName: 'Nazwisko',
-        BusinessName: 'Nazwa firmy',
-        taxID: 'NIP',
-        Street: 'Ulica',
-        Building: 'Numer budynku',
-        Unit: 'Numer lokalu',
-        PostalCode: 'Kod pocztowy',
-        City: 'Miejscowość',
-        Municipality: 'Gmina',
-        District: 'Powiat',
-        Province: 'Województwo'
-      }}
-      optionalFields={[
-        'BusinessName',
-        'taxID',
-        'Unit',
-        'Municipality',
-        'District',
-        'Province'
-      ]}
-    />
+    <div className="rounded-lg border divide-y">
+      {Object.entries(fieldLabels).map(([key, label]) => {
+        const field = data[key as keyof CustomerData];
+        if (!field?.content || (optionalFields.includes(key) && field.content.trim() === '')) {
+          return null;
+        }
+
+        return (
+          <div key={key} className="flex items-center justify-between px-4 py-2">
+            <span className="text-sm text-gray-600">{label}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-900">
+                {field.content}
+              </span>
+              {field.confidence && (
+                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${
+                  field.confidence > 0.8 ? 'bg-green-50 text-green-700' : 
+                  field.confidence > 0.6 ? 'bg-yellow-50 text-yellow-700' : 
+                  'bg-red-50 text-red-700'
+                }`}>
+                  {Math.round(field.confidence * 100)}%
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }; 
