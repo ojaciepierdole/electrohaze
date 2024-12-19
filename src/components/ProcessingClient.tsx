@@ -165,24 +165,16 @@ export function ProcessingClient() {
       
       // Liczymy dokumenty z zieloną flagą (przydatne do podpisania umowy)
       const validDocs = processingStatus.results.filter(result => {
-        console.log('Document usability check:', {
-          fileName: result.fileName,
-          isUsable: result.isUsable,
-          confidence: result.confidence,
-          completeness: result.completeness,
-          alerts: result.alerts
-        });
-        return result.isUsable === true; // jawne porównanie z true
+        // Sprawdzamy flagę usability z wyników analizy
+        return result.usability === true;
       }).length;
 
-      console.log('Valid documents summary:', {
+      console.log('Documents with usability:', {
         total: processingStatus.results.length,
         usable: validDocs,
-        allResults: processingStatus.results.map(r => ({
+        results: processingStatus.results.map(r => ({
           fileName: r.fileName,
-          isUsable: r.isUsable,
-          confidence: r.confidence,
-          completeness: r.completeness
+          usability: r.usability
         }))
       });
 

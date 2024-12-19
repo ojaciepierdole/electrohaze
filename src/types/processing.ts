@@ -479,6 +479,7 @@ export interface ProcessingResult {
   ocrTime?: number;
   analysisTime?: number;
   mimeType?: string;
+  usability: boolean;
 }
 
 export interface GroupedResult {
