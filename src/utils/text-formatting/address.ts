@@ -4,6 +4,8 @@ import { normalizeText } from '@/utils/data-processing/core/normalization';
 import { type AddressComponents } from '@/types/fields';
 import { mergeFieldsWithConfidence } from './person';
 import { normalizeAddress } from '../data-processing/normalizers/address';
+import { AddressField, AddressPrefix } from '@/types/processing';
+import { STREET_PREFIXES } from './dictionaries/addresses';
 
 // Funkcja pomocnicza do konwersji DocumentField na string
 function getFieldContent(field: DocumentField | undefined): string | null {
@@ -366,4 +368,30 @@ export function processSupplierAddress(address: AddressComponents): FieldWithCon
       source: 'supplier'
     }
   };
+}
+
+/**
+ * Wzbogaca dane adresowe o dodatkowe informacje
+ */
+export function enrichAddress(
+  address: string,
+  field: AddressField,
+  prefix: AddressPrefix = ''
+): string {
+  if (!address) return '';
+
+  // Normalizacja ulicy
+  if (field === 'Street') {
+    // Sprawdź czy adres zaczyna się od prefiksu ulicy
+    const hasPrefix = STREET_PREFIXES.some(prefix => 
+      address.toLowerCase().startsWith(prefix.toLowerCase())
+    );
+
+    // Jeśli nie ma prefiksu, dodaj "ul."
+    if (!hasPrefix) {
+      return `ul. ${address}`;
+    }
+  }
+
+  return address;
 } 

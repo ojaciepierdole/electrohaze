@@ -88,18 +88,16 @@ export class DocumentTransformer {
       // Transformuj każde pole w sekcji
       Object.entries(data).forEach(([fieldName, fieldData]) => {
         const context: TransformationContext = {
-          value: fieldData.content,
           confidence: fieldData.confidence,
-          section,
-          field: {
-            content: fieldData.content,
-            confidence: fieldData.confidence,
-            metadata: fieldData.metadata
-          },
           document: {
-            fields: result
+            fields: data
           },
-          metadata: fieldData.metadata
+          field: fieldData,
+          fieldType: fieldName.includes('address') || fieldName.includes('street') ? 'address' : 'text',
+          metadata: {
+            section,
+            fieldName
+          }
         };
 
         // Transformuj wartość pola

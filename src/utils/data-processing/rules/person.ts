@@ -63,14 +63,17 @@ export const personNameRules: TransformationRule[] = [
     name: 'split_full_name',
     description: 'Rozdziela pełne imię i nazwisko na oddzielne pola',
     priority: 100,
-    condition: (value: string, context: TransformationContext) => {
-      if (!context.section) return false;
+    condition: (value: string, context: TransformationContext): boolean => {
+      if (!context.metadata?.section) return false;
       
-      // Sprawdź czy pole zawiera spację i kończy się na FirstName lub LastName
-      return value.includes(' ') && (
-        context.section.endsWith('FirstName') || 
-        context.section.endsWith('LastName')
+      
+      const hasSpace = value.includes(' ');
+      const isNameField = Boolean(
+        context.metadata.fieldName?.endsWith('FirstName') || 
+        context.metadata.fieldName?.endsWith('LastName')
       );
+      
+      return hasSpace && isNameField;
     },
     transform: (value: string, context: TransformationContext) => {
       const parts = value.split(/\s+/).filter(Boolean);
@@ -94,10 +97,13 @@ export const personNameRules: TransformationRule[] = [
       const confidence = context.confidence || 0.5;
 
       // Określ prefiks pola na podstawie sekcji
-      const fieldPrefix = (context.section || '').replace(/(?:FirstName|LastName)$/, '');
+      const section = context.metadata?.section;
+      const fieldPrefix = typeof section === 'string' 
+        ? section.replace(/(?:FirstName|LastName)$/, '')
+        : '';
 
       // Jeśli przetwarzamy pole FirstName
-      if (context.section?.endsWith('FirstName')) {
+      if (context.metadata?.fieldName?.endsWith('FirstName')) {
         return {
           value: firstName,
           content: firstName,
@@ -125,7 +131,7 @@ export const personNameRules: TransformationRule[] = [
       }
 
       // Jeśli przetwarzamy pole LastName
-      if (context.section?.endsWith('LastName')) {
+      if (context.metadata?.fieldName?.endsWith('LastName')) {
         return {
           value: lastName,
           content: lastName,
@@ -171,8 +177,8 @@ export const personNameRules: TransformationRule[] = [
     name: 'normalize_first_name',
     description: 'Normalizuje format imienia (wielkie litery, usunięcie nadmiarowych spacji)',
     priority: 90,
-    condition: (value: string, context: TransformationContext) => 
-      context.section ? context.section.endsWith('FirstName') : false,
+    condition: (value: string, context: TransformationContext): boolean => 
+      Boolean(context.metadata?.fieldName?.endsWith('FirstName')),
     transform: (value: string, context: TransformationContext) => ({
       value: normalizeText(value, { toUpper: true }) || value,
       content: normalizeText(value, { toUpper: true }) || value,
@@ -191,8 +197,8 @@ export const personNameRules: TransformationRule[] = [
     name: 'normalize_last_name',
     description: 'Normalizuje format nazwiska (wielkie litery, usunięcie nadmiarowych spacji)',
     priority: 90,
-    condition: (value: string, context: TransformationContext) => 
-      context.section ? context.section.endsWith('LastName') : false,
+    condition: (value: string, context: TransformationContext): boolean => 
+      Boolean(context.metadata?.fieldName?.endsWith('LastName')),
     transform: (value: string, context: TransformationContext) => ({
       value: normalizeText(value, { toUpper: true }) || value,
       content: normalizeText(value, { toUpper: true }) || value,

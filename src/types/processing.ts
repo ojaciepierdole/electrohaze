@@ -442,15 +442,15 @@ export type AddressSet = {
 
 export interface BatchProcessingStatus {
   isProcessing: boolean;
-  currentFileIndex: number;
+  currentFileIndex?: number;
   currentFileName: string | null;
-  currentModelIndex: number;
+  currentModelIndex?: number;
   currentModelId: string | null;
   fileProgress: number;
   totalProgress: number;
-  totalFiles: number;
-  results: ProcessingResult[];
-  error: string | null;
+  totalFiles?: number;
+  results?: ProcessingResult[];
+  error?: string | null;
 }
 
 export interface ModelResult {
@@ -507,31 +507,28 @@ export interface PollOptions {
 }
 
 export interface TransformationContext {
-  value: string;
-  confidence: number;
-  field?: DocumentField;
+  confidence?: number;
   document?: {
     fields: Record<string, DocumentField>;
   };
-  metadata?: Record<string, unknown>;
-  section?: string;
+  field?: DocumentField;
+  fieldType?: string;
+  metadata?: {
+    section?: string;
+    fieldName?: string;
+    [key: string]: unknown;
+  };
 }
 
 export interface TransformationResult {
   value: string;
   content: string;
   confidence: number;
-  metadata: {
-    transformationType: string;
-    fieldType: string;
-    source: string;
-    status: string;
-    [key: string]: unknown;
-  };
+  metadata: TransformationMetadata;
   additionalFields?: Record<string, {
     value: string;
     confidence: number;
-    metadata?: Record<string, unknown>;
+    metadata?: Partial<TransformationMetadata>;
   }>;
 }
 
@@ -598,4 +595,18 @@ export interface MappedDocumentResult {
   correspondence?: Partial<CorrespondenceData>;
   supplier?: Partial<SupplierData>;
   billing?: Partial<BillingData>;
+}
+
+export interface TransformationMetadata {
+  fieldType: string;
+  transformationType: string;
+  originalValue?: string;
+  source: string;
+  status: string;
+  boundingRegions?: BoundingRegion[];
+  spans?: Array<{
+    offset: number;
+    length: number;
+  }>;
+  [key: string]: unknown;
 }

@@ -74,7 +74,6 @@ export class TextTransformer {
 
       const fieldContext: TransformationContext = {
         ...context,
-        value: data.content,
         confidence: data.confidence,
         field: {
           content: data.content,

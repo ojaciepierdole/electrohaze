@@ -31,7 +31,7 @@ function adaptDocumentField(field: DocumentField): ExtendedDocumentField {
 export function processField(
   field: DocumentField,
   rules: TransformationRule[],
-  context: TransformationContext = { value: '', confidence: 0 }
+  context: TransformationContext = { confidence: 0 }
 ): TransformationResult {
   const adaptedField = adaptDocumentField(field);
   return textProcessor.processField(adaptedField, rules, context);

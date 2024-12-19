@@ -100,17 +100,17 @@ export function ProcessingClient() {
 
   // Efekt czyszczący pliki po zakończeniu przetwarzania
   React.useEffect(() => {
-    if (!isProcessing && processingStatus.results.length > 0) {
+    if (!isProcessing && processingStatus.results?.length > 0) {
       setSelectedFiles([]);
       setIsParametersExpanded(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     }
-  }, [isProcessing, processingStatus.results.length]);
+  }, [isProcessing, processingStatus.results]);
 
   // Sprawdź, czy analiza jest zakończona
-  const isAnalysisComplete = !isProcessing && processingStatus.results.length > 0;
+  const isAnalysisComplete = !isProcessing && processingStatus.results?.length > 0;
 
   return (
     <div className="space-y-6">
@@ -126,7 +126,7 @@ export function ProcessingClient() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-medium">Parametry analizy</h2>
-              {processingStatus.results.length > 0 && (
+              {processingStatus.results?.length > 0 && (
                 <span className="text-sm text-gray-500">
                   ({processingStatus.results.length} {processingStatus.results.length === 1 ? 'plik' : 'plików'})
                 </span>
@@ -153,7 +153,7 @@ export function ProcessingClient() {
         </div>
 
         {/* Zawartość karty */}
-        {(isProcessing || processingStatus.results.length > 0) ? (
+        {(isProcessing || processingStatus.results?.length > 0) ? (
           <div className={cn("overflow-hidden transition-all duration-200", 
             isParametersExpanded ? "max-h-[500px]" : "max-h-0"
           )}>
@@ -161,7 +161,7 @@ export function ProcessingClient() {
               <ProcessingProgress
                 isProcessing={isProcessing}
                 currentFileIndex={processingStatus.currentFileIndex || 0}
-                totalFiles={processingStatus.totalFiles}
+                totalFiles={processingStatus.totalFiles || 0}
                 results={processingStatus.results}
                 error={processingStatus.error || null}
                 onReset={handleReset}

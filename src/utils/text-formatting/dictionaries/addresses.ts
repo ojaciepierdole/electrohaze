@@ -3,18 +3,16 @@
  */
 export const STREET_PREFIXES = [
   'ul',
+  'ul.',
   'ulica',
   'al',
+  'al.',
   'aleja',
   'pl',
+  'pl.',
   'plac',
   'os',
+  'os.',
   'osiedle',
-  'skwer',
-  'rondo',
-  'bulwar',
-  'park',
-  'szosa',
-  'droga',
-  'trakt'
+  'rondo'
 ] as const; 

@@ -41,53 +41,113 @@ export function useDocumentProcessing() {
     };
   }, [cleanupEventSource]);
 
-  const setupProgressTracking = () => {
+  const setupProgressTracking = useCallback(() => {
     cleanupEventSource();
 
     const url = `/api/analyze/progress?sessionId=${sessionIdRef.current}`;
-    console.log('Setting up EventSource:', url);
-    eventSourceRef.current = new EventSource(url);
+    const maxRetries = 3;
+    let retryCount = 0;
     
-    eventSourceRef.current.onopen = () => {
-      console.log('EventSource connection opened');
-    };
-    
-    eventSourceRef.current.onmessage = (event) => {
-      console.log('Received SSE message:', event.data);
-      try {
-        const data = JSON.parse(event.data);
-        
-        if (data.totalFiles === 1) {
-          const progress = data.fileProgress || 0;
-          setProcessingStatus({
-            ...data,
-            fileProgress: progress,
-            totalProgress: progress
-          });
+    const createEventSource = () => {
+      eventSourceRef.current = new EventSource(url);
+      
+      eventSourceRef.current.onopen = () => {
+        console.log('EventSource connection opened');
+        retryCount = 0; // Reset retry count on successful connection
+      };
+      
+      eventSourceRef.current.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
           
-          setState(prev => ({
-            ...prev,
-            progress: progress
-          }));
-        } else {
-          setProcessingStatus(data);
-          setState(prev => ({
-            ...prev,
-            progress: data.totalProgress
-          }));
+          if (data.totalFiles === 1) {
+            const progress = data.fileProgress || 0;
+            setProcessingStatus({
+              ...data,
+              fileProgress: progress,
+              totalProgress: progress
+            });
+            
+            setState(prev => ({
+              ...prev,
+              progress: progress
+            }));
+          } else {
+            setProcessingStatus(data);
+            setState(prev => ({
+              ...prev,
+              progress: data.totalProgress
+            }));
+          }
+        } catch (error) {
+          console.error('Błąd parsowania danych SSE:', error);
         }
+      };
+
+      eventSourceRef.current.onerror = (error) => {
+        console.error('EventSource error:', error);
+        if (retryCount < maxRetries) {
+          retryCount++;
+          console.log(`Próba ponownego połączenia (${retryCount}/${maxRetries})...`);
+          setTimeout(() => {
+            cleanupEventSource();
+            createEventSource();
+          }, 1000 * retryCount); // Exponential backoff
+        } else {
+          console.error('Przekroczono maksymalną liczbę prób połączenia');
+          cleanupEventSource();
+        }
+      };
+    };
+
+    createEventSource();
+  }, [cleanupEventSource]);
+
+  const processDocuments = async (files: File[], modelIds: string[]): Promise<ProcessingResult[]> => {
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    const tryProcessing = async (): Promise<ProcessingResult[]> => {
+      try {
+        const response = await fetch('/api/analyze/batch', {
+          method: 'POST',
+          body: createFormData(files, modelIds, sessionIdRef.current),
+          headers: {
+            'Accept': 'application/json',
+          }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: `Błąd HTTP: ${response.status}` }));
+          const statusError = new Error(errorData.message || `Błąd HTTP: ${response.status}`);
+          statusError.name = 'HTTPError';
+          throw statusError;
+        }
+
+        const results = await response.json();
+        
+        if (!results || !Array.isArray(results)) {
+          throw new Error('Nieprawidłowy format odpowiedzi z serwera');
+        }
+
+        return results;
       } catch (error) {
-        console.error('Błąd parsowania danych SSE:', error);
+        if (error instanceof Error) {
+          // Retry only on network errors or 5xx server errors
+          if (error.name === 'TypeError' || 
+              (error.name === 'HTTPError' && /^5\d{2}/.test(error.message))) {
+            if (retryCount < maxRetries) {
+              retryCount++;
+              console.log(`Próba ponownego przetwarzania (${retryCount}/${maxRetries})...`);
+              await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+              return tryProcessing();
+            }
+          }
+        }
+        throw error;
       }
     };
 
-    eventSourceRef.current.onerror = (error) => {
-      console.error('EventSource error:', error);
-      cleanupEventSource();
-    };
-  };
-
-  const processDocuments = async (files: File[], modelIds: string[]): Promise<ProcessingResult[]> => {
     try {
       setState(prev => ({ 
         ...prev, 
@@ -110,33 +170,10 @@ export function useDocumentProcessing() {
         error: null
       };
 
-      console.log('Initializing processing status:', initialStatus);
       setProcessingStatus(initialStatus);
-
       setupProgressTracking();
+      const results = await tryProcessing();
 
-      abortControllerRef.current = new AbortController();
-      const formData = new FormData();
-      files.forEach(file => {
-        formData.append('files', file);
-      });
-      modelIds.forEach(modelId => {
-        formData.append('modelId', modelId);
-      });
-      formData.append('sessionId', sessionIdRef.current);
-
-      const response = await fetch('/api/analyze/batch', {
-        method: 'POST',
-        body: formData,
-        signal: abortControllerRef.current.signal
-      });
-
-      if (!response.ok) {
-        throw new Error('Błąd podczas przetwarzania dokumentów');
-      }
-
-      const results = await response.json();
-      
       const finalStatus: BatchProcessingStatus = {
         isProcessing: false,
         currentFileIndex: files.length,
@@ -150,84 +187,36 @@ export function useDocumentProcessing() {
         error: null
       };
 
-      console.log('Setting final status:', finalStatus);
       setProcessingStatus(finalStatus);
-      setState(prev => ({ ...prev, progress: 100, isProcessing: false }));
-
-      cleanupEventSource();
-
       return results;
+
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        const abortStatus: BatchProcessingStatus = {
-          isProcessing: false,
-          currentFileIndex: 0,
-          currentFileName: null,
-          currentModelIndex: 0,
-          currentModelId: null,
-          fileProgress: 0,
-          totalProgress: 0,
-          totalFiles: 0,
-          results: [],
-          error: 'Przetwarzanie zostało anulowane'
-        };
-
-        setState(prev => ({
-          ...prev,
-          error: abortStatus.error,
-          isProcessing: false,
-          isPaused: false
-        }));
-        setProcessingStatus(abortStatus);
-
-        addToast(
-          'info',
-          'Anulowano',
-          'Przetwarzanie dokumentów zostało anulowane'
-        );
-      } else {
-        const errorMessage = error instanceof Error ? error.message : 'Nieznany błąd podczas przetwarzania';
-        const errorStatus: BatchProcessingStatus = {
-          isProcessing: false,
-          currentFileIndex: 0,
-          currentFileName: null,
-          currentModelIndex: 0,
-          currentModelId: null,
-          fileProgress: 0,
-          totalProgress: 0,
-          totalFiles: 0,
-          results: [],
-          error: errorMessage
-        };
-
-        setState(prev => ({
-          ...prev,
-          error: errorMessage,
-          isProcessing: false
-        }));
-        setProcessingStatus(errorStatus);
-
-        addToast(
-          'error',
-          'Błąd',
-          errorMessage
-        );
-      }
-
-      cleanupEventSource();
-      throw error;
-    } finally {
-      setState(prev => ({ ...prev, isProcessing: false }));
-      setProcessingStatus({
+      const errorMessage = error instanceof Error ? error.message : 'Nieznany błąd podczas przetwarzania';
+      
+      const errorStatus: BatchProcessingStatus = {
         isProcessing: false,
+        currentFileIndex: 0,
         currentFileName: null,
+        currentModelIndex: 0,
         currentModelId: null,
         fileProgress: 0,
-        totalProgress: 0
-      });
-      if (abortControllerRef.current) {
-        abortControllerRef.current = null;
-      }
+        totalProgress: 0,
+        totalFiles: files.length,
+        results: [],
+        error: errorMessage
+      };
+
+      setProcessingStatus(errorStatus);
+      addToast('error', 'Błąd', errorMessage);
+      throw error;
+
+    } finally {
+      cleanupEventSource();
+      setState(prev => ({ 
+        ...prev, 
+        isProcessing: false,
+        progress: 0
+      }));
     }
   };
 
@@ -330,3 +319,12 @@ export function useDocumentProcessing() {
     cancelProcessing,
   };
 } 
+
+// Pomocnicza funkcja do tworzenia FormData
+const createFormData = (files: File[], modelIds: string[], sessionId: string): FormData => {
+  const formData = new FormData();
+  files.forEach(file => formData.append('files', file));
+  modelIds.forEach(modelId => formData.append('modelId', modelId));
+  formData.append('sessionId', sessionId);
+  return formData;
+}; 
