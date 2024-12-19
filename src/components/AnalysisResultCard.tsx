@@ -17,6 +17,9 @@ import { processSupplierData, calculateSupplierConfidence, calculateSupplierComp
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
 import type { DocumentField, FieldWithConfidence } from '@/types/processing';
 import type { DocumentSections } from '@/utils/data-processing/completeness/confidence';
+import { ConfidenceCalculator } from '../utils/confidence-calculator';
+import { ConfidenceSummary } from './ConfidenceSummary';
+import { FieldConfidence } from '../types/confidence';
 
 interface ProcessingTime {
   uploadTime: number;
@@ -128,18 +131,32 @@ export function AnalysisResultCard({
   const completenessResult = calculateDocumentCompleteness(sections);
   const confidenceResult = calculateAverageConfidence(sections);
 
-  // Sprawdź, czy wartości są prawidłowe przed przekazaniem
-  const safeCompleteness = Number.isFinite(completenessResult.completeness) 
-    ? completenessResult.completeness 
-    : 0;
-  
-  const safeConfidence = Number.isFinite(confidenceResult.confidence) 
-    ? confidenceResult.confidence 
-    : 0;
+  // Przygotuj dane o pewności dla wszystkich pól
+  const confidenceFields: FieldConfidence[] = Object.entries(sections)
+    .flatMap(([_, fields]) => 
+      Object.entries(fields as Record<string, FieldWithConfidence>)
+        .filter(([_, field]) => field.confidence !== undefined)
+        .map(([fieldName, field]) => ({
+          fieldName,
+          confidence: field.confidence
+        }))
+    );
+
+  const confidenceStats = ConfidenceCalculator.calculateStats(confidenceFields);
+  const averageConfidence = confidenceResult.confidence;
+
+  const handleRowClick = (event: React.MouseEvent) => {
+    if (!(event.target as HTMLElement).closest('button')) {
+      setIsExpanded(!isExpanded);
+    }
+  };
 
   return (
     <>
-      <tr className="bg-white">
+      <tr 
+        className="bg-white hover:bg-gray-50 cursor-pointer transition-colors" 
+        onClick={handleRowClick}
+      >
         <td className="flex-[2] px-6 py-4">
           <div className="text-sm font-medium text-gray-900">
             {supplierData?.supplierName?.content || 'Nieznany dostawca'}
@@ -155,20 +172,20 @@ export function AnalysisResultCard({
         </td>
         <td className="hidden sm:table-cell flex-1 px-6 py-4 text-center">
           <Badge variant="secondary" className={cn(
-            safeConfidence >= 0.9 ? 'bg-green-50 text-green-700' : 
-            safeConfidence >= 0.7 ? 'bg-yellow-50 text-yellow-700' : 
+            confidenceResult.confidence >= 0.9 ? 'bg-green-50 text-green-700' : 
+            confidenceResult.confidence >= 0.7 ? 'bg-yellow-50 text-yellow-700' : 
             'bg-red-50 text-red-700'
           )}>
-            {(safeConfidence * 100).toFixed(1)}%
+            {(confidenceResult.confidence * 100).toFixed(1)}%
           </Badge>
         </td>
         <td className="hidden sm:table-cell flex-1 px-6 py-4 text-center">
           <Badge variant="secondary" className={cn(
-            safeCompleteness >= 0.8 ? 'bg-green-50 text-green-700' : 
-            safeCompleteness >= 0.6 ? 'bg-yellow-50 text-yellow-700' : 
+            completenessResult.completeness >= 0.8 ? 'bg-green-50 text-green-700' : 
+            completenessResult.completeness >= 0.6 ? 'bg-yellow-50 text-yellow-700' : 
             'bg-red-50 text-red-700'
           )}>
-            {(safeCompleteness * 100).toFixed(1)}%
+            {(completenessResult.completeness * 100).toFixed(1)}%
           </Badge>
         </td>
         <td className="hidden sm:table-cell flex-1 px-6 py-4 text-center">
@@ -193,37 +210,6 @@ export function AnalysisResultCard({
           </Button>
         </td>
       </tr>
-      {/* Mobilny pasek statusu */}
-      <tr className="sm:hidden bg-white border-t">
-        <td colSpan={6} className="px-6 py-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Badge variant="secondary" className="bg-gray-50 text-gray-600">
-                PDF
-              </Badge>
-              <Badge variant="secondary" className={cn(
-                safeConfidence >= 0.9 ? 'bg-green-50 text-green-700' : 
-                safeConfidence >= 0.7 ? 'bg-yellow-50 text-yellow-700' : 
-                'bg-red-50 text-red-700'
-              )}>
-                {(safeConfidence * 100).toFixed(1)}%
-              </Badge>
-              <Badge variant="secondary" className={cn(
-                safeCompleteness >= 0.8 ? 'bg-green-50 text-green-700' : 
-                safeCompleteness >= 0.6 ? 'bg-yellow-50 text-yellow-700' : 
-                'bg-red-50 text-red-700'
-              )}>
-                {(safeCompleteness * 100).toFixed(1)}%
-              </Badge>
-            </div>
-            {usability ? (
-              <CheckCircle2 className="w-5 h-5 text-green-500" />
-            ) : (
-              <XCircle className="w-5 h-5 text-red-500" />
-            )}
-          </div>
-        </td>
-      </tr>
       {isExpanded && (
         <tr>
           <td colSpan={6} className="px-6 py-4 border-t border-gray-200">
@@ -231,13 +217,6 @@ export function AnalysisResultCard({
               <div className="pb-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-medium">Dane dostawcy</h3>
-                  <Badge variant="secondary" className={cn(
-                    safeConfidence >= 0.9 ? 'bg-green-50 text-green-700' : 
-                    safeConfidence >= 0.7 ? 'bg-yellow-50 text-yellow-700' : 
-                    'bg-red-50 text-red-700'
-                  )}>
-                    {(safeConfidence * 100).toFixed(1)}%
-                  </Badge>
                 </div>
                 <SupplierDataGroup data={supplierData} />
               </div>
@@ -245,13 +224,6 @@ export function AnalysisResultCard({
               <div className="border-t border-gray-300 pt-6 pb-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-medium">Dane PPE</h3>
-                  <Badge variant="secondary" className={cn(
-                    safeConfidence >= 0.9 ? 'bg-green-50 text-green-700' : 
-                    safeConfidence >= 0.7 ? 'bg-yellow-50 text-yellow-700' : 
-                    'bg-red-50 text-red-700'
-                  )}>
-                    {(safeConfidence * 100).toFixed(1)}%
-                  </Badge>
                 </div>
                 <PPEDataGroup data={ppeData} />
               </div>
@@ -259,13 +231,6 @@ export function AnalysisResultCard({
               <div className="border-t border-gray-300 pt-6 pb-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-medium">Dane klienta</h3>
-                  <Badge variant="secondary" className={cn(
-                    safeConfidence >= 0.9 ? 'bg-green-50 text-green-700' : 
-                    safeConfidence >= 0.7 ? 'bg-yellow-50 text-yellow-700' : 
-                    'bg-red-50 text-red-700'
-                  )}>
-                    {(safeConfidence * 100).toFixed(1)}%
-                  </Badge>
                 </div>
                 <CustomerDataGroup data={customerData} />
               </div>
@@ -273,13 +238,6 @@ export function AnalysisResultCard({
               <div className="border-t border-gray-300 pt-6 pb-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-medium">Adres korespondencyjny</h3>
-                  <Badge variant="secondary" className={cn(
-                    safeConfidence >= 0.9 ? 'bg-green-50 text-green-700' : 
-                    safeConfidence >= 0.7 ? 'bg-yellow-50 text-yellow-700' : 
-                    'bg-red-50 text-red-700'
-                  )}>
-                    {(safeConfidence * 100).toFixed(1)}%
-                  </Badge>
                 </div>
                 <CorrespondenceDataGroup data={correspondenceData} />
               </div>
@@ -287,13 +245,6 @@ export function AnalysisResultCard({
               <div className="border-t border-gray-300 pt-6 pb-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-medium">Dane rozliczeniowe</h3>
-                  <Badge variant="secondary" className={cn(
-                    safeConfidence >= 0.9 ? 'bg-green-50 text-green-700' : 
-                    safeConfidence >= 0.7 ? 'bg-yellow-50 text-yellow-700' : 
-                    'bg-red-50 text-red-700'
-                  )}>
-                    {(safeConfidence * 100).toFixed(1)}%
-                  </Badge>
                 </div>
                 <BillingDataGroup data={billingData} />
               </div>

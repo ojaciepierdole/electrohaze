@@ -466,6 +466,8 @@ export interface ProcessingResult {
   processingTime: number;
   mappedData: DocumentAnalysisResult;
   confidence: number;
+  completeness: number;
+  isUsable: boolean;
   cacheStats: {
     size: number;
     maxSize: number;

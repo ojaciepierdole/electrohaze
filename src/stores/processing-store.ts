@@ -1,24 +1,46 @@
 import { create } from 'zustand';
-import type { BatchProcessingStatus, ProcessingResult } from '@/types/processing';
+import type { ProcessingResult } from '@/types/processing';
 
-interface ProcessingStore extends Omit<BatchProcessingStatus, 'results'> {
+interface ProcessingStore {
+  isProcessing: boolean;
+  currentFileName: string | null;
+  currentModelId: string | null;
+  currentFileIndex: number | null;
+  totalFiles: number;
+  fileProgress: number;
+  totalProgress: number;
   results: ProcessingResult[];
-  setProcessingStatus: (status: Partial<BatchProcessingStatus>) => void;
+  error: string | null;
+  timing: {
+    uploadTime: number;
+    ocrTime: number;
+    analysisTime: number;
+  };
+  setProcessingStatus: (status: Partial<ProcessingStore>) => void;
   reset: () => void;
 }
 
-const initialState: Omit<ProcessingStore, 'setProcessingStatus' | 'reset'> = {
+type ProcessingState = Omit<ProcessingStore, 'setProcessingStatus' | 'reset'>;
+
+const initialState: ProcessingState = {
   isProcessing: false,
   currentFileName: null,
   currentModelId: null,
+  currentFileIndex: null,
+  totalFiles: 0,
   fileProgress: 0,
   totalProgress: 0,
-  results: [] as ProcessingResult[],
-  error: null
+  results: [],
+  error: null,
+  timing: {
+    uploadTime: 0,
+    ocrTime: 0,
+    analysisTime: 0
+  }
 };
 
 export const useProcessingStore = create<ProcessingStore>((set) => ({
   ...initialState,
-  setProcessingStatus: (status) => set((state) => ({ ...state, ...status })),
+  setProcessingStatus: (status: Partial<ProcessingStore>) => set((state) => ({ ...state, ...status })),
   reset: () => set(initialState),
 })); 

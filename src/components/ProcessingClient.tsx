@@ -14,6 +14,12 @@ import { Button } from '@/components/ui/button';
 import { Upload, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
+import type { DocumentSections } from '@/utils/data-processing/completeness/confidence';
+import { TimingStats } from '@/types/timing';
+import { AnalysisSummary } from '@/components/AnalysisSummary';
+import { convertToDocumentSections } from '@/utils/data-conversion';
+import { calculateDocumentCompleteness } from '@/utils/data-processing/completeness/confidence';
+import { isDocumentComplete } from '@/utils/document-validation';
 
 export function ProcessingClient() {
   const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
@@ -25,6 +31,18 @@ export function ProcessingClient() {
   const processingStatus = useProcessingStore();
   const { addToast } = useToast();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [sections, setSections] = React.useState<DocumentSections>({});
+  const [processingTimes, setProcessingTimes] = React.useState<TimingStats>({
+    uploadTime: 0,
+    ocrTime: 0,
+    analysisTime: 0,
+    totalTime: 0,
+    averageTimePerDocument: 0,
+    documentsProcessed: 0,
+    parallelProcessing: false
+  });
+  const [documentCount, setDocumentCount] = React.useState(0);
+  const [validDocumentsCount, setValidDocumentsCount] = React.useState(0);
 
   const handleFilesSelected = (files: FileList | null) => {
     if (!files) return;
@@ -112,8 +130,78 @@ export function ProcessingClient() {
   // Sprawdź, czy analiza jest zakończona
   const isAnalysisComplete = !isProcessing && processingStatus.results?.length > 0;
 
+  // Aktualizacja czasów podczas przetwarzania
+  React.useEffect(() => {
+    if (processingStatus.results.length > 0) {
+      const endTime = Date.now();
+      const startTime = processingStartTime || endTime;
+      
+      // Zbieramy czasy z wszystkich wyników
+      const times = processingStatus.results.reduce((acc, result) => {
+        return {
+          uploadTime: acc.uploadTime + (result.uploadTime || 0),
+          ocrTime: acc.ocrTime + (result.ocrTime || 0),
+          analysisTime: acc.analysisTime + (result.analysisTime || 0)
+        };
+      }, { uploadTime: 0, ocrTime: 0, analysisTime: 0 });
+      
+      // Aktualizacja czasów z rzeczywistymi wartościami
+      setProcessingTimes({
+        uploadTime: times.uploadTime,
+        ocrTime: times.ocrTime,
+        analysisTime: times.analysisTime,
+        totalTime: endTime - startTime,
+        averageTimePerDocument: (endTime - startTime) / processingStatus.results.length,
+        documentsProcessed: processingStatus.results.length,
+        parallelProcessing: true
+      });
+      
+      // Aktualizacja sekcji z konwersją typów
+      const lastResult = processingStatus.results[processingStatus.results.length - 1];
+      setSections(convertToDocumentSections(lastResult.mappedData));
+      
+      // Aktualizacja liczników
+      setDocumentCount(processingStatus.results.length);
+      
+      // Liczymy dokumenty z zieloną flagą (przydatne do podpisania umowy)
+      const validDocs = processingStatus.results.filter(result => {
+        console.log('Document usability check:', {
+          fileName: result.fileName,
+          isUsable: result.isUsable,
+          confidence: result.confidence,
+          completeness: result.completeness,
+          alerts: result.alerts
+        });
+        return result.isUsable === true; // jawne porównanie z true
+      }).length;
+
+      console.log('Valid documents summary:', {
+        total: processingStatus.results.length,
+        usable: validDocs,
+        allResults: processingStatus.results.map(r => ({
+          fileName: r.fileName,
+          isUsable: r.isUsable,
+          confidence: r.confidence,
+          completeness: r.completeness
+        }))
+      });
+
+      setValidDocumentsCount(validDocs);
+    }
+  }, [processingStatus.results, processingStartTime]);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Statystyki przed wynikami */}
+      {processingStatus.results.length > 0 && (
+        <AnalysisSummary
+          sections={sections}
+          processingTimes={processingTimes}
+          documentCount={documentCount}
+          validDocuments={validDocumentsCount}
+        />
+      )}
+
       <Card>
         {/* Nagłówek z przyciskiem zwijania/rozwijania */}
         <div 
@@ -163,7 +251,7 @@ export function ProcessingClient() {
                 currentFileIndex={processingStatus.currentFileIndex || 0}
                 totalFiles={processingStatus.totalFiles || 0}
                 results={processingStatus.results}
-                error={processingStatus.error || null}
+                error={processingStatus.error?.toString() || null}
                 onReset={handleReset}
               />
             </div>
