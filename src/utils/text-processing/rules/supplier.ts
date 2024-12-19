@@ -1,12 +1,106 @@
 import { TransformationRule, TransformationContext, TransformationResult } from '@/types/processing';
 import { normalizeText } from '../core/text';
 
+// Słownik standardowych nazw dostawców
+const SUPPLIER_NAMES = {
+  // Enea
+  'ENEA': 'Enea S.A.',
+  'ENEA SA': 'Enea S.A.',
+  'ENEA SPOLKA AKCYJNA': 'Enea S.A.',
+  'ENEA SPÓŁKA AKCYJNA': 'Enea S.A.',
+  'ENEA S A': 'Enea S.A.',
+  'ENEA TRADING': 'Enea Trading Sp. z o.o.',
+  'ENEA TRADING SP Z O O': 'Enea Trading Sp. z o.o.',
+  
+  // Tauron
+  'TAURON': 'Tauron Sprzedaż Sp. z o.o.',
+  'TAURON SPRZEDAZ': 'Tauron Sprzedaż Sp. z o.o.',
+  'TAURON SPRZEDAŻ': 'Tauron Sprzedaż Sp. z o.o.',
+  'TAURON SPRZEDAZ SP Z O O': 'Tauron Sprzedaż Sp. z o.o.',
+  'TAURON SPRZEDAŻ SP Z O O': 'Tauron Sprzedaż Sp. z o.o.',
+  
+  // PGE
+  'PGE': 'PGE Obrót S.A.',
+  'PGE OBROT': 'PGE Obrót S.A.',
+  'PGE OBRÓT': 'PGE Obrót S.A.',
+  'PGE OBROT SA': 'PGE Obrót S.A.',
+  'PGE OBRÓT SA': 'PGE Obrót S.A.',
+  'PGE OBROT S A': 'PGE Obrót S.A.',
+  'PGE OBRÓT S A': 'PGE Obrót S.A.',
+  
+  // Energa
+  'ENERGA': 'Energa Obrót S.A.',
+  'ENERGA OBROT': 'Energa Obrót S.A.',
+  'ENERGA OBRÓT': 'Energa Obrót S.A.',
+  'ENERGA OBROT SA': 'Energa Obrót S.A.',
+  'ENERGA OBRÓT SA': 'Energa Obrót S.A.',
+  'ENERGA OBROT S A': 'Energa Obrót S.A.',
+  'ENERGA OBRÓT S A': 'Energa Obrót S.A.',
+  
+  // E.ON
+  'EON': 'E.ON Polska S.A.',
+  'E ON': 'E.ON Polska S.A.',
+  'E.ON': 'E.ON Polska S.A.',
+  'EON POLSKA': 'E.ON Polska S.A.',
+  'E ON POLSKA': 'E.ON Polska S.A.',
+  'E.ON POLSKA': 'E.ON Polska S.A.',
+  'EON POLSKA SA': 'E.ON Polska S.A.',
+  'E ON POLSKA SA': 'E.ON Polska S.A.',
+  'E.ON POLSKA SA': 'E.ON Polska S.A.',
+  'EON POLSKA S A': 'E.ON Polska S.A.',
+  'E ON POLSKA S A': 'E.ON Polska S.A.',
+  'E.ON POLSKA S A': 'E.ON Polska S.A.'
+} as const;
+
+// Funkcja normalizująca nazwę dostawcy
+function normalizeSupplierName(value: string): string {
+  console.log('[normalizeSupplierName] Start with value:', value);
+  
+  if (!value) {
+    console.log('[normalizeSupplierName] Empty value');
+    return '';
+  }
+  
+  // Normalizuj tekst do porównania
+  const normalized = normalizeText(value, { 
+    toUpper: true, 
+    removeSpecial: true,
+    normalizePolish: true 
+  });
+  
+  console.log('[normalizeSupplierName] Normalized value:', normalized);
+  
+  // Sprawdź dokładne dopasowanie
+  const exactMatch = SUPPLIER_NAMES[normalized as keyof typeof SUPPLIER_NAMES];
+  if (exactMatch) {
+    console.log('[normalizeSupplierName] Found exact match:', exactMatch);
+    return exactMatch;
+  }
+  
+  // Sprawdź częściowe dopasowania
+  for (const [key, properName] of Object.entries(SUPPLIER_NAMES)) {
+    if (normalized.includes(key)) {
+      console.log('[normalizeSupplierName] Found partial match:', { key, properName });
+      return properName;
+    }
+  }
+  
+  // Jeśli nie znaleziono dopasowania, zwróć oryginalną wartość
+  console.log('[normalizeSupplierName] No match found, returning original');
+  return value;
+}
+
 // Reguła normalizacji nazwy dostawcy
 const supplierNameNormalizationRule: TransformationRule = {
   name: 'supplier-name-normalization',
   description: 'Normalizuje nazwę dostawcy',
   priority: 100,
+  condition: (_value: string, context: TransformationContext) => {
+    return context.field?.metadata?.fieldType === 'supplier-name';
+  },
   transform: (value: string, context: TransformationContext): TransformationResult => {
+    console.log('[supplierNameNormalizationRule] Start with value:', value);
+    
     if (!value) return {
       value: '',
       content: '',
@@ -19,17 +113,25 @@ const supplierNameNormalizationRule: TransformationRule = {
       }
     };
 
-    const normalizedValue = normalizeText(value, { toUpper: true }) || '';
+    const normalizedValue = normalizeSupplierName(value);
+    const isStandardized = normalizedValue !== value;
+    
+    console.log('[supplierNameNormalizationRule] Result:', {
+      original: value,
+      normalized: normalizedValue,
+      isStandardized
+    });
+
     return {
       value: normalizedValue,
       content: normalizedValue,
-      confidence: context.confidence ?? 0,
+      confidence: isStandardized ? 0.9 : (context.confidence ?? 0),
       metadata: {
         transformationType: 'normalization',
         fieldType: 'supplier-name',
         source: 'supplier-name-normalization',
         originalValue: value,
-        status: 'normalized'
+        status: isStandardized ? 'standardized' : 'unchanged'
       }
     };
   }

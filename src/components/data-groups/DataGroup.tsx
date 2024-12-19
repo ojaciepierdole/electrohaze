@@ -4,7 +4,6 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Eraser } from 'lucide-react';
 import type { FieldWithConfidence } from '@/types/processing';
-import { Separator } from '@/components/ui/separator';
 import { formatDisplayDate } from '@/utils/text-processing/formatters/date';
 
 interface DataGroupProps {
@@ -42,7 +41,7 @@ export const DataGroup: React.FC<DataGroupProps> = ({
   const fieldsWithData: [string, FieldWithConfidence][] = [];
   const fieldsWithoutData: string[] = [];
 
-  Object.entries(fieldLabels).forEach(([key, label]) => {
+  Object.entries(fieldLabels).forEach(([key]) => {
     if (data[key]?.content) {
       fieldsWithData.push([key, data[key]!]);
     } else if (!optionalFields.includes(key)) {

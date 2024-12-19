@@ -13,6 +13,7 @@ export interface DocumentSections {
 function isAddressComplete(data: Record<string, DocumentField> | undefined, prefix: string = ''): boolean {
   if (!data) return false;
 
+  // Podstawowe pola adresowe
   const requiredFields = [
     prefix + 'Street',
     prefix + 'Building',
@@ -20,9 +21,27 @@ function isAddressComplete(data: Record<string, DocumentField> | undefined, pref
     prefix + 'City'
   ];
 
+  // Alternatywne nazwy pól
+  const alternativeFields = {
+    [prefix + 'Street']: [prefix + 'Address', prefix + 'StreetName'],
+    [prefix + 'Building']: [prefix + 'BuildingNumber', prefix + 'HouseNumber'],
+    [prefix + 'PostalCode']: [prefix + 'ZipCode', prefix + 'Zip'],
+    [prefix + 'City']: [prefix + 'Town', prefix + 'Municipality']
+  };
+
   return requiredFields.every(field => {
+    // Sprawdź podstawowe pole
     const value = data[field]?.content;
-    return value !== undefined && value !== null && value !== '';
+    if (value !== undefined && value !== null && value !== '') {
+      return true;
+    }
+
+    // Sprawdź alternatywne pola
+    const alternatives = alternativeFields[field] || [];
+    return alternatives.some(altField => {
+      const altValue = data[altField]?.content;
+      return altValue !== undefined && altValue !== null && altValue !== '';
+    });
   });
 }
 
@@ -30,15 +49,20 @@ function isAddressComplete(data: Record<string, DocumentField> | undefined, pref
 function isPersonalDataComplete(data: Record<string, DocumentField> | undefined, prefix: string = ''): boolean {
   if (!data) return false;
 
-  const requiredFields = [
-    prefix + 'FirstName',
-    prefix + 'LastName'
-  ];
+  // Sprawdź czy mamy dane osoby fizycznej
+  const hasPersonalData = Boolean(
+    data[prefix + 'FirstName']?.content &&
+    data[prefix + 'LastName']?.content
+  );
 
-  return requiredFields.every(field => {
-    const value = data[field]?.content;
-    return value !== undefined && value !== null && value !== '';
-  });
+  // Sprawdź czy mamy dane firmy
+  const hasBusinessData = Boolean(
+    data[prefix + 'BusinessName']?.content &&
+    data[prefix + 'taxID']?.content
+  );
+
+  // Wystarczy, że mamy albo dane osobowe, albo dane firmy
+  return hasPersonalData || hasBusinessData;
 }
 
 // Wagi dla sprawdzania przydatności
@@ -52,15 +76,26 @@ const usabilityWeights = {
 // Sprawdza czy dokument jest przydatny (ma wszystkie wymagane pola do podpisania umowy)
 export function calculateUsability(sections: DocumentSections): boolean {
   // 1. Wymagane dane PPE
-  const ppeNum = sections.ppe?.ppeNum?.content;
-  const tariffGroup = sections.ppe?.TariffGroup?.content || sections.ppe?.Tariff?.content;
+  const ppeFields = sections.ppe || {};
+  const hasPPENumber = Boolean(
+    ppeFields.ppeNum?.content ||
+    ppeFields.PPENumber?.content ||
+    ppeFields.PointNumber?.content
+  );
+
+  const hasTariff = Boolean(
+    ppeFields.TariffGroup?.content ||
+    ppeFields.Tariff?.content ||
+    ppeFields.TariffName?.content
+  );
   
-  const hasPPEData = Boolean(ppeNum && tariffGroup);
+  const hasPPEData = hasPPENumber && hasTariff;
   
-  console.log('Debug calculateUsability:', {
-    ppeNum,
-    tariffGroup,
-    hasPPEData
+  console.log('Debug PPE data:', {
+    hasPPENumber,
+    hasTariff,
+    hasPPEData,
+    ppeFields
   });
 
   // 2. Wymagane dane osobowe klienta
@@ -71,7 +106,7 @@ export function calculateUsability(sections: DocumentSections): boolean {
     customerFields: sections.customer
   });
 
-  // 3. Wymagany kompletny adres
+  // 3. Wymagany kompletny adres (wystarczy jeden z trzech)
   const hasPPEAddress = isAddressComplete(sections.ppe, 'dp');
   const hasCustomerAddress = isAddressComplete(sections.customer);
   const hasCorrespondenceAddress = isAddressComplete(sections.correspondence, 'pa');
@@ -85,15 +120,23 @@ export function calculateUsability(sections: DocumentSections): boolean {
     hasValidAddress
   });
 
+  // 4. Dane rozliczeniowe (opcjonalne, ale jeśli są, to muszą być kompletne)
+  const hasBillingData = sections.billing ? (
+    Boolean(sections.billing.billingStartDate?.content) &&
+    Boolean(sections.billing.billingEndDate?.content) &&
+    Boolean(sections.billing.billedUsage?.content)
+  ) : true;
+
   // Dokument jest przydatny tylko jeśli ma wszystkie wymagane dane
-  const isUsable = hasPPEData && hasCustomerData && hasValidAddress;
+  const isUsable = hasPPEData && hasCustomerData && hasValidAddress && hasBillingData;
   
   console.log('Final usability:', {
     isUsable,
     conditions: {
       hasPPEData,
       hasCustomerData,
-      hasValidAddress
+      hasValidAddress,
+      hasBillingData
     }
   });
 
@@ -110,126 +153,350 @@ interface SectionWeights {
 
 // Wagi dla różnych typów pól
 const fieldWeights: Record<string, number> = {
-  // PPE
-  'ppeNum': 1.0,
-  'MeterNumber': 0.8,
-  'TariffGroup': 0.8,
+  // PPE (suma: 4.0)
+  'ppeNum': 1.5,           // Krytyczne - zwiększona waga
+  'MeterNumber': 1.0,      // Ważne - zwiększona waga
+  'TariffGroup': 1.0,      // Bardzo ważne - zwiększona waga
+  'Tariff': 0.5,           // Alternatywa dla TariffGroup
   
-  // Dane osobowe
-  'FirstName': 0.9,
-  'LastName': 0.9,
-  'BusinessName': 0.9,
-  'taxID': 0.8,
+  // Dane osobowe (suma: 3.5)
+  'FirstName': 1.0,        // Bardzo ważne
+  'LastName': 1.0,         // Bardzo ważne
+  'BusinessName': 1.0,     // Alternatywa dla FirstName+LastName
+  'taxID': 0.5,           // Ważne dla firm
   
-  // Adres
-  'Street': 0.7,
-  'Building': 0.7,
-  'PostalCode': 0.6,
-  'City': 0.6,
-  'Unit': 0.3,
+  // Adres (suma: 3.0)
+  'Street': 1.0,          // Bardzo ważne
+  'Building': 0.8,        // Bardzo ważne
+  'PostalCode': 0.7,      // Ważne
+  'City': 0.5,           // Ważne
   
-  // Dostawca
-  'supplierName': 0.8,
-  'supplierTaxID': 0.7,
-  'OSD_name': 0.7,
-  'OSD_region': 0.6,
+  // Dostawca (suma: 2.5)
+  'supplierName': 1.0,    // Bardzo ważne
+  'OSD_name': 1.0,       // Ważne - zwiększona waga
+  'OSD_region': 0.5,     // Pomocnicze
   
-  // Rozliczenia
-  'billingStartDate': 0.5,
-  'billingEndDate': 0.5,
-  'billedUsage': 0.7,
-  '12mUsage': 0.6
+  // Rozliczenia (suma: 2.0)
+  'billingStartDate': 0.7,
+  'billingEndDate': 0.7,
+  'billedUsage': 0.6
 };
 
 const defaultWeights: SectionWeights = {
-  ppe: 0.3,
-  customer: 0.25,
-  correspondence: 0.15,
-  supplier: 0.2,
-  billing: 0.1
+  ppe: 0.35,        // Zwiększona waga
+  customer: 0.25,   // Bez zmian
+  correspondence: 0.15,  // Bez zmian
+  supplier: 0.15,   // Zmniejszona waga
+  billing: 0.1      // Bez zmian
 };
 
-// Funkcja do obliczania kompletności sekcji z uwzględnieniem wag pól
-function calculateSectionCompleteness(
-  data: Record<string, DocumentField | undefined> | undefined, 
-  requiredFields: string[]
-): number {
-  if (!data) return 0;
-
-  let totalWeight = 0;
-  let weightedSum = 0;
-
-  for (const field of requiredFields) {
-    const fieldWeight = fieldWeights[field] || 0.5;
-    totalWeight += fieldWeight;
-
-    const value = data[field]?.content;
-    if (value !== undefined && value !== null && value !== '') {
-      weightedSum += fieldWeight;
-    }
-  }
-
-  return totalWeight > 0 ? weightedSum / totalWeight : 0;
-}
-
-// Wymagane pola dla każdej sekcji
-const requiredFields = {
-  ppe: ['ppeNum', 'MeterNumber', 'TariffGroup', 'dpStreet', 'dpBuilding', 'dpPostalCode', 'dpCity'],
-  customer: ['FirstName', 'LastName', 'Street', 'Building', 'PostalCode', 'City'],
-  correspondence: ['paFirstName', 'paLastName', 'paStreet', 'paBuilding', 'paPostalCode', 'paCity'],
-  supplier: ['supplierName', 'supplierTaxID', 'supplierStreet', 'supplierBuilding', 'supplierPostalCode', 'supplierCity', 'OSD_name', 'OSD_region'],
-  billing: ['billingStartDate', 'billingEndDate', 'billedUsage']
+// Minimalne progi pewności dla różnych poziomów jakości
+const CONFIDENCE_THRESHOLDS = {
+  HIGH: 0.80,    // Obniżony próg wysokiej pewności
+  MEDIUM: 0.60,  // Obniżony próg średniej pewności
+  LOW: 0.35      // Obniżony próg niskiej pewności
 };
 
-// Funkcja do obliczania kompletności dokumentu
-export function calculateDocumentCompleteness(sections: DocumentSections, weights: Partial<SectionWeights> = {}): number {
-  const finalWeights = { ...defaultWeights, ...weights };
-  let totalWeight = 0;
-  let weightedCompleteness = 0;
+// Funkcja sprawdzająca jakość pola
+function getFieldQuality(field: DocumentField | undefined): number {
+  if (!field?.content || !field.confidence) return 0;
 
-  // Oblicz kompletność dla każdej sekcji
-  for (const [section, fields] of Object.entries(requiredFields)) {
-    const sectionData = sections[section as keyof DocumentSections];
-    const sectionWeight = finalWeights[section as keyof SectionWeights];
-    
-    if (sectionWeight > 0) {
-      const completeness = calculateSectionCompleteness(sectionData, fields);
-      weightedCompleteness += completeness * sectionWeight;
-      totalWeight += sectionWeight;
-    }
+  // Sprawdź długość i sensowność zawartości
+  const content = field.content.trim();
+  if (content.length === 0) return 0;
+  
+  // Podstawowa ocena jakości
+  let quality = field.confidence;
+
+  // Kary za podejrzane wartości
+  if (content.includes('?') || content.includes('*')) {
+    quality *= 0.6; // Zmniejszona kara
   }
 
-  // Jeśli nie ma żadnych wag, zwróć 0
-  if (totalWeight === 0) return 0;
+  // Premia za długie, sensowne wartości
+  if (content.length > 3 && !content.includes('?')) {
+    quality *= 1.1; // Zmniejszona premia
+  }
 
-  // Zwróć średnią ważoną
-  return weightedCompleteness / totalWeight;
+  // Premia za bardzo pewne wartości
+  if (field.confidence > 0.9) {
+    quality *= 1.05; // Zmniejszona premia
+  }
+
+  // Specjalna obsługa krótkich, ale poprawnych wartości (np. nr mieszkania)
+  if (content.length <= 3 && /^\d+[A-Za-z]?$/.test(content)) {
+    quality = Math.max(quality, field.confidence);
+  }
+
+  return Math.min(quality, 1);
 }
 
-// Funkcja do obliczania średniej pewności ze wszystkich pól
-export function calculateAverageConfidence(sections: DocumentSections): number {
-  let totalWeightedConfidence = 0;
-  let totalWeight = 0;
+// Funkcja deduplikująca wartości w sekcji
+function deduplicateFields(data: Record<string, DocumentField | undefined>): Record<string, DocumentField | undefined> {
+  const result: Record<string, DocumentField | undefined> = {};
+  const seenValues = new Map<string, { field: string; confidence: number }>();
 
-  // Funkcja pomocnicza do przetwarzania sekcji
-  const processSection = (data: Record<string, DocumentField | undefined> | undefined) => {
-    if (!data) return;
+  // Najpierw znajdź najlepsze wartości
+  Object.entries(data).forEach(([field, value]) => {
+    if (!value?.content) return;
     
-    Object.entries(data).forEach(([fieldName, field]) => {
-      if (field?.confidence !== undefined) {
-        const fieldWeight = fieldWeights[fieldName] || 0.5;
-        totalWeightedConfidence += field.confidence * fieldWeight;
-        totalWeight += fieldWeight;
-      }
-    });
+    const normalizedContent = value.content.trim().toLowerCase();
+    const currentConfidence = value.confidence || 0;
+    
+    const existing = seenValues.get(normalizedContent);
+    if (!existing || currentConfidence > existing.confidence) {
+      seenValues.set(normalizedContent, { field, confidence: currentConfidence });
+    }
+  });
+
+  // Następnie zbuduj wynikowy obiekt
+  Object.entries(data).forEach(([field, value]) => {
+    if (!value?.content) {
+      result[field] = value;
+      return;
+    }
+
+    const normalizedContent = value.content.trim().toLowerCase();
+    const best = seenValues.get(normalizedContent);
+    
+    if (best && best.field === field) {
+      result[field] = value;
+    } else {
+      result[field] = undefined;
+    }
+  });
+
+  return result;
+}
+
+// Dodajemy interfejsy dla struktury pól
+interface FieldDefinition {
+  required: string[];
+  optional: string[];
+  alternatives: Record<string, string[]>;
+}
+
+interface RequiredFields {
+  ppe: FieldDefinition;
+  customer: FieldDefinition;
+  correspondence: FieldDefinition;
+  supplier: FieldDefinition;
+  billing: FieldDefinition;
+}
+
+// Aktualizujemy funkcję calculateSectionConfidence aby przyjmowała FieldDefinition
+function calculateSectionConfidence(
+  data: Record<string, DocumentField | undefined> | undefined,
+  definition: FieldDefinition
+): { confidence: number; validFields: number; totalFields: number } {
+  if (!data) return { 
+    confidence: 0, 
+    validFields: 0, 
+    totalFields: definition.required.length + definition.optional.length 
   };
 
-  // Przetwórz wszystkie sekcje
-  processSection(sections.ppe);
-  processSection(sections.customer);
-  processSection(sections.correspondence);
-  processSection(sections.supplier);
-  processSection(sections.billing);
+  // Deduplikuj wartości w sekcji
+  const deduplicatedData = deduplicateFields(data);
 
-  return totalWeight > 0 ? totalWeightedConfidence / totalWeight : 0;
+  let totalWeight = 0;
+  let weightedConfidence = 0;
+  let validFields = 0;
+  const allFields = [...definition.required, ...definition.optional];
+  const totalFields = allFields.length;
+
+  for (const field of allFields) {
+    const fieldData = deduplicatedData[field];
+    if (!fieldData?.content) continue;
+
+    const fieldWeight = fieldWeights[field] || 0.5;
+    const quality = getFieldQuality(fieldData);
+
+    if (quality > CONFIDENCE_THRESHOLDS.LOW) {
+      validFields++;
+      weightedConfidence += quality * fieldWeight;
+      totalWeight += fieldWeight;
+    }
+  }
+
+  let confidence = totalWeight > 0 ? weightedConfidence / totalWeight : 0;
+  confidence = Number.isFinite(confidence) ? confidence : 0;
+
+  return {
+    confidence,
+    validFields,
+    totalFields
+  };
+}
+
+// Aktualizujemy funkcję calculateAverageConfidence
+export function calculateAverageConfidence(sections: DocumentSections): {
+  confidence: number;
+  validFields: number;
+  totalFields: number;
+  sectionConfidences: Record<string, { confidence: number; validFields: number; totalFields: number }>;
+} {
+  const sectionConfidences: Record<string, { confidence: number; validFields: number; totalFields: number }> = {};
+  let totalWeightedConfidence = 0;
+  let totalWeight = 0;
+  let totalValidFields = 0;
+  let totalFields = 0;
+
+  // Oblicz pewność dla każdej sekcji
+  for (const [sectionName, definition] of Object.entries(requiredFields)) {
+    const sectionData = sections[sectionName as keyof DocumentSections];
+    const result = calculateSectionConfidence(sectionData, definition);
+    
+    if (result.totalFields > 0) {
+      sectionConfidences[sectionName] = result;
+      const sectionWeight = defaultWeights[sectionName as keyof SectionWeights] || 0;
+
+      if (result.confidence > 0) {
+        totalWeightedConfidence += result.confidence * sectionWeight;
+        totalWeight += sectionWeight;
+      }
+
+      totalValidFields += result.validFields;
+      totalFields += result.totalFields;
+    }
+  }
+
+  const finalConfidence = totalWeight > 0 ? totalWeightedConfidence / totalWeight : 0;
+
+  return {
+    confidence: Number.isFinite(finalConfidence) ? finalConfidence : 0,
+    validFields: totalValidFields,
+    totalFields,
+    sectionConfidences
+  };
+}
+
+// Aktualizujemy definicję requiredFields z nowym typem
+const requiredFields: RequiredFields = {
+  ppe: {
+    required: ['ppeNum', 'TariffGroup', 'dpStreet', 'dpBuilding', 'dpPostalCode', 'dpCity'],
+    optional: ['MeterNumber', 'dpUnit', 'dpMunicipality', 'dpDistrict', 'dpProvince'],
+    alternatives: {
+      'ppeNum': ['PPENumber', 'PointNumber'],
+      'TariffGroup': ['Tariff', 'TariffName']
+    }
+  },
+  customer: {
+    required: ['Street', 'Building', 'PostalCode', 'City'],
+    optional: ['Unit', 'Municipality', 'District', 'Province'],
+    alternatives: {
+      'FirstName': ['BusinessName'],
+      'LastName': ['taxID']
+    }
+  },
+  correspondence: {
+    required: ['paStreet', 'paBuilding', 'paPostalCode', 'paCity'],
+    optional: ['paUnit', 'paMunicipality', 'paDistrict', 'paProvince'],
+    alternatives: {
+      'paFirstName': ['paBusinessName'],
+      'paLastName': ['paTaxID']
+    }
+  },
+  supplier: {
+    required: ['supplierName', 'OSD_name'],
+    optional: ['OSD_region', 'supplierTaxID', 'supplierStreet', 'supplierBuilding', 'supplierPostalCode', 'supplierCity', 'supplierBankAccount', 'supplierBankName', 'supplierEmail', 'supplierPhone', 'supplierWebsite'],
+    alternatives: {}
+  },
+  billing: {
+    required: ['billingStartDate', 'billingEndDate', 'billedUsage'],
+    optional: ['usage12m'],
+    alternatives: {}
+  }
+};
+
+// Funkcja sprawdzająca czy pole ma wartość (uwzględniając alternatywy)
+function hasFieldValue(
+  data: Record<string, DocumentField | undefined>,
+  field: string,
+  alternatives: string[] = []
+): boolean {
+  // Sprawdź główne pole
+  if (data[field]?.content) return true;
+
+  // Sprawdź alternatywne pola
+  return alternatives.some(alt => data[alt]?.content);
+}
+
+// Funkcja obliczająca kompletność dokumentu
+export function calculateDocumentCompleteness(sections: DocumentSections): {
+  completeness: number;
+  sectionCompleteness: Record<string, number>;
+  validFields: number;
+  totalFields: number;
+} {
+  const sectionCompleteness: Record<string, number> = {};
+  let totalWeightedCompleteness = 0;
+  let totalWeight = 0;
+  let totalValidFields = 0;
+  let totalFields = 0;
+
+  // Oblicz kompletność dla każdej sekcji
+  for (const [section, definition] of Object.entries(requiredFields)) {
+    const sectionData = sections[section as keyof DocumentSections];
+    if (!sectionData) continue;
+
+    // Deduplikuj dane sekcji
+    const deduplicatedData = deduplicateFields(sectionData);
+
+    // Sprawdź wymagane pola
+    const requiredFieldsComplete = definition.required.every((field: string) => 
+      hasFieldValue(deduplicatedData, field, definition.alternatives[field])
+    );
+
+    // Oblicz liczbę wypełnionych pól
+    const filledRequired = definition.required.filter((field: string) => 
+      hasFieldValue(deduplicatedData, field, definition.alternatives[field])
+    ).length;
+
+    const filledOptional = definition.optional.filter((field: string) => 
+      hasFieldValue(deduplicatedData, field, definition.alternatives[field])
+    ).length;
+
+    // Oblicz kompletność sekcji
+    const totalRequiredFields = definition.required.length;
+    const totalOptionalFields = definition.optional.length;
+    const totalSectionFields = totalRequiredFields + totalOptionalFields;
+
+    // Waga dla pól wymaganych i opcjonalnych
+    const requiredWeight = 0.7;
+    const optionalWeight = 0.3;
+
+    const requiredCompleteness = filledRequired / totalRequiredFields;
+    const optionalCompleteness = totalOptionalFields > 0 ? filledOptional / totalOptionalFields : 1;
+
+    const sectionCompletenessValue = 
+      (requiredCompleteness * requiredWeight) + 
+      (optionalCompleteness * optionalWeight);
+
+    // Zastosuj korektę dla niekompletnych wymaganych pól
+    const finalSectionCompleteness = requiredFieldsComplete 
+      ? sectionCompletenessValue 
+      : sectionCompletenessValue * 0.8;
+
+    sectionCompleteness[section] = finalSectionCompleteness;
+
+    // Dodaj do sumy ważonej
+    const sectionWeight = defaultWeights[section as keyof SectionWeights] || 0;
+    totalWeightedCompleteness += finalSectionCompleteness * sectionWeight;
+    totalWeight += sectionWeight;
+
+    // Aktualizuj liczniki pól
+    totalValidFields += filledRequired + filledOptional;
+    totalFields += totalSectionFields;
+  }
+
+  // Oblicz końcową kompletność
+  let finalCompleteness = totalWeight > 0 ? totalWeightedCompleteness / totalWeight : 0;
+  finalCompleteness = Number.isFinite(finalCompleteness) ? finalCompleteness : 0;
+
+  return {
+    completeness: finalCompleteness,
+    sectionCompleteness,
+    validFields: totalValidFields,
+    totalFields
+  };
 } 
