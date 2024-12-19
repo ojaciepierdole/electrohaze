@@ -197,76 +197,115 @@ const CONFIDENCE_THRESHOLDS = {
   LOW: 0.35      // Obniżony próg niskiej pewności
 };
 
-// Funkcja sprawdzająca jakość pola
+// Cache dla znormalizowanych wartości
+const normalizedContentCache = new Map<string, string>();
+
+// Funkcja normalizująca tekst z cache
+function normalizeContent(content: string): string {
+  const cached = normalizedContentCache.get(content);
+  if (cached) return cached;
+  
+  const normalized = content.trim().toLowerCase();
+  normalizedContentCache.set(content, normalized);
+  return normalized;
+}
+
+// Zoptymalizowana funkcja sprawdzająca jakość pola
 function getFieldQuality(field: DocumentField | undefined): number {
   if (!field?.content || !field.confidence) return 0;
 
-  // Sprawdź długość i sensowność zawartości
-  const content = field.content.trim();
-  if (content.length === 0) return 0;
+  const content = field.content;
+  const cachedNormalized = normalizeContent(content);
+  if (cachedNormalized.length === 0) return 0;
   
-  // Podstawowa ocena jakości
   let quality = field.confidence;
 
-  // Kary za podejrzane wartości
-  if (content.includes('?') || content.includes('*')) {
-    quality *= 0.6; // Zmniejszona kara
+  // Szybkie sprawdzenie znaków specjalnych
+  if (cachedNormalized.includes('?') || cachedNormalized.includes('*')) {
+    quality *= 0.6;
   }
 
-  // Premia za długie, sensowne wartości
-  if (content.length > 3 && !content.includes('?')) {
-    quality *= 1.1; // Zmniejszona premia
+  // Optymalizacja dla krótkich wartości
+  const contentLength = cachedNormalized.length;
+  if (contentLength <= 3) {
+    if (/^\d+[A-Za-z]?$/.test(cachedNormalized)) {
+      return field.confidence;
+    }
+    return quality;
   }
 
-  // Premia za bardzo pewne wartości
+  // Premia za długie wartości
+  quality *= 1.1;
+
+  // Premia za wysoką pewność
   if (field.confidence > 0.9) {
-    quality *= 1.05; // Zmniejszona premia
-  }
-
-  // Specjalna obsługa krótkich, ale poprawnych wartości (np. nr mieszkania)
-  if (content.length <= 3 && /^\d+[A-Za-z]?$/.test(content)) {
-    quality = Math.max(quality, field.confidence);
+    quality *= 1.05;
   }
 
   return Math.min(quality, 1);
 }
 
-// Funkcja deduplikująca wartości w sekcji
+// Zoptymalizowana funkcja deduplikacji
 function deduplicateFields(data: Record<string, DocumentField | undefined>): Record<string, DocumentField | undefined> {
   const result: Record<string, DocumentField | undefined> = {};
   const seenValues = new Map<string, { field: string; confidence: number }>();
 
-  // Najpierw znajdź najlepsze wartości
-  Object.entries(data).forEach(([field, value]) => {
-    if (!value?.content) return;
+  // Jednorazowe przetworzenie wszystkich wartości
+  const entries = Object.entries(data);
+  const validEntries = entries.filter(([_, value]) => value?.content);
+
+  // Znajdź najlepsze wartości w jednym przejściu
+  for (const [field, value] of validEntries) {
+    if (!value?.content) continue;
     
-    const normalizedContent = value.content.trim().toLowerCase();
+    const normalizedContent = normalizeContent(value.content);
     const currentConfidence = value.confidence || 0;
     
     const existing = seenValues.get(normalizedContent);
     if (!existing || currentConfidence > existing.confidence) {
       seenValues.set(normalizedContent, { field, confidence: currentConfidence });
     }
-  });
+  }
 
-  // Następnie zbuduj wynikowy obiekt
-  Object.entries(data).forEach(([field, value]) => {
+  // Zbuduj wynik w jednym przejściu
+  for (const [field, value] of entries) {
     if (!value?.content) {
       result[field] = value;
-      return;
+      continue;
     }
 
-    const normalizedContent = value.content.trim().toLowerCase();
+    const normalizedContent = normalizeContent(value.content);
     const best = seenValues.get(normalizedContent);
     
-    if (best && best.field === field) {
-      result[field] = value;
-    } else {
-      result[field] = undefined;
-    }
-  });
+    result[field] = best && best.field === field ? value : undefined;
+  }
 
   return result;
+}
+
+// Cache dla wyników hasFieldValue
+const fieldValueCache = new Map<string, boolean>();
+
+// Zoptymalizowana funkcja sprawdzająca wartość pola
+function hasFieldValue(
+  data: Record<string, DocumentField | undefined>,
+  field: string,
+  alternatives: string[] = []
+): boolean {
+  const cacheKey = `${field}:${alternatives.join(',')}`;
+  const cached = fieldValueCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  // Sprawdź główne pole
+  if (data[field]?.content) {
+    fieldValueCache.set(cacheKey, true);
+    return true;
+  }
+
+  // Sprawdź alternatywy tylko jeśli główne pole jest puste
+  const hasAlternative = alternatives.some(alt => data[alt]?.content);
+  fieldValueCache.set(cacheKey, hasAlternative);
+  return hasAlternative;
 }
 
 // Dodajemy interfejsy dla struktury pól
@@ -408,95 +447,191 @@ const requiredFields: RequiredFields = {
   }
 };
 
-// Funkcja sprawdzająca czy pole ma wartość (uwzględniając alternatywy)
-function hasFieldValue(
-  data: Record<string, DocumentField | undefined>,
-  field: string,
-  alternatives: string[] = []
-): boolean {
-  // Sprawdź główne pole
-  if (data[field]?.content) return true;
-
-  // Sprawdź alternatywne pola
-  return alternatives.some(alt => data[alt]?.content);
+// Interfejs dla metryk wydajności
+interface PerformanceMetrics {
+  startTime: number;
+  endTime: number;
+  duration: number;
+  operation: string;
+  details?: Record<string, number>;
 }
 
-// Funkcja obliczająca kompletność dokumentu
+// Klasa do monitorowania wydajności
+class PerformanceMonitor {
+  private static metrics: PerformanceMetrics[] = [];
+  private static enabled = true;
+
+  static start(operation: string): number {
+    if (!this.enabled) return 0;
+    return performance.now();
+  }
+
+  static end(operation: string, startTime: number, details?: Record<string, number>) {
+    if (!this.enabled || !startTime) return;
+    
+    const endTime = performance.now();
+    const duration = endTime - startTime;
+    
+    this.metrics.push({
+      startTime,
+      endTime,
+      duration,
+      operation,
+      details
+    });
+
+    // Log tylko dla długich operacji (>100ms)
+    if (duration > 100) {
+      console.warn(`Długa operacja: ${operation} (${duration.toFixed(2)}ms)`, details);
+    }
+  }
+
+  static getMetrics(): PerformanceMetrics[] {
+    return this.metrics;
+  }
+
+  static clear(): void {
+    this.metrics = [];
+  }
+
+  static disable(): void {
+    this.enabled = false;
+  }
+
+  static enable(): void {
+    this.enabled = true;
+  }
+}
+
+// Zoptymalizowana funkcja obliczająca kompletność dokumentu
 export function calculateDocumentCompleteness(sections: DocumentSections): {
   completeness: number;
   sectionCompleteness: Record<string, number>;
   validFields: number;
   totalFields: number;
+  metrics?: PerformanceMetrics[];
 } {
+  const totalStart = PerformanceMonitor.start('calculateDocumentCompleteness');
+  
+  // Wyczyść cache przed rozpoczęciem nowych obliczeń
+  normalizedContentCache.clear();
+  fieldValueCache.clear();
+
   const sectionCompleteness: Record<string, number> = {};
   let totalWeightedCompleteness = 0;
   let totalWeight = 0;
   let totalValidFields = 0;
   let totalFields = 0;
 
-  // Oblicz kompletność dla każdej sekcji
-  for (const [section, definition] of Object.entries(requiredFields)) {
+  // Pre-oblicz wartości dla często używanych operacji
+  const sectionEntries = Object.entries(requiredFields);
+  const sectionCount = sectionEntries.length;
+  
+  // Przygotuj tablicę wyników o znanym rozmiarze
+  const sectionResults = new Array(sectionCount);
+  
+  // Przetwarzaj sekcje
+  const processStart = PerformanceMonitor.start('processSections');
+  
+  for (let i = 0; i < sectionCount; i++) {
+    const [section, definition] = sectionEntries[i];
+    const sectionStart = PerformanceMonitor.start(`processSection:${section}`);
+    
     const sectionData = sections[section as keyof DocumentSections];
-    if (!sectionData) continue;
+    if (!sectionData) {
+      sectionResults[i] = {
+        section,
+        completeness: 0,
+        validFields: 0,
+        totalFields: definition.required.length + definition.optional.length
+      };
+      continue;
+    }
 
     // Deduplikuj dane sekcji
+    const deduplicateStart = PerformanceMonitor.start('deduplicateFields');
     const deduplicatedData = deduplicateFields(sectionData);
+    PerformanceMonitor.end('deduplicateFields', deduplicateStart);
 
-    // Sprawdź wymagane pola
-    const requiredFieldsComplete = definition.required.every((field: string) => 
-      hasFieldValue(deduplicatedData, field, definition.alternatives[field])
-    );
+    // Pre-oblicz wartości dla sekcji
+    const requiredLength = definition.required.length;
+    const optionalLength = definition.optional.length;
+    
+    // Oblicz wypełnienie pól
+    const validateStart = PerformanceMonitor.start('validateFields');
+    let filledRequired = 0;
+    let filledOptional = 0;
 
-    // Oblicz liczbę wypełnionych pól
-    const filledRequired = definition.required.filter((field: string) => 
-      hasFieldValue(deduplicatedData, field, definition.alternatives[field])
-    ).length;
+    // Sprawdź pola wymagane
+    for (let j = 0; j < requiredLength; j++) {
+      if (hasFieldValue(deduplicatedData, definition.required[j], definition.alternatives[definition.required[j]])) {
+        filledRequired++;
+      }
+    }
 
-    const filledOptional = definition.optional.filter((field: string) => 
-      hasFieldValue(deduplicatedData, field, definition.alternatives[field])
-    ).length;
+    // Sprawdź pola opcjonalne
+    for (let j = 0; j < optionalLength; j++) {
+      if (hasFieldValue(deduplicatedData, definition.optional[j], definition.alternatives[definition.optional[j]])) {
+        filledOptional++;
+      }
+    }
+    PerformanceMonitor.end('validateFields', validateStart);
 
-    // Oblicz kompletność sekcji
-    const totalRequiredFields = definition.required.length;
-    const totalOptionalFields = definition.optional.length;
-    const totalSectionFields = totalRequiredFields + totalOptionalFields;
-
-    // Waga dla pól wymaganych i opcjonalnych
-    const requiredWeight = 0.7;
-    const optionalWeight = 0.3;
-
-    const requiredCompleteness = filledRequired / totalRequiredFields;
-    const optionalCompleteness = totalOptionalFields > 0 ? filledOptional / totalOptionalFields : 1;
+    const requiredCompleteness = filledRequired / requiredLength;
+    const optionalCompleteness = optionalLength > 0 ? filledOptional / optionalLength : 1;
 
     const sectionCompletenessValue = 
-      (requiredCompleteness * requiredWeight) + 
-      (optionalCompleteness * optionalWeight);
+      (requiredCompleteness * 0.7) + 
+      (optionalCompleteness * 0.3);
 
-    // Zastosuj korektę dla niekompletnych wymaganych pól
-    const finalSectionCompleteness = requiredFieldsComplete 
-      ? sectionCompletenessValue 
-      : sectionCompletenessValue * 0.8;
+    // Sprawdź wymagane pola tylko jeśli sekcja ma jakąś wartość
+    const requiredFieldsComplete = sectionCompletenessValue > 0 && filledRequired === requiredLength;
 
-    sectionCompleteness[section] = finalSectionCompleteness;
+    sectionResults[i] = {
+      section,
+      completeness: requiredFieldsComplete ? sectionCompletenessValue : sectionCompletenessValue * 0.8,
+      validFields: filledRequired + filledOptional,
+      totalFields: requiredLength + optionalLength
+    };
 
-    // Dodaj do sumy ważonej
-    const sectionWeight = defaultWeights[section as keyof SectionWeights] || 0;
-    totalWeightedCompleteness += finalSectionCompleteness * sectionWeight;
-    totalWeight += sectionWeight;
-
-    // Aktualizuj liczniki pól
-    totalValidFields += filledRequired + filledOptional;
-    totalFields += totalSectionFields;
+    PerformanceMonitor.end(`processSection:${section}`, sectionStart, {
+      requiredFields: requiredLength,
+      optionalFields: optionalLength,
+      filledRequired,
+      filledOptional
+    });
   }
 
-  // Oblicz końcową kompletność
-  let finalCompleteness = totalWeight > 0 ? totalWeightedCompleteness / totalWeight : 0;
-  finalCompleteness = Number.isFinite(finalCompleteness) ? finalCompleteness : 0;
+  PerformanceMonitor.end('processSections', processStart);
+
+  // Agreguj wyniki
+  const aggregateStart = PerformanceMonitor.start('aggregateResults');
+  
+  for (const result of sectionResults) {
+    sectionCompleteness[result.section] = result.completeness;
+    
+    const sectionWeight = defaultWeights[result.section as keyof SectionWeights] || 0;
+    totalWeightedCompleteness += result.completeness * sectionWeight;
+    totalWeight += sectionWeight;
+    
+    totalValidFields += result.validFields;
+    totalFields += result.totalFields;
+  }
+
+  PerformanceMonitor.end('aggregateResults', aggregateStart);
+
+  const finalCompleteness = totalWeight > 0 ? totalWeightedCompleteness / totalWeight : 0;
+
+  PerformanceMonitor.end('calculateDocumentCompleteness', totalStart);
 
   return {
-    completeness: finalCompleteness,
+    completeness: Number.isFinite(finalCompleteness) ? finalCompleteness : 0,
     sectionCompleteness,
     validFields: totalValidFields,
-    totalFields
+    totalFields,
+    metrics: PerformanceMonitor.getMetrics()
   };
-} 
+}
+
+// Eksportuj monitor wydajności do użycia w innych modułach
+export const performanceMonitor = PerformanceMonitor; 
