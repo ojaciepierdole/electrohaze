@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Eraser } from 'lucide-react';
 import type { FieldWithConfidence } from '@/types/processing';
 import { Separator } from '@/components/ui/separator';
+import { formatDisplayDate } from '@/utils/text-processing/formatters/date';
 
 interface DataGroupProps {
   title: string;
@@ -14,6 +15,20 @@ interface DataGroupProps {
   fieldLabels: Record<string, string>;
   optionalFields?: string[];
 }
+
+const formatFieldValue = (key: string, field: FieldWithConfidence): string => {
+  // Formatowanie dat
+  if (key.toLowerCase().includes('date')) {
+    return formatDisplayDate(field.content) || field.content;
+  }
+  
+  // Formatowanie zużycia energii
+  if (key.toLowerCase().includes('usage')) {
+    return `${field.content} kWh`;
+  }
+  
+  return field.content;
+};
 
 export const DataGroup: React.FC<DataGroupProps> = ({ 
   title, 
@@ -63,7 +78,7 @@ export const DataGroup: React.FC<DataGroupProps> = ({
             </div>
             <div className="flex items-center gap-2">
               <span className="font-medium text-gray-900">
-                {field.content}
+                {formatFieldValue(key, field)}
               </span>
               {field.confidence && (
                 <div className="flex items-center gap-1">
