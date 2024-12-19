@@ -240,10 +240,10 @@ export function DocumentList({ documents, onExport }: DocumentListProps) {
                       key={`${doc.fileName}-${index}`}
                       fileName={doc.fileName}
                       confidence={doc.modelResults?.[0]?.confidence || 0}
+                      supplierData={result.supplier}
                       ppeData={result.ppe}
                       customerData={result.customer}
                       correspondenceData={result.correspondence}
-                      supplierData={result.supplier}
                       billingData={result.billing}
                       usability={result.usability}
                     />

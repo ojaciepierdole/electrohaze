@@ -1,87 +1,70 @@
 'use client';
 
 import React from 'react';
-import { Badge } from '@/components/ui/badge';
-import { Eraser } from 'lucide-react';
 import type { FieldWithConfidence } from '@/types/processing';
 
 interface SupplierDataGroupProps {
-  title: string;
-  confidence: number;
-  completeness: number;
   data: Record<string, FieldWithConfidence | undefined>;
-  fieldLabels: Record<string, string>;
-  optionalFields?: string[];
 }
 
-export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({ 
-  title, 
-  confidence,
-  completeness,
-  data, 
-  fieldLabels,
-  optionalFields = []
-}) => {
-  // Podziel pola na te z danymi i bez danych
-  const fieldsWithData: [string, FieldWithConfidence][] = [];
-  const fieldsWithoutData: string[] = [];
+export const SupplierDataGroup: React.FC<SupplierDataGroupProps> = ({ data }) => {
+  const fieldLabels: Record<string, string> = {
+    supplierName: 'Sprzedawca',
+    supplierTaxID: 'NIP',
+    OSD_name: 'Nazwa OSD',
+    OSD_region: 'Region OSD',
+    supplierStreet: 'Ulica',
+    supplierBuilding: 'Numer budynku',
+    supplierUnit: 'Numer lokalu',
+    supplierPostalCode: 'Kod pocztowy',
+    supplierCity: 'Miejscowość',
+    supplierBankAccount: 'Numer konta',
+    supplierBankName: 'Nazwa banku',
+    supplierEmail: 'Email',
+    supplierPhone: 'Telefon',
+    supplierWebsite: 'Strona WWW'
+  };
 
-  Object.entries(fieldLabels).forEach(([key, label]) => {
-    if (data[key]?.content) {
-      fieldsWithData.push([key, data[key]!]);
-    } else if (!optionalFields.includes(key)) {
-      fieldsWithoutData.push(key);
-    }
-  });
+  const optionalFields = [
+    'supplierUnit',
+    'supplierBankName',
+    'supplierEmail',
+    'supplierPhone',
+    'supplierWebsite'
+  ];
 
   return (
     <div className="rounded-lg border">
-      <div className="bg-gray-50">
-        <div className="flex items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-4">
-            <h3 className="text-xl font-medium">{title}</h3>
-            <Badge variant="secondary" className={`${
-              confidence > 0.8 ? 'bg-green-50 text-green-700' : 
-              confidence > 0.6 ? 'bg-yellow-50 text-yellow-700' : 
-              'bg-red-50 text-red-700'
-            }`}>
-              {Math.round(confidence * 100)}%
-            </Badge>
-          </div>
-          <div className="text-sm text-gray-500">
-            Kompletność {completeness}%
-          </div>
-        </div>
+      <div className="bg-gray-100 px-4 py-2 border-b">
+        <h3 className="font-medium text-gray-900">Dane dostawcy</h3>
       </div>
-
       <div className="divide-y">
-        {fieldsWithData.map(([key, field]) => (
-          <div key={key} className="flex items-center justify-between px-4 py-3">
-            <div className="flex items-center gap-2">
-              <span className="text-gray-600">{fieldLabels[key]}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-900">
-                {field.content}
-              </span>
-              {field.confidence && (
-                <div className="flex items-center gap-1">
-                  <span className={`w-2 h-2 rounded-full ${
-                    field.confidence > 0.8 ? 'bg-green-500' : 
-                    field.confidence > 0.6 ? 'bg-yellow-500' : 
-                    'bg-red-500'
-                  }`} />
-                  <span className="text-xs text-gray-500">
+        {Object.entries(fieldLabels).map(([key, label]) => {
+          const field = data[key];
+          if (!field?.content || (optionalFields.includes(key) && field.content.trim() === '')) {
+            return null;
+          }
+
+          return (
+            <div key={key} className="flex items-center justify-between px-4 py-2">
+              <span className="text-sm text-gray-600">{label}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-900">
+                  {field.content}
+                </span>
+                {field.confidence && (
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${
+                    field.confidence > 0.8 ? 'bg-green-50 text-green-700' : 
+                    field.confidence > 0.6 ? 'bg-yellow-50 text-yellow-700' : 
+                    'bg-red-50 text-red-700'
+                  }`}>
                     {Math.round(field.confidence * 100)}%
                   </span>
-                </div>
-              )}
-              {field.isEnriched && (
-                <Eraser className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              )}
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

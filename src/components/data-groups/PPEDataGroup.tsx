@@ -38,23 +38,8 @@ export const PPEDataGroup: React.FC<PPEDataGroupProps> = ({ data }) => {
     }
   }
 
-  // Oblicz średnią pewność dla pól z danymi
-  const fieldsWithConfidence = Object.values(processedData)
-    .filter((field): field is FieldWithConfidence => field?.confidence !== undefined);
-  const averageConfidence = fieldsWithConfidence.length > 0
-    ? fieldsWithConfidence.reduce((acc, field) => acc + field.confidence, 0) / fieldsWithConfidence.length
-    : 0;
-
-  // Oblicz kompletność
-  const requiredFields = ['ppeNum', 'TariffGroup'];
-  const filledRequiredFields = requiredFields.filter(key => processedData[key]?.content).length;
-  const completeness = Math.round((filledRequiredFields / requiredFields.length) * 100);
-
   return (
     <DataGroup
-      title="Dane PPE"
-      confidence={averageConfidence}
-      completeness={completeness}
       data={processedData}
       fieldLabels={{
         ppeNum: 'Numer PPE',

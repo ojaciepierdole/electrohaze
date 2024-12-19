@@ -3,8 +3,7 @@
 import * as React from 'react';
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, CheckCircle2, XCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -19,6 +18,13 @@ import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingDa
 import type { DocumentField, FieldWithConfidence } from '@/types/processing';
 import type { DocumentSections } from '@/utils/data-processing/completeness/confidence';
 
+interface ProcessingTime {
+  uploadTime: number;
+  ocrTime: number;
+  analysisTime: number;
+  totalTime: number;
+}
+
 interface AnalysisResultCardProps {
   fileName: string;
   confidence: number;
@@ -28,6 +34,7 @@ interface AnalysisResultCardProps {
   supplierData: Partial<SupplierData>;
   billingData: Partial<BillingData>;
   usability: boolean;
+  processingTime: ProcessingTime;
 }
 
 export function AnalysisResultCard({ 
@@ -38,12 +45,10 @@ export function AnalysisResultCard({
   correspondenceData,
   supplierData,
   billingData,
-  usability
+  usability,
+  processingTime,
 }: AnalysisResultCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const mimeType = fileName.toLowerCase().endsWith('.pdf') ? 'PDF' : 
-                   fileName.toLowerCase().match(/\.(jpg|jpeg)$/) ? 'JPEG' :
-                   fileName.toLowerCase().endsWith('.png') ? 'PNG' : 'Nieznany';
 
   // Konwertuj dane do wymaganego formatu
   const sections: DocumentSections = {
@@ -51,7 +56,7 @@ export function AnalysisResultCard({
       if (value) {
         acc[key] = {
           content: value.content,
-          confidence: value.confidence,
+          confidence: value.confidence || 0,
           metadata: {
             fieldType: value.metadata?.fieldType || 'text',
             transformationType: value.metadata?.transformationType || 'initial',
@@ -65,7 +70,7 @@ export function AnalysisResultCard({
       if (value) {
         acc[key] = {
           content: value.content,
-          confidence: value.confidence,
+          confidence: value.confidence || 0,
           metadata: {
             fieldType: value.metadata?.fieldType || 'text',
             transformationType: value.metadata?.transformationType || 'initial',
@@ -79,7 +84,7 @@ export function AnalysisResultCard({
       if (value) {
         acc[key] = {
           content: value.content,
-          confidence: value.confidence,
+          confidence: value.confidence || 0,
           metadata: {
             fieldType: value.metadata?.fieldType || 'text',
             transformationType: value.metadata?.transformationType || 'initial',
@@ -93,7 +98,7 @@ export function AnalysisResultCard({
       if (value) {
         acc[key] = {
           content: value.content,
-          confidence: value.confidence,
+          confidence: value.confidence || 0,
           metadata: {
             fieldType: value.metadata?.fieldType || 'text',
             transformationType: value.metadata?.transformationType || 'initial',
@@ -107,7 +112,7 @@ export function AnalysisResultCard({
       if (value) {
         acc[key] = {
           content: value.content,
-          confidence: value.confidence,
+          confidence: value.confidence || 0,
           metadata: {
             fieldType: value.metadata?.fieldType || 'text',
             transformationType: value.metadata?.transformationType || 'initial',
@@ -119,104 +124,66 @@ export function AnalysisResultCard({
     }, {})
   };
 
-  // Oblicz średnią pewność ze wszystkich pól
-  const confidence = calculateAverageConfidence(sections);
+  // Oblicz kompletność i pewność dokumentu
+  const completenessResult = calculateDocumentCompleteness(sections);
+  const confidenceResult = calculateAverageConfidence(sections);
 
-  // Oblicz kompletność dokumentu
-  const completeness = calculateDocumentCompleteness(sections);
-
-  const toggleExpand = () => setIsExpanded(!isExpanded);
+  // Sprawdź, czy wartości są prawidłowe przed przekazaniem
+  const safeCompleteness = Number.isFinite(completenessResult.completeness) 
+    ? completenessResult.completeness 
+    : 0;
+  
+  const safeConfidence = Number.isFinite(confidenceResult.confidence) 
+    ? confidenceResult.confidence 
+    : 0;
 
   return (
     <>
-      <motion.tr 
-        layout
-        className={cn(
-          "group cursor-pointer hover:bg-gray-50 transition-colors",
-          isExpanded && "bg-gray-50"
-        )}
-        onClick={toggleExpand}
-      >
-        <motion.td
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.2 }}
-          className="py-4 pl-4 pr-3 text-sm sm:pl-6"
-        >
-          <div className="font-medium text-gray-900">
+      <tr className="bg-white">
+        <td className="flex-[2] px-6 py-4">
+          <div className="text-sm font-medium text-gray-900">
             {supplierData?.supplierName?.content || 'Nieznany dostawca'}
           </div>
-          <div className="text-gray-500 truncate max-w-[300px]" title={fileName}>
+          <div className="text-sm text-gray-500 truncate max-w-[300px]" title={fileName}>
             {fileName}
           </div>
-        </motion.td>
-        <motion.td
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.2, delay: 0.1 }}
-          className="px-3 py-4 text-sm text-center"
-        >
+        </td>
+        <td className="flex-1 px-6 py-4 text-center">
           <Badge variant="secondary" className="bg-gray-50 text-gray-600">
-            {mimeType}
+            PDF
           </Badge>
-        </motion.td>
-        <motion.td
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.2, delay: 0.2 }}
-          className="px-3 py-4 text-sm text-center"
-        >
+        </td>
+        <td className="flex-1 px-6 py-4 text-center">
           <Badge variant="secondary" className={cn(
-            confidence >= 0.9 ? 'bg-green-50 text-green-700' : 
-            confidence >= 0.7 ? 'bg-yellow-50 text-yellow-700' : 
+            safeConfidence >= 0.9 ? 'bg-green-50 text-green-700' : 
+            safeConfidence >= 0.7 ? 'bg-yellow-50 text-yellow-700' : 
             'bg-red-50 text-red-700'
           )}>
-            {(confidence * 100).toFixed(0)}%
+            {(safeConfidence * 100).toFixed(1)}%
           </Badge>
-        </motion.td>
-        <motion.td
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.2, delay: 0.3 }}
-          className="px-3 py-4 text-sm text-center"
-        >
+        </td>
+        <td className="flex-1 px-6 py-4 text-center">
           <Badge variant="secondary" className={cn(
-            completeness >= 0.8 ? 'bg-green-50 text-green-700' : 
-            completeness >= 0.6 ? 'bg-yellow-50 text-yellow-700' : 
+            safeCompleteness >= 0.8 ? 'bg-green-50 text-green-700' : 
+            safeCompleteness >= 0.6 ? 'bg-yellow-50 text-yellow-700' : 
             'bg-red-50 text-red-700'
           )}>
-            {(completeness * 100).toFixed(0)}%
+            {(safeCompleteness * 100).toFixed(1)}%
           </Badge>
-        </motion.td>
-        <motion.td
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.2, delay: 0.4 }}
-          className="px-3 py-4 text-sm text-center"
-        >
+        </td>
+        <td className="flex-1 px-6 py-4 text-center">
           {usability ? (
             <CheckCircle2 className="w-5 h-5 text-green-500 mx-auto" />
           ) : (
             <XCircle className="w-5 h-5 text-red-500 mx-auto" />
           )}
-        </motion.td>
-        <motion.td
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.2, delay: 0.5 }}
-          className="relative py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6"
-        >
+        </td>
+        <td className="w-[60px] px-6 py-4 flex justify-center">
           <Button
             variant="ghost"
             size="icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleExpand();
-            }}
-            className={cn(
-              "text-blue-600 hover:text-blue-900 transition-opacity",
-              !isExpanded && "opacity-0 group-hover:opacity-100"
-            )}
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="text-blue-600 hover:text-blue-900"
           >
             {isExpanded ? (
               <ChevronUp className="h-5 w-5" />
@@ -224,128 +191,85 @@ export function AnalysisResultCard({
               <ChevronDown className="h-5 w-5" />
             )}
           </Button>
-        </motion.td>
-      </motion.tr>
-
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.tr
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-          >
-            <td colSpan={6} className="p-0">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="border-t border-gray-200"
-              >
-                <div className="p-4 space-y-6">
-                  {/* Supplier Data */}
-                  {supplierData && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 }}
-                      className="bg-white rounded-lg shadow p-4"
-                    >
-                      <SupplierDataGroup 
-                        title="Sprzedawca"
-                        data={processSupplierData(supplierData)}
-                        confidence={calculateSupplierConfidence(processSupplierData(supplierData))}
-                        completeness={calculateSupplierCompleteness(processSupplierData(supplierData))}
-                        fieldLabels={{
-                          supplierName: 'Sprzedawca',
-                          OSD_name: 'Nazwa OSD',
-                          OSD_region: 'Region OSD',
-                          supplierTaxID: 'NIP',
-                          supplierStreet: 'Ulica',
-                          supplierBuilding: 'Numer budynku',
-                          supplierUnit: 'Numer lokalu',
-                          supplierPostalCode: 'Kod pocztowy',
-                          supplierCity: 'Miejscowość',
-                          supplierBankAccount: 'Numer konta',
-                          supplierBankName: 'Nazwa banku',
-                          supplierEmail: 'Email',
-                          supplierPhone: 'Telefon',
-                          supplierWebsite: 'Strona WWW'
-                        }}
-                        optionalFields={[
-                          'supplierUnit',
-                          'supplierBankAccount',
-                          'supplierBankName',
-                          'supplierEmail',
-                          'supplierPhone',
-                          'supplierWebsite'
-                        ]}
-                      />
-                    </motion.div>
-                  )}
-
-                  {/* PPE Data */}
-                  {ppeData && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2 }}
-                      className="bg-white rounded-lg shadow p-4"
-                    >
-                      <PPEDataGroup 
-                        data={ppeData}
-                      />
-                    </motion.div>
-                  )}
-
-                  {/* Customer Data */}
-                  {customerData && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3 }}
-                      className="bg-white rounded-lg shadow p-4"
-                    >
-                      <CustomerDataGroup 
-                        data={customerData}
-                      />
-                    </motion.div>
-                  )}
-
-                  {/* Correspondence Data */}
-                  {correspondenceData && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.4 }}
-                      className="bg-white rounded-lg shadow p-4"
-                    >
-                      <CorrespondenceDataGroup 
-                        data={correspondenceData}
-                      />
-                    </motion.div>
-                  )}
-
-                  {/* Billing Data */}
-                  {billingData && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.5 }}
-                      className="bg-white rounded-lg shadow p-4"
-                    >
-                      <BillingDataGroup 
-                        data={billingData}
-                      />
-                    </motion.div>
-                  )}
+        </td>
+      </tr>
+      {isExpanded && (
+        <tr>
+          <td colSpan={6} className="px-6 py-4 border-t border-gray-200">
+            <div className="space-y-6">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-lg font-medium">Dane dostawcy</h3>
+                  <Badge variant="secondary" className={cn(
+                    safeConfidence >= 0.9 ? 'bg-green-50 text-green-700' : 
+                    safeConfidence >= 0.7 ? 'bg-yellow-50 text-yellow-700' : 
+                    'bg-red-50 text-red-700'
+                  )}>
+                    {(safeConfidence * 100).toFixed(1)}%
+                  </Badge>
                 </div>
-              </motion.div>
-            </td>
-          </motion.tr>
-        )}
-      </AnimatePresence>
+                <SupplierDataGroup data={supplierData} />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-lg font-medium">Dane PPE</h3>
+                  <Badge variant="secondary" className={cn(
+                    safeConfidence >= 0.9 ? 'bg-green-50 text-green-700' : 
+                    safeConfidence >= 0.7 ? 'bg-yellow-50 text-yellow-700' : 
+                    'bg-red-50 text-red-700'
+                  )}>
+                    {(safeConfidence * 100).toFixed(1)}%
+                  </Badge>
+                </div>
+                <PPEDataGroup data={ppeData} />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-lg font-medium">Dane klienta</h3>
+                  <Badge variant="secondary" className={cn(
+                    safeConfidence >= 0.9 ? 'bg-green-50 text-green-700' : 
+                    safeConfidence >= 0.7 ? 'bg-yellow-50 text-yellow-700' : 
+                    'bg-red-50 text-red-700'
+                  )}>
+                    {(safeConfidence * 100).toFixed(1)}%
+                  </Badge>
+                </div>
+                <CustomerDataGroup data={customerData} />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-lg font-medium">Adres korespondencyjny</h3>
+                  <Badge variant="secondary" className={cn(
+                    safeConfidence >= 0.9 ? 'bg-green-50 text-green-700' : 
+                    safeConfidence >= 0.7 ? 'bg-yellow-50 text-yellow-700' : 
+                    'bg-red-50 text-red-700'
+                  )}>
+                    {(safeConfidence * 100).toFixed(1)}%
+                  </Badge>
+                </div>
+                <CorrespondenceDataGroup data={correspondenceData} />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-lg font-medium">Dane rozliczeniowe</h3>
+                  <Badge variant="secondary" className={cn(
+                    safeConfidence >= 0.9 ? 'bg-green-50 text-green-700' : 
+                    safeConfidence >= 0.7 ? 'bg-yellow-50 text-yellow-700' : 
+                    'bg-red-50 text-red-700'
+                  )}>
+                    {(safeConfidence * 100).toFixed(1)}%
+                  </Badge>
+                </div>
+                <BillingDataGroup data={billingData} />
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
     </>
   );
 } 
