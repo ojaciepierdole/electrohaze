@@ -55,7 +55,7 @@ export const BillingDataGroup: React.FC<BillingDataGroupProps> = ({ data }) => {
 
         const displayValue = key.includes('Date') 
           ? formatBillingDate(field?.content)
-          : key.includes('Usage') 
+          : key.toLowerCase().includes('usage') 
             ? formatUsage(field?.content)
             : field?.content || '—';
 

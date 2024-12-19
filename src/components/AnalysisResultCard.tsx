@@ -34,7 +34,7 @@ interface AnalysisResultCardProps {
   supplierData: Partial<SupplierData>;
   billingData: Partial<BillingData>;
   usability: boolean;
-  processingTime: ProcessingTime;
+  processingTime?: ProcessingTime;
 }
 
 export function AnalysisResultCard({ 
@@ -144,16 +144,16 @@ export function AnalysisResultCard({
           <div className="text-sm font-medium text-gray-900">
             {supplierData?.supplierName?.content || 'Nieznany dostawca'}
           </div>
-          <div className="text-sm text-gray-500 truncate max-w-[300px]" title={fileName}>
+          <div className="text-sm text-gray-500 truncate max-w-[300px] md:max-w-[400px]" title={fileName}>
             {fileName}
           </div>
         </td>
-        <td className="flex-1 px-6 py-4 text-center">
+        <td className="hidden sm:table-cell flex-1 px-6 py-4 text-center">
           <Badge variant="secondary" className="bg-gray-50 text-gray-600">
             PDF
           </Badge>
         </td>
-        <td className="flex-1 px-6 py-4 text-center">
+        <td className="hidden sm:table-cell flex-1 px-6 py-4 text-center">
           <Badge variant="secondary" className={cn(
             safeConfidence >= 0.9 ? 'bg-green-50 text-green-700' : 
             safeConfidence >= 0.7 ? 'bg-yellow-50 text-yellow-700' : 
@@ -162,7 +162,7 @@ export function AnalysisResultCard({
             {(safeConfidence * 100).toFixed(1)}%
           </Badge>
         </td>
-        <td className="flex-1 px-6 py-4 text-center">
+        <td className="hidden sm:table-cell flex-1 px-6 py-4 text-center">
           <Badge variant="secondary" className={cn(
             safeCompleteness >= 0.8 ? 'bg-green-50 text-green-700' : 
             safeCompleteness >= 0.6 ? 'bg-yellow-50 text-yellow-700' : 
@@ -171,7 +171,7 @@ export function AnalysisResultCard({
             {(safeCompleteness * 100).toFixed(1)}%
           </Badge>
         </td>
-        <td className="flex-1 px-6 py-4 text-center">
+        <td className="hidden sm:table-cell flex-1 px-6 py-4 text-center">
           {usability ? (
             <CheckCircle2 className="w-5 h-5 text-green-500 mx-auto" />
           ) : (
@@ -193,12 +193,43 @@ export function AnalysisResultCard({
           </Button>
         </td>
       </tr>
+      {/* Mobilny pasek statusu */}
+      <tr className="sm:hidden bg-white border-t">
+        <td colSpan={6} className="px-6 py-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Badge variant="secondary" className="bg-gray-50 text-gray-600">
+                PDF
+              </Badge>
+              <Badge variant="secondary" className={cn(
+                safeConfidence >= 0.9 ? 'bg-green-50 text-green-700' : 
+                safeConfidence >= 0.7 ? 'bg-yellow-50 text-yellow-700' : 
+                'bg-red-50 text-red-700'
+              )}>
+                {(safeConfidence * 100).toFixed(1)}%
+              </Badge>
+              <Badge variant="secondary" className={cn(
+                safeCompleteness >= 0.8 ? 'bg-green-50 text-green-700' : 
+                safeCompleteness >= 0.6 ? 'bg-yellow-50 text-yellow-700' : 
+                'bg-red-50 text-red-700'
+              )}>
+                {(safeCompleteness * 100).toFixed(1)}%
+              </Badge>
+            </div>
+            {usability ? (
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
+            ) : (
+              <XCircle className="w-5 h-5 text-red-500" />
+            )}
+          </div>
+        </td>
+      </tr>
       {isExpanded && (
         <tr>
           <td colSpan={6} className="px-6 py-4 border-t border-gray-200">
             <div className="space-y-6">
-              <div>
-                <div className="flex items-center justify-between mb-2">
+              <div className="pb-6">
+                <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-medium">Dane dostawcy</h3>
                   <Badge variant="secondary" className={cn(
                     safeConfidence >= 0.9 ? 'bg-green-50 text-green-700' : 
@@ -211,8 +242,8 @@ export function AnalysisResultCard({
                 <SupplierDataGroup data={supplierData} />
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
+              <div className="border-t border-gray-300 pt-6 pb-6">
+                <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-medium">Dane PPE</h3>
                   <Badge variant="secondary" className={cn(
                     safeConfidence >= 0.9 ? 'bg-green-50 text-green-700' : 
@@ -225,8 +256,8 @@ export function AnalysisResultCard({
                 <PPEDataGroup data={ppeData} />
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
+              <div className="border-t border-gray-300 pt-6 pb-6">
+                <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-medium">Dane klienta</h3>
                   <Badge variant="secondary" className={cn(
                     safeConfidence >= 0.9 ? 'bg-green-50 text-green-700' : 
@@ -239,8 +270,8 @@ export function AnalysisResultCard({
                 <CustomerDataGroup data={customerData} />
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
+              <div className="border-t border-gray-300 pt-6 pb-6">
+                <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-medium">Adres korespondencyjny</h3>
                   <Badge variant="secondary" className={cn(
                     safeConfidence >= 0.9 ? 'bg-green-50 text-green-700' : 
@@ -253,8 +284,8 @@ export function AnalysisResultCard({
                 <CorrespondenceDataGroup data={correspondenceData} />
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
+              <div className="border-t border-gray-300 pt-6 pb-6">
+                <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-medium">Dane rozliczeniowe</h3>
                   <Badge variant="secondary" className={cn(
                     safeConfidence >= 0.9 ? 'bg-green-50 text-green-700' : 
