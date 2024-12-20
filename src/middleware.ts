@@ -1,33 +1,40 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-import type { Database } from '@/types/database'
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-export async function middleware(req: NextRequest) {
-  const res = NextResponse.next()
-  const supabase = createMiddlewareClient<Database>({ req, res })
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+export async function middleware(request: NextRequest) {
+  const startTime = Date.now();
+  const requestId = crypto.randomUUID();
 
-  // Jeśli użytkownik nie jest zalogowany i próbuje dostać się do chronionej strony
-  if (!session && !req.nextUrl.pathname.startsWith('/auth/')) {
-    const redirectUrl = req.nextUrl.clone()
-    redirectUrl.pathname = '/auth/login'
-    redirectUrl.searchParams.set(`redirectedFrom`, req.nextUrl.pathname)
-    return NextResponse.redirect(redirectUrl)
-  }
+  // Loguj request
+  console.log(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    type: 'request',
+    requestId,
+    method: request.method,
+    url: request.url,
+    headers: Object.fromEntries(request.headers)
+  }, null, 2));
 
-  // Jeśli użytkownik jest zalogowany i próbuje dostać się do stron auth
-  if (session && req.nextUrl.pathname.startsWith('/auth/')) {
-    const redirectUrl = req.nextUrl.clone()
-    redirectUrl.pathname = '/'
-    return NextResponse.redirect(redirectUrl)
-  }
+  // Kontynuuj przetwarzanie
+  const response = NextResponse.next();
 
-  return res
+  // Dodaj requestId do response headers
+  response.headers.set('X-Request-ID', requestId);
+
+  // Loguj response
+  const duration = Date.now() - startTime;
+  console.log(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    type: 'response',
+    requestId,
+    status: response.status,
+    duration,
+    headers: Object.fromEntries(response.headers)
+  }, null, 2));
+
+  return response;
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
-} 
+  matcher: '/api/:path*',
+}; 

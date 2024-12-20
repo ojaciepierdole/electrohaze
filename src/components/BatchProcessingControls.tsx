@@ -1,79 +1,78 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback, useState } from 'react';
+import { useDropzone } from 'react-dropzone';
 import { FileList } from '@/components/FileList';
-import { DocumentList } from '@/components/DocumentList';
-import { ModelSelector } from '@/components/ModelSelector';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
-import type { ProcessingResult } from '@/types/processing';
-import type { ModelDefinition } from '@/types/processing';
+import { Card } from '@/components/ui/card';
 
 interface BatchProcessingControlsProps {
-  files: File[];
-  onRemoveFile: (file: File) => void;
-  onStartProcessing: (selectedModels: string[]) => void;
+  onFilesChange: (files: File[]) => void;
   isProcessing: boolean;
-  currentFileIndex?: number;
-  totalFiles?: number;
-  error: string | null;
-  results: ProcessingResult[];
-  models: ModelDefinition[];
-  selectedModels: string[];
-  onModelSelect: (modelId: string) => void;
 }
 
 export function BatchProcessingControls({
-  files,
-  onRemoveFile,
-  onStartProcessing,
-  isProcessing,
-  currentFileIndex,
-  totalFiles,
-  error,
-  results,
-  models,
-  selectedModels,
-  onModelSelect
+  onFilesChange,
+  isProcessing
 }: BatchProcessingControlsProps) {
+  const [files, setFiles] = useState<File[]>([]);
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    setFiles(prev => {
+      const newFiles = [...prev, ...acceptedFiles];
+      onFilesChange(newFiles);
+      return newFiles;
+    });
+  }, [onFilesChange]);
+
+  const removeFile = useCallback((file: File) => {
+    setFiles(prev => {
+      const newFiles = prev.filter(f => f !== file);
+      onFilesChange(newFiles);
+      return newFiles;
+    });
+  }, [onFilesChange]);
+
+  const removeAllFiles = useCallback(() => {
+    setFiles([]);
+    onFilesChange([]);
+  }, [onFilesChange]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'application/pdf': ['.pdf']
+    }
+  });
+
   return (
     <div className="space-y-4">
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+      <Card className="p-4">
+        <div {...getRootProps()} className="space-y-4">
+          <input {...getInputProps()} />
+          <div
+            className={`
+              border-2 border-dashed rounded-lg p-6
+              flex flex-col items-center justify-center gap-2
+              cursor-pointer transition-colors
+              ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'}
+            `}
+          >
+            <p className="text-sm text-center text-muted-foreground">
+              {isDragActive
+                ? 'Upuść pliki tutaj...'
+                : 'Przeciągnij i upuść pliki PDF tutaj lub kliknij aby wybrać'}
+            </p>
+          </div>
+        </div>
+      </Card>
 
-      <div className="space-y-4">
-        <FileList 
-          files={files}
-          isProcessing={isProcessing}
-        />
-
-        <ModelSelector
-          models={models}
-          selectedModels={selectedModels}
-          onSelect={onModelSelect}
-          disabled={isProcessing}
-        />
-
-        <Button
-          onClick={() => onStartProcessing(selectedModels)}
-          disabled={files.length === 0 || selectedModels.length === 0 || isProcessing}
-          className="w-full"
-        >
-          {isProcessing ? 'Przetwarzanie...' : 'Rozpocznij przetwarzanie'}
-        </Button>
-      </div>
-
-      {results.length > 0 && (
-        <DocumentList
-          documents={results}
-          isProcessing={isProcessing}
-        />
-      )}
+      <FileList 
+        files={files}
+        onRemove={removeFile}
+        onRemoveAll={removeAllFiles}
+        isProcessing={isProcessing}
+      />
     </div>
   );
 } 

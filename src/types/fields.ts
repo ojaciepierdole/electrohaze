@@ -320,4 +320,35 @@ export interface ConsumptionData extends BaseFieldGroup {
   ConsumptionTrend?: FieldWithConfidence;
   PeakUsage?: FieldWithConfidence;
 }
+
+export enum FieldType {
+  Text = 'text',
+  Number = 'number',
+  Date = 'date',
+  Time = 'time',
+  PhoneNumber = 'phoneNumber',
+  Address = 'address',
+  SelectionMark = 'selectionMark',
+  CountryRegion = 'countryRegion',
+  Signature = 'signature',
+  Array = 'array',
+  Object = 'object'
+}
+
+export interface FieldDefinition {
+  name: string;
+  type: FieldType;
+  isRequired: boolean;
+  description: string;
+  group: string;
+}
+
+export interface ModelDefinition {
+  id: string;
+  name: string;
+  description: string;
+  fields: FieldDefinition[];
+  isCustom: boolean;
+  status: 'ready' | 'training' | 'error';
+}
  

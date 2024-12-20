@@ -18,19 +18,11 @@ export class Logger {
   private logs: LogEntry[] = [];
   private options: LoggerOptions;
 
-  private readonly LOG_LEVELS: Record<LogLevel, number> = {
-    debug: 0,
-    info: 1,
-    warn: 2,
-    error: 3
-  };
-
   private constructor(options: Partial<LoggerOptions> = {}) {
     this.options = {
-      minLevel: 'info',
-      enableConsole: true,
-      maxEntries: 1000,
-      ...options
+      minLevel: options.minLevel || 'info',
+      enableConsole: options.enableConsole ?? true,
+      maxEntries: options.maxEntries || 1000
     };
   }
 
@@ -41,36 +33,61 @@ export class Logger {
     return Logger.instance;
   }
 
-  private formatMessage(entry: LogEntry): string {
-    const context = entry.context ? ` | ${JSON.stringify(entry.context)}` : '';
-    return `[${entry.timestamp}] ${entry.level.toUpperCase()}: ${entry.message}${context}`;
-  }
-
   private shouldLog(level: LogLevel): boolean {
-    return this.LOG_LEVELS[level] >= this.LOG_LEVELS[this.options.minLevel];
+    const levels: LogLevel[] = ['debug', 'info', 'warn', 'error'];
+    return levels.indexOf(level) >= levels.indexOf(this.options.minLevel);
   }
 
-  private addEntry(level: LogLevel, message: string, context?: Record<string, unknown>): void {
-    if (!this.shouldLog(level)) return;
+  private formatMessage(entry: LogEntry): string {
+    return JSON.stringify({
+      ...entry,
+      context: entry.context ? this.sanitizeContext(entry.context) : undefined
+    }, null, 2);
+  }
 
-    const entry: LogEntry = {
-      timestamp: new Date().toISOString(),
-      level,
-      message,
-      context
-    };
+  private sanitizeContext(context: Record<string, unknown>): Record<string, unknown> {
+    const sanitized: Record<string, unknown> = {};
+    
+    for (const [key, value] of Object.entries(context)) {
+      // Usuń wrażliwe dane
+      if (key.toLowerCase().includes('password') || 
+          key.toLowerCase().includes('token') ||
+          key.toLowerCase().includes('key')) {
+        sanitized[key] = '[REDACTED]';
+      } else if (value instanceof Error) {
+        sanitized[key] = {
+          name: value.name,
+          message: value.message,
+          stack: value.stack
+        };
+      } else if (value instanceof Request || value instanceof Response) {
+        sanitized[key] = `[${value.constructor.name}]`;
+      } else if (value instanceof FormData) {
+        sanitized[key] = Object.fromEntries(value);
+      } else if (value instanceof Blob || value instanceof File) {
+        sanitized[key] = {
+          type: value.type,
+          size: value.size
+        };
+      } else {
+        sanitized[key] = value;
+      }
+    }
 
+    return sanitized;
+  }
+
+  private addEntry(entry: LogEntry) {
     this.logs.push(entry);
-
-    // Ogranicz liczbę przechowywanych logów
+    
+    // Usuń stare logi jeśli przekroczono limit
     if (this.logs.length > this.options.maxEntries) {
       this.logs = this.logs.slice(-this.options.maxEntries);
     }
 
-    // Logowanie do konsoli
     if (this.options.enableConsole) {
       const formattedMessage = this.formatMessage(entry);
-      switch (level) {
+      switch (entry.level) {
         case 'debug':
           console.debug(formattedMessage);
           break;
@@ -87,83 +104,55 @@ export class Logger {
     }
   }
 
-  debug(message: string, context?: Record<string, unknown>): void {
-    this.addEntry('debug', message, context);
-  }
-
-  info(message: string, context?: Record<string, unknown>): void {
-    this.addEntry('info', message, context);
-  }
-
-  warn(message: string, context?: Record<string, unknown>): void {
-    this.addEntry('warn', message, context);
-  }
-
-  error(message: string, context?: Record<string, unknown>): void {
-    this.addEntry('error', message, context);
-  }
-
-  getLogEntries(options: {
-    level?: LogLevel;
-    startTime?: Date;
-    endTime?: Date;
-    limit?: number;
-  } = {}): LogEntry[] {
-    let filtered = this.logs;
-
-    if (options.level) {
-      filtered = filtered.filter(entry => entry.level === options.level);
+  debug(message: string, context?: Record<string, unknown>) {
+    if (this.shouldLog('debug')) {
+      this.addEntry({
+        timestamp: new Date().toISOString(),
+        level: 'debug',
+        message,
+        context
+      });
     }
-
-    if (options.startTime) {
-      filtered = filtered.filter(entry => 
-        new Date(entry.timestamp) >= options.startTime!
-      );
-    }
-
-    if (options.endTime) {
-      filtered = filtered.filter(entry => 
-        new Date(entry.timestamp) <= options.endTime!
-      );
-    }
-
-    if (options.limit) {
-      filtered = filtered.slice(-options.limit);
-    }
-
-    return filtered;
   }
 
-  clearLogs(): void {
+  info(message: string, context?: Record<string, unknown>) {
+    if (this.shouldLog('info')) {
+      this.addEntry({
+        timestamp: new Date().toISOString(),
+        level: 'info',
+        message,
+        context
+      });
+    }
+  }
+
+  warn(message: string, context?: Record<string, unknown>) {
+    if (this.shouldLog('warn')) {
+      this.addEntry({
+        timestamp: new Date().toISOString(),
+        level: 'warn',
+        message,
+        context
+      });
+    }
+  }
+
+  error(message: string, context?: Record<string, unknown>) {
+    if (this.shouldLog('error')) {
+      this.addEntry({
+        timestamp: new Date().toISOString(),
+        level: 'error',
+        message,
+        context
+      });
+    }
+  }
+
+  getRecentLogs(count: number = 100): LogEntry[] {
+    return this.logs.slice(-count);
+  }
+
+  clearLogs() {
     this.logs = [];
-  }
-
-  setMinLevel(level: LogLevel): void {
-    this.options.minLevel = level;
-  }
-
-  getStats(): {
-    totalEntries: number;
-    entriesByLevel: Record<LogLevel, number>;
-    oldestEntry?: string;
-    newestEntry?: string;
-  } {
-    const entriesByLevel = {
-      debug: 0,
-      info: 0,
-      warn: 0,
-      error: 0
-    };
-
-    this.logs.forEach(entry => {
-      entriesByLevel[entry.level]++;
-    });
-
-    return {
-      totalEntries: this.logs.length,
-      entriesByLevel,
-      oldestEntry: this.logs[0]?.timestamp,
-      newestEntry: this.logs[this.logs.length - 1]?.timestamp
-    };
   }
 } 

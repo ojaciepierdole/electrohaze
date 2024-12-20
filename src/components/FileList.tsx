@@ -1,80 +1,87 @@
 'use client';
 
-import React from 'react';
-import { File, X } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import React, { useEffect, useState } from 'react';
+import { ChevronDown, ChevronUp, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 interface FileListProps {
-  files: Array<File>;
-  onRemove?: (file: File) => void;
+  files: File[];
+  onRemove: (file: File) => void;
+  onRemoveAll: () => void;
   isProcessing: boolean;
 }
 
-export function FileList({ files, onRemove, isProcessing }: FileListProps) {
-  const [isCollapsed, setIsCollapsed] = React.useState(false);
+export function FileList({
+  files,
+  onRemove,
+  onRemoveAll,
+  isProcessing
+}: FileListProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isProcessing) {
       setIsCollapsed(true);
     }
   }, [isProcessing]);
 
-  return (
-    <Collapsible
-      open={!isCollapsed}
-      onOpenChange={setIsCollapsed}
-      className="w-full space-y-2"
-    >
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">
-          Załadowano {files.length} {files.length === 1 ? 'plik' : files.length < 5 ? 'pliki' : 'plików'}
-        </h3>
-        <CollapsibleTrigger asChild>
-          <Button variant="ghost" size="sm">
-            {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-          </Button>
-        </CollapsibleTrigger>
-      </div>
+  if (!files.length) return null;
 
-      <CollapsibleContent>
-        <ScrollArea className="h-[200px] rounded-md border">
-          <div className="space-y-1 p-4">
-            {files.map((file, index) => (
+  return (
+    <div className="w-full space-y-2">
+      <div className="flex items-center justify-between">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+        >
+          <div className="flex items-center gap-2">
+            {isCollapsed ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronUp className="h-4 w-4" />
+            )}
+            <span>Pliki ({files.length})</span>
+          </div>
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2 text-destructive"
+          onClick={onRemoveAll}
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          <span>Usuń wszystkie</span>
+        </Button>
+      </div>
+      {!isCollapsed && (
+        <ScrollArea className="h-[200px] w-full rounded-md border">
+          <div className="p-4 space-y-2">
+            {files.map((file, i) => (
               <div
-                key={`${file.name}-${index}`}
-                className="flex items-center justify-between rounded-lg border border-transparent bg-white/50 p-2 hover:bg-white/80"
-              >
-                <div className="flex items-center gap-2">
-                  <File className="h-4 w-4 text-muted-foreground" />
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">{file.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {(file.size / 1024).toFixed(1)} KB
-                    </span>
-                  </div>
-                </div>
-                {onRemove && !isProcessing && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRemove(file);
-                    }}
-                    className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    <X className="h-4 w-4" />
-                    <span className="sr-only">Usuń plik</span>
-                  </Button>
+                key={i}
+                className={cn(
+                  "flex items-center justify-between p-2 rounded-lg",
+                  "bg-muted/50 hover:bg-muted/80"
                 )}
+              >
+                <span className="text-sm font-medium">{file.name}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => onRemove(file)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
             ))}
           </div>
         </ScrollArea>
-      </CollapsibleContent>
-    </Collapsible>
+      )}
+    </div>
   );
 } 

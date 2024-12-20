@@ -1,84 +1,58 @@
 import type { ProcessingResult } from '@/types/processing';
 
-interface CacheEntry {
-  result: ProcessingResult;
-  timestamp: number;
-}
-
 class CacheManager {
-  private cache: Map<string, CacheEntry> = new Map();
-  private readonly CACHE_DURATION = 1000 * 60 * 60; // 1 godzina
-  private readonly MAX_SIZE = 1000; // Maksymalna liczba wpisów w cache
+  private static instance: CacheManager;
+  private cache: Map<string, Map<string, ProcessingResult>>;
+  private sessionCache: Map<string, string[]>;
 
-  private generateKey(fileName: string, modelId: string): string {
-    return `${fileName}:${modelId}`;
+  private constructor() {
+    this.cache = new Map();
+    this.sessionCache = new Map();
   }
 
-  set(fileName: string, modelId: string, result: ProcessingResult): void {
-    const key = this.generateKey(fileName, modelId);
-    
-    // Jeśli cache jest pełny, usuń najstarszy wpis
-    if (this.cache.size >= this.MAX_SIZE) {
-      const oldestKey = Array.from(this.cache.entries())
-        .sort(([, a], [, b]) => a.timestamp - b.timestamp)[0][0];
-      this.cache.delete(oldestKey);
+  static getInstance(): CacheManager {
+    if (!CacheManager.instance) {
+      CacheManager.instance = new CacheManager();
     }
-    
-    this.cache.set(key, {
-      result,
-      timestamp: Date.now()
-    });
+    return CacheManager.instance;
   }
 
-  get(fileName: string, modelId: string): ProcessingResult | null {
-    const key = this.generateKey(fileName, modelId);
-    const entry = this.cache.get(key);
-
-    if (!entry) {
-      return null;
+  set(fileName: string, modelId: string, result: ProcessingResult, sessionId?: string) {
+    if (!this.cache.has(fileName)) {
+      this.cache.set(fileName, new Map());
     }
+    this.cache.get(fileName)!.set(modelId, result);
 
-    // Sprawdź czy cache nie wygasł
-    if (Date.now() - entry.timestamp > this.CACHE_DURATION) {
-      this.cache.delete(key);
-      return null;
-    }
-
-    return entry.result;
-  }
-
-  clear(): void {
-    this.cache.clear();
-  }
-
-  // Usuń przeterminowane wpisy
-  cleanup(): void {
-    const now = Date.now();
-    Array.from(this.cache.entries()).forEach(([key, entry]) => {
-      if (now - entry.timestamp > this.CACHE_DURATION) {
-        this.cache.delete(key);
+    if (sessionId) {
+      if (!this.sessionCache.has(sessionId)) {
+        this.sessionCache.set(sessionId, []);
       }
-    });
+      this.sessionCache.get(sessionId)!.push(fileName);
+    }
   }
 
-  // Gettery dla właściwości cache
-  get size(): number {
-    return this.cache.size;
+  get(fileName: string, modelId: string): ProcessingResult | undefined {
+    return this.cache.get(fileName)?.get(modelId);
   }
 
-  get maxSize(): number {
-    return this.MAX_SIZE;
+  getBySessionId(sessionId: string): ProcessingResult[] {
+    const fileNames = this.sessionCache.get(sessionId) || [];
+    const results: ProcessingResult[] = [];
+
+    for (const fileName of fileNames) {
+      const modelResults = this.cache.get(fileName);
+      if (modelResults) {
+        results.push(...Array.from(modelResults.values()));
+      }
+    }
+
+    return results;
   }
 
-  get ttl(): number {
-    return this.CACHE_DURATION / 1000; // Zwracamy w sekundach
+  clear() {
+    this.cache.clear();
+    this.sessionCache.clear();
   }
 }
 
-// Singleton instance
-export const cacheManager = new CacheManager();
-
-// Automatyczne czyszczenie cache co godzinę
-setInterval(() => {
-  cacheManager.cleanup();
-}, 1000 * 60 * 60); 
+export const cacheManager = CacheManager.getInstance(); 

@@ -1,17 +1,26 @@
 import type { DocumentField } from './processing';
 
-export interface ModelResult {
-  modelId: string;
-  fields: Record<string, DocumentField>;
-  confidence: number;
-  pageCount: number;
-}
-
-export interface ModelDefinition {
+export interface Model {
   id: string;
   name: string;
-  description?: string;
-  version?: string;
-  type?: string;
-  metadata?: Record<string, unknown>;
+  description: string;
+  fields: string[];
+  version: string;
+  isCustom: boolean;
+  status: 'ready' | 'training' | 'error';
+}
+
+export interface ModelDetails extends Model {
+  createdDateTime: string;
+  expirationDateTime: string;
+  apiVersion: string;
+  docTypes: Record<string, {
+    fieldSchema: Record<string, unknown>;
+    buildMode: string;
+  }>;
+}
+
+export interface ModelCache {
+  models: Model[];
+  timestamp: number;
 } 
