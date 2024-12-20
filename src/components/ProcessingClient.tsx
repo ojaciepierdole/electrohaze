@@ -3,20 +3,20 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { Progress } from '@/components/ui/progress';
-import { Card } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { ModelSelector } from './ModelSelector';
-import { AnalysisResultCard } from './AnalysisResultCard';
-import { AnalysisResult } from '@/lib/types';
 import type { Model } from '@/types/models';
-import { ChevronDown, ChevronUp, Upload, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, FileText } from 'lucide-react';
+import { useDropzone } from 'react-dropzone';
+import { DocumentList } from '@/components/DocumentList';
+import { cn } from '@/lib/utils';
 
 export function ProcessingClient() {
   const { toast } = useToast();
   const [files, setFiles] = useState<File[]>([]);
   const [models, setModels] = useState<Model[]>([]);
   const [selectedModel, setSelectedModel] = useState<string | null>(() => {
-    // Wczytaj zapisany wybór modelu
     if (typeof window !== 'undefined') {
       return localStorage.getItem('selectedModel');
     }
@@ -24,18 +24,23 @@ export function ProcessingClient() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [progress, setProgress] = useState(0);
-  const [results, setResults] = useState<AnalysisResult[]>([]);
+  const [results, setResults] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isFilesExpanded, setIsFilesExpanded] = useState(true);
+  const [fileStats, setFileStats] = useState<{
+    count: number;
+    types: string[];
+    totalSize: number;
+    processingTime?: number;
+    startTime?: number;
+  } | null>(null);
 
-  // Załaduj listę modeli
   useEffect(() => {
     loadModels();
   }, []);
 
-  // Zapisz wybór modelu
   useEffect(() => {
     if (typeof window !== 'undefined' && selectedModel) {
       localStorage.setItem('selectedModel', selectedModel);
@@ -63,22 +68,52 @@ export function ProcessingClient() {
     }
   };
 
-  const handleFileSelect = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(event.target.files || []);
-    setFiles(prev => [...prev, ...selectedFiles]);
-    // Tymczasowo wyłączone buforowanie plików
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    setFiles(prev => [...prev, ...acceptedFiles]);
+    const types = Array.from(new Set(acceptedFiles.map(file => file.type)));
+    const totalSize = acceptedFiles.reduce((sum, file) => sum + file.size, 0);
+    setFileStats(prev => ({
+      count: (prev?.count || 0) + acceptedFiles.length,
+      types: [...new Set([...(prev?.types || []), ...types])],
+      totalSize: (prev?.totalSize || 0) + totalSize,
+    }));
   }, []);
 
-  // Usuwanie plików
-  const removeFile = useCallback((file: File) => {
-    setFiles(prev => prev.filter(f => f !== file));
-  }, []);
+  const { getRootProps, getInputProps } = useDropzone({
+    onDrop,
+    multiple: true,
+    accept: {
+      'application/pdf': ['.pdf']
+    }
+  });
+
+  const removeFile = useCallback((index: number) => {
+    setFiles(prev => {
+      const newFiles = [...prev];
+      const removedFile = newFiles[index];
+      newFiles.splice(index, 1);
+      
+      // Aktualizuj statystyki
+      if (fileStats) {
+        const newTotalSize = fileStats.totalSize - removedFile.size;
+        const remainingTypes = Array.from(new Set(newFiles.map(f => f.type)));
+        setFileStats({
+          ...fileStats,
+          count: newFiles.length,
+          types: remainingTypes,
+          totalSize: newTotalSize,
+        });
+      }
+      
+      return newFiles;
+    });
+  }, [fileStats]);
 
   const removeAllFiles = useCallback(() => {
     setFiles([]);
+    setFileStats(null);
   }, []);
 
-  // Rozpoczęcie przetwarzania
   const startProcessing = async () => {
     if (!files.length || !selectedModel) {
       toast({
@@ -90,18 +125,18 @@ export function ProcessingClient() {
     }
 
     setIsProcessing(true);
-    setIsFilesExpanded(false);
     setProgress(0);
     setResults([]);
     setError(null);
+    setIsFilesExpanded(false);
+    
+    // Zapisz czas rozpoczęcia
+    const startTime = Date.now();
+    setFileStats(prev => prev ? { ...prev, startTime } : null);
 
     const formData = new FormData();
     files.forEach(file => formData.append('files', file));
     formData.append('models[]', selectedModel);
-
-    console.log('Wysyłane pliki:', files.map(f => f.name));
-    console.log('Wysyłany model:', selectedModel);
-    console.log('FormData keys:', Array.from(formData.keys()));
 
     try {
       const response = await fetch('/api/analyze/batch', {
@@ -115,14 +150,11 @@ export function ProcessingClient() {
       }
 
       const data = await response.json();
-      console.log('Odpowiedź z serwera:', data);
-      
       if (!data.sessionId) {
         throw new Error('Nie otrzymano identyfikatora sesji');
       }
 
       setSessionId(data.sessionId);
-      // Dodajemy opóźnienie przed rozpoczęciem pollingu
       await new Promise(resolve => setTimeout(resolve, 1000));
       pollProgress(data.sessionId);
 
@@ -139,48 +171,20 @@ export function ProcessingClient() {
     }
   };
 
-  // Polling postępu
   const pollProgress = async (sid: string) => {
-    let retryCount = 0;
-    const maxRetries = 15;
-    const retryDelay = 2000;
-
     const poll = async () => {
       try {
-        console.log(`[${new Date().toISOString()}] Próba pobrania postępu (${retryCount + 1}/${maxRetries}), sessionId: ${sid}`);
         const response = await fetch(`/api/analyze/progress?sessionId=${sid}`);
         
         if (!response.ok) {
-          console.error(`[${new Date().toISOString()}] Błąd odpowiedzi:`, {
-            status: response.status,
-            statusText: response.statusText,
-            sessionId: sid
-          });
-          
-          if (response.status === 404) {
-            console.log(`[${new Date().toISOString()}] Sesja ${sid} nie jest jeszcze gotowa`);
-            if (retryCount < maxRetries) {
-              retryCount++;
-              await new Promise(resolve => setTimeout(resolve, retryDelay));
-              return poll();
-            } else {
-              throw new Error('Przekroczono limit prób pobierania postępu');
-            }
-          }
           throw new Error(`Błąd podczas pobierania postępu: ${response.status}`);
         }
 
-        // Resetujemy licznik prób po udanym żądaniu
-        retryCount = 0;
-        
         const data = await response.json();
-        console.log(`[${new Date().toISOString()}] Otrzymane dane:`, data);
         
         if (data.error) {
-          console.error('Błąd postępu:', data.error);
           setError(data.error);
           setIsProcessing(false);
-          setIsFilesExpanded(true);
           toast({
             title: 'Błąd',
             description: data.error,
@@ -189,15 +193,17 @@ export function ProcessingClient() {
           return;
         }
 
-        if (data.progress !== undefined && data.progress > progress) {
-          setProgress(data.progress);
-        }
+        setProgress(data.progress || 0);
 
         if (data.status === 'success') {
-          console.log('Status success - pobieram wyniki');
-          setProgress(100);
-          await new Promise(resolve => setTimeout(resolve, 500));
+          const endTime = Date.now();
+          const processingTime = endTime - (fileStats?.startTime || endTime);
           
+          setFileStats(prev => prev ? {
+            ...prev,
+            processingTime
+          } : null);
+
           try {
             const resultsResponse = await fetch(`/api/analyze/results?sessionId=${sid}`);
             if (!resultsResponse.ok) {
@@ -205,16 +211,12 @@ export function ProcessingClient() {
             }
             
             const resultsData = await resultsResponse.json();
-            console.log('Pobrane wyniki:', resultsData);
-            
             if (!resultsData.results || resultsData.results.length === 0) {
-              console.error('Otrzymano pustą tablicę wyników');
               throw new Error('Nie otrzymano żadnych wyników analizy');
             }
 
             setResults(resultsData.results);
             setIsProcessing(false);
-            setIsFilesExpanded(true);
             setFiles([]); // Czyścimy listę plików po zakończeniu analizy
             toast({
               title: 'Sukces',
@@ -222,27 +224,13 @@ export function ProcessingClient() {
               variant: 'default'
             });
           } catch (error) {
-            console.error('Błąd podczas pobierania wyników:', error);
-            setIsProcessing(false);
-            setIsFilesExpanded(true);
-            toast({
-              title: 'Błąd',
-              description: error instanceof Error ? error.message : 'Wystąpił błąd podczas pobierania wyników.',
-              variant: 'destructive'
-            });
+            handleError(error);
           }
           return;
         }
 
         if (data.status === 'error') {
-          setError(data.error || 'Wystąpił błąd podczas przetwarzania');
-          setIsProcessing(false);
-          setIsFilesExpanded(true);
-          toast({
-            title: 'Błąd',
-            description: data.error || 'Wystąpił błąd podczas przetwarzania',
-            variant: 'destructive'
-          });
+          handleError(data.error || 'Wystąpił błąd podczas przetwarzania');
           return;
         }
 
@@ -251,134 +239,145 @@ export function ProcessingClient() {
         poll();
 
       } catch (error) {
-        console.error('Błąd podczas pollingu:', error);
-        setError('Wystąpił błąd podczas przetwarzania');
-        setIsProcessing(false);
-        setIsFilesExpanded(true);
-        toast({
-          title: 'Błąd',
-          description: 'Wystąpił błąd podczas przetwarzania.',
-          variant: 'destructive'
-        });
+        handleError(error);
       }
     };
 
-    // Rozpocznij polling
     poll();
   };
 
+  const handleError = (error: any) => {
+    console.error('Błąd:', error);
+    setError(error instanceof Error ? error.message : 'Wystąpił błąd');
+    setIsProcessing(false);
+    toast({
+      title: 'Błąd',
+      description: error instanceof Error ? error.message : 'Wystąpił błąd',
+      variant: 'destructive'
+    });
+  };
+
   return (
-    <div className="container max-w-3xl mx-auto space-y-4">
-      {/* Selektor modeli */}
-      <ModelSelector
-        models={models}
-        selectedModel={selectedModel}
-        onSelectionChange={setSelectedModel}
-        isLoading={isLoading}
-        disabled={isProcessing}
-      />
-
-      {/* Przycisk wgrywania plików */}
-      <Card className="p-4">
-        <div className="space-y-4">
-          <input
-            type="file"
-            multiple
-            accept=".pdf"
-            onChange={handleFileSelect}
-            className="hidden"
-            id="file-upload"
-          />
-          <Button
-            onClick={() => document.getElementById('file-upload')?.click()}
-            className="w-full"
-            disabled={isProcessing}
-          >
-            <Upload className="w-4 h-4 mr-2" />
-            Wgraj pliki
-          </Button>
-        </div>
-      </Card>
-
-      {/* Lista plików */}
-      {files.length > 0 && (
-        <Card className="p-4">
-          <div className="space-y-2">
-            <div
-              onClick={() => setIsFilesExpanded(!isFilesExpanded)}
-              className="flex justify-between items-center w-full hover:bg-gray-50 p-2 rounded-md cursor-pointer"
-            >
-              <div className="flex items-center gap-2">
-                {isFilesExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                <h3 className="text-sm font-medium">Pliki ({files.length})</h3>
-              </div>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeAllFiles();
-                }}
-                disabled={isProcessing}
-                className="flex items-center gap-1"
-              >
-                <X className="h-4 w-4" />
-                Usuń wszystkie
-              </Button>
+    <div className="w-full max-w-3xl mx-auto space-y-4">
+      <div className={cn(
+        "bg-slate-100 rounded-lg p-4 transition-all duration-300",
+        !isFilesExpanded && "cursor-pointer hover:bg-slate-200"
+      )}>
+        {/* Header z podstawowymi informacjami */}
+        <div 
+          className="flex items-center justify-between"
+          onClick={() => !isProcessing && setIsFilesExpanded(!isFilesExpanded)}
+        >
+          <div className="flex items-center space-x-4">
+            <FileText className="h-5 w-5 text-slate-600" />
+            <div>
+              {fileStats ? (
+                <div className="text-sm text-slate-600">
+                  <span className="font-medium">{fileStats.count} {fileStats.count === 1 ? 'plik' : 'pliki'}</span>
+                  <span className="mx-2">•</span>
+                  <span>{(fileStats.totalSize / 1024 / 1024).toFixed(2)} MB</span>
+                  {fileStats.processingTime && (
+                    <>
+                      <span className="mx-2">•</span>
+                      <span>{(fileStats.processingTime / 1000).toFixed(2)}s</span>
+                    </>
+                  )}
+                  {isProcessing && (
+                    <>
+                      <span className="mx-2">•</span>
+                      <span className="text-blue-600">Przetwarzanie: {progress}%</span>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <span className="text-sm text-slate-600">Wybierz pliki do analizy</span>
+              )}
             </div>
-            {isFilesExpanded && (
-              <div className="divide-y max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                {files.map((file, index) => (
-                  <div key={index} className="flex justify-between items-center py-2 px-1 hover:bg-gray-50">
-                    <span className="text-sm truncate flex-1 mr-2">{file.name}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeFile(file)}
-                      disabled={isProcessing}
-                      className="h-8 w-8 text-gray-500 hover:text-red-600 hover:bg-red-50 shrink-0"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+          </div>
+          {!isProcessing && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsFilesExpanded(!isFilesExpanded);
+              }}
+            >
+              {isFilesExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          )}
+        </div>
+
+        {/* Rozwinięta zawartość */}
+        {isFilesExpanded && (
+          <div className="mt-4 space-y-4">
+            <ModelSelector
+              models={models}
+              selectedModel={selectedModel}
+              onSelectionChange={setSelectedModel}
+              isLoading={isLoading}
+              disabled={isProcessing}
+            />
+
+            <div {...getRootProps()} className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-slate-50 transition-colors">
+              <input {...getInputProps()} />
+              <p className="text-sm text-slate-600">
+                Przeciągnij i upuść pliki PDF tutaj lub kliknij, aby wybrać
+              </p>
+            </div>
+
+            {files.length > 0 && (
+              <div className="space-y-4">
+                <div className="bg-white rounded-lg border">
+                  <ScrollArea className="h-[200px]">
+                    <DocumentList files={files} onRemove={removeFile} />
+                  </ScrollArea>
+                </div>
+
+                <div className="flex justify-end gap-3">
+                  <Button
+                    variant="outline"
+                    size="default"
+                    onClick={removeAllFiles}
+                    disabled={isProcessing}
+                    className="w-[140px]"
+                  >
+                    Usuń wszystkie
+                  </Button>
+                  <Button
+                    onClick={startProcessing}
+                    disabled={isProcessing || !selectedModel}
+                    className="w-[140px]"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Przetwarzanie...
+                      </>
+                    ) : (
+                      'Rozpocznij analizę'
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Pasek postępu */}
+            {isProcessing && (
+              <div className="space-y-2 bg-white rounded-lg p-4 border">
+                <div className="flex justify-between text-sm text-slate-600">
+                  <span>Postęp analizy</span>
+                  <span>{progress}%</span>
+                </div>
+                <Progress value={progress} className="h-2" />
               </div>
             )}
           </div>
-        </Card>
-      )}
-
-      {/* Przycisk rozpoczęcia przetwarzania */}
-      <div className="flex justify-end">
-        <Button
-          onClick={startProcessing}
-          disabled={isProcessing || !files.length || !selectedModel}
-        >
-          {isProcessing ? 'Przetwarzanie...' : 'Rozpocznij analizę'}
-        </Button>
+        )}
       </div>
 
-      {/* Pasek postępu */}
-      {isProcessing && (
-        <Card className="p-4">
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">Postęp analizy</span>
-              <span className="text-sm text-muted-foreground">{progress}%</span>
-            </div>
-            <Progress value={progress} className="h-2" />
-          </div>
-        </Card>
-      )}
-
-      {/* Wyniki */}
-      {results.length > 0 && (
-        <div className="space-y-4">
-          {results.map((result, index) => (
-            <AnalysisResultCard key={index} result={result} />
-          ))}
-        </div>
-      )}
+      {/* Wyniki analizy */}
+      {sessionId && <DocumentList results={results} />}
     </div>
   );
 } 
