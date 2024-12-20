@@ -8,6 +8,7 @@ interface CacheEntry {
 class CacheManager {
   private cache: Map<string, CacheEntry> = new Map();
   private readonly CACHE_DURATION = 1000 * 60 * 60; // 1 godzina
+  private readonly MAX_SIZE = 1000; // Maksymalna liczba wpisów w cache
 
   private generateKey(fileName: string, modelId: string): string {
     return `${fileName}:${modelId}`;
@@ -15,6 +16,14 @@ class CacheManager {
 
   set(fileName: string, modelId: string, result: ProcessingResult): void {
     const key = this.generateKey(fileName, modelId);
+    
+    // Jeśli cache jest pełny, usuń najstarszy wpis
+    if (this.cache.size >= this.MAX_SIZE) {
+      const oldestKey = Array.from(this.cache.entries())
+        .sort(([, a], [, b]) => a.timestamp - b.timestamp)[0][0];
+      this.cache.delete(oldestKey);
+    }
+    
     this.cache.set(key, {
       result,
       timestamp: Date.now()
@@ -50,6 +59,19 @@ class CacheManager {
         this.cache.delete(key);
       }
     });
+  }
+
+  // Gettery dla właściwości cache
+  get size(): number {
+    return this.cache.size;
+  }
+
+  get maxSize(): number {
+    return this.MAX_SIZE;
+  }
+
+  get ttl(): number {
+    return this.CACHE_DURATION / 1000; // Zwracamy w sekundach
   }
 }
 

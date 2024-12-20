@@ -1,4 +1,5 @@
 import type { FieldWithConfidence, DocumentField } from './processing';
+import type { LucideIcon } from 'lucide-react';
 
 /**
  * Dane punktu poboru energii (PPE)
@@ -71,9 +72,6 @@ export interface SupplierData {
   supplierUnit?: FieldWithConfidence;
   supplierPostalCode?: FieldWithConfidence;
   supplierCity?: FieldWithConfidence;
-  supplierProvince?: FieldWithConfidence;
-  supplierMunicipality?: FieldWithConfidence;
-  supplierDistrict?: FieldWithConfidence;
   supplierBankAccount?: FieldWithConfidence;
   supplierBankName?: FieldWithConfidence;
   supplierEmail?: FieldWithConfidence;
@@ -92,6 +90,24 @@ export interface BillingData {
   BillingEndDate?: FieldWithConfidence;
   BilledUsage?: FieldWithConfidence;
   '12mUsage'?: FieldWithConfidence;
+  ReadingType?: FieldWithConfidence;
+  ProductName?: FieldWithConfidence;
+  InvoiceType?: FieldWithConfidence;
+  BillBreakdown?: FieldWithConfidence;
+  EnergySaleBreakdown?: FieldWithConfidence;
+}
+
+/**
+ * Dane konsumpcji
+ */
+export interface ConsumptionData {
+  [key: string]: FieldWithConfidence | undefined;
+  BilledUsage?: FieldWithConfidence;
+  '12mUsage'?: FieldWithConfidence;
+  ReadingType?: FieldWithConfidence;
+  ConsumptionHistory?: FieldWithConfidence;
+  ConsumptionTrend?: FieldWithConfidence;
+  PeakUsage?: FieldWithConfidence;
 }
 
 // Komponenty adresowe
@@ -195,8 +211,113 @@ export const AZURE_FIELDS = {
     'InvoiceType',
     'BillBreakdown',
     'EnergySaleBreakdown'
+  ],
+  consumption_info: [
+    'BilledUsage',
+    '12mUsage',
+    'ReadingType'
   ]
 } as const;
 
 export type FieldGroupKey = keyof typeof AZURE_FIELDS;
+
+export interface FieldGroup {
+  name: FieldGroupKey;
+  label: string;
+  icon: LucideIcon;
+  fields: string[];
+  requiredFields: string[];
+}
+
+export type FieldName = string;
+
+// Interfejsy dla grup pól
+export interface BaseFieldGroup {
+  [key: string]: FieldWithConfidence | undefined;
+}
+
+export interface PPEData extends BaseFieldGroup {
+  ppeNum?: FieldWithConfidence;
+  MeterNumber?: FieldWithConfidence;
+  TariffGroup?: FieldWithConfidence;
+  ContractNumber?: FieldWithConfidence;
+  ContractType?: FieldWithConfidence;
+  dpStreet?: FieldWithConfidence;
+  dpBuilding?: FieldWithConfidence;
+  dpUnit?: FieldWithConfidence;
+  dpPostalCode?: FieldWithConfidence;
+  dpCity?: FieldWithConfidence;
+  dpProvince?: FieldWithConfidence;
+  dpMunicipality?: FieldWithConfidence;
+  dpDistrict?: FieldWithConfidence;
+  dpMeterID?: FieldWithConfidence;
+}
+
+export interface CustomerData extends BaseFieldGroup {
+  FirstName?: FieldWithConfidence;
+  LastName?: FieldWithConfidence;
+  BusinessName?: FieldWithConfidence;
+  taxID?: FieldWithConfidence;
+  Street?: FieldWithConfidence;
+  Building?: FieldWithConfidence;
+  Unit?: FieldWithConfidence;
+  PostalCode?: FieldWithConfidence;
+  City?: FieldWithConfidence;
+  Municipality?: FieldWithConfidence;
+  District?: FieldWithConfidence;
+  Province?: FieldWithConfidence;
+}
+
+export interface CorrespondenceData extends BaseFieldGroup {
+  paFirstName?: FieldWithConfidence;
+  paLastName?: FieldWithConfidence;
+  paBusinessName?: FieldWithConfidence;
+  paTitle?: FieldWithConfidence;
+  paStreet?: FieldWithConfidence;
+  paBuilding?: FieldWithConfidence;
+  paUnit?: FieldWithConfidence;
+  paPostalCode?: FieldWithConfidence;
+  paCity?: FieldWithConfidence;
+  paProvince?: FieldWithConfidence;
+  paMunicipality?: FieldWithConfidence;
+  paDistrict?: FieldWithConfidence;
+}
+
+export interface SupplierData extends BaseFieldGroup {
+  supplierName?: FieldWithConfidence;
+  supplierTaxID?: FieldWithConfidence;
+  supplierStreet?: FieldWithConfidence;
+  supplierBuilding?: FieldWithConfidence;
+  supplierUnit?: FieldWithConfidence;
+  supplierPostalCode?: FieldWithConfidence;
+  supplierCity?: FieldWithConfidence;
+  supplierBankAccount?: FieldWithConfidence;
+  supplierBankName?: FieldWithConfidence;
+  supplierEmail?: FieldWithConfidence;
+  supplierPhone?: FieldWithConfidence;
+  supplierWebsite?: FieldWithConfidence;
+  OSD_name?: FieldWithConfidence;
+  OSD_region?: FieldWithConfidence;
+}
+
+export interface BillingData extends BaseFieldGroup {
+  BillingStartDate?: FieldWithConfidence;
+  BillingEndDate?: FieldWithConfidence;
+  BilledUsage?: FieldWithConfidence;
+  '12mUsage'?: FieldWithConfidence;
+  ReadingType?: FieldWithConfidence;
+  ProductName?: FieldWithConfidence;
+  InvoiceType?: FieldWithConfidence;
+  BillBreakdown?: FieldWithConfidence;
+  EnergySaleBreakdown?: FieldWithConfidence;
+}
+
+export interface ConsumptionData extends BaseFieldGroup {
+  BilledUsage?: FieldWithConfidence;
+  '12mUsage'?: FieldWithConfidence;
+  ReadingType?: FieldWithConfidence;
+  ConsumptionHistory?: FieldWithConfidence;
+  ConsumptionTrend?: FieldWithConfidence;
+  PeakUsage?: FieldWithConfidence;
+}
  

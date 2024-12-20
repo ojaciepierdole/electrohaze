@@ -3,25 +3,20 @@ import { DocumentAnalysisClient } from '@azure/ai-form-recognizer';
 import type { 
   ProcessingResult, 
   PollOptions, 
-  ProcessedField, 
-  FieldGroupKey, 
-  FieldWithConfidence,
-  DocumentField
+  DocumentField,
+  DocumentConfidence,
+  GroupConfidence,
+  DocumentFieldsMap,
+  ProcessingTiming
 } from '@/types/processing';
-import type { DocumentAnalysisResult } from '@/types/documentAnalysis';
+import type { FieldGroupKey } from '@/types/fields';
 import { cacheManager } from '@/lib/cache-manager';
 import { decompressData } from '@/utils/compression';
 import { sendProgress } from '@/lib/progress-emitter';
-import { mapDocumentAnalysisResult } from '@/utils/document-mapping';
-import { FIELD_GROUPS, FIELD_NAME_MAP } from '@/config/fields';
+import { FIELD_GROUPS } from '@/config/fields';
 
 // Azure Document Intelligence pozwala na maksymalnie 15 równoległych żądań
 const MAX_CONCURRENT_REQUESTS = 15;
-
-// Funkcja pomocnicza do mapowania nazwy pola
-function mapFieldName(fieldName: string): string {
-  return FIELD_NAME_MAP[fieldName as keyof typeof FIELD_NAME_MAP] || fieldName;
-}
 
 // Funkcja pomocnicza do określania grupy pola
 function determineFieldGroup(fieldName: string): FieldGroupKey {
@@ -76,6 +71,101 @@ function determineFieldGroup(fieldName: string): FieldGroupKey {
   return 'buyer_data';
 }
 
+// Funkcja pomocnicza do obliczania pewności dokumentu
+function calculateDocumentConfidence(fields: Record<string, DocumentField>): DocumentConfidence {
+  const groups: Record<string, { 
+    required: Array<[string, DocumentField]>,
+    optional: Array<[string, DocumentField]>
+  }> = {};
+
+  // Grupuj pola według ich grup
+  for (const [fieldName, field] of Object.entries(fields)) {
+    const group = determineFieldGroup(fieldName);
+    if (!groups[group]) {
+      groups[group] = { required: [], optional: [] };
+    }
+    
+    // Sprawdź czy pole jest wymagane na podstawie konfiguracji
+    const isRequired = FIELD_GROUPS[group]?.requiredFields.includes(fieldName) || false;
+    if (isRequired) {
+      groups[group].required.push([fieldName, field]);
+    } else {
+      groups[group].optional.push([fieldName, field]);
+    }
+  }
+
+  // Oblicz pewność dla każdej grupy
+  const groupConfidences = Object.entries(groups).reduce((acc, [groupKey, group]) => {
+    const filledRequired = group.required.filter(([_, field]) => field.content).length;
+    const filledOptional = group.optional.filter(([_, field]) => field.content).length;
+    
+    const totalRequired = group.required.length;
+    const totalOptional = group.optional.length;
+    
+    // Oblicz średnią pewność dla wypełnionych pól
+    const filledFields = [...group.required, ...group.optional]
+      .filter(([_, field]) => field.content);
+    
+    const avgConfidence = filledFields.length > 0
+      ? filledFields.reduce((sum, [_, field]) => sum + field.confidence, 0) / filledFields.length
+      : 0;
+
+    // Oblicz kompletność jako stosunek wypełnionych pól wymaganych do wszystkich wymaganych
+    const completeness = totalRequired > 0 
+      ? filledRequired / totalRequired 
+      : 1;
+
+    acc[groupKey as FieldGroupKey] = {
+      completeness,
+      confidence: avgConfidence,
+      filledRequired,
+      totalRequired,
+      filledOptional,
+      totalOptional
+    };
+
+    return acc;
+  }, {} as Record<FieldGroupKey, GroupConfidence>);
+
+  // Oblicz średnią pewność dla całego dokumentu
+  const allFilledFields = Object.values(fields).filter(field => field.content);
+  const documentConfidence = allFilledFields.length > 0
+    ? allFilledFields.reduce((sum, field) => sum + field.confidence, 0) / allFilledFields.length
+    : 0;
+
+  return {
+    overall: documentConfidence,
+    confidence: documentConfidence,
+    groups: groupConfidences
+  };
+}
+
+// Funkcja pomocnicza do mapowania pól na grupy
+function mapFieldsToGroups(fields: Record<string, DocumentField>): DocumentFieldsMap {
+  const result: DocumentFieldsMap = {
+    delivery_point: {},
+    ppe: {},
+    postal_address: {},
+    buyer_data: {},
+    supplier: {},
+    consumption_info: {},
+    billing: {}
+  };
+
+  for (const [fieldName, field] of Object.entries(fields)) {
+    const group = determineFieldGroup(fieldName);
+    result[group][fieldName] = {
+      content: field.content,
+      confidence: field.confidence,
+      kind: field.kind,
+      value: field.value,
+      metadata: field.metadata
+    };
+  }
+
+  return result;
+}
+
 async function analyzeDocument(
   client: DocumentAnalysisClient,
   file: File | Blob,
@@ -91,19 +181,19 @@ async function analyzeDocument(
   // Czasy przetwarzania
   let uploadTime = 0;
   let ocrTime = 0;
+  let analysisTime = 0;
 
   // Sprawdź cache
   if (file instanceof File) {
     const cachedResult = cacheManager.get(file.name, modelId);
     if (cachedResult) {
-      console.log(`[${index}] Znaleziono w cache: ${file.name} (zaoszczędzono ${cachedResult.processingTime}ms)`);
+      console.log(`[${index}] Znaleziono w cache: ${file.name} (zaoszczędzono ${cachedResult.timing.total}ms)`);
       
       // Wyślij informację o postępie dla pliku z cache
       if (isSingleFile) {
         sendProgress(sessionId, {
           currentFileIndex: 0,
           currentFileName: fileName,
-          currentModelIndex: 0,
           currentModelId: modelId,
           fileProgress: 100,
           totalProgress: 100,
@@ -139,8 +229,6 @@ async function analyzeDocument(
   ocrTime = Date.now() - azureStartTime;
   console.log(`[${index}] Rozpoczęto przetwarzanie OCR w Azure (${ocrTime}ms)`);
 
-  console.log(`[${index}] Rozpoczęto przetwarzanie w Azure (${Date.now() - azureStartTime}ms)`);
-
   // Funkcja do aktualizacji postępu podczas pollowania
   let pollCount = 0;
   const updateProgress = () => {
@@ -151,7 +239,6 @@ async function analyzeDocument(
       sendProgress(sessionId, {
         currentFileIndex: 0,
         currentFileName: fileName,
-        currentModelIndex: 0,
         currentModelId: modelId,
         fileProgress: estimatedProgress,
         totalProgress: estimatedProgress,
@@ -170,256 +257,141 @@ async function analyzeDocument(
     };
     
     const result = await poller.pollUntilDone(pollOptions);
+    analysisTime = Date.now() - (azureStartTime + ocrTime);
     
     const azureTime = Date.now() - azureStartTime;
     console.log(`[${index}] Zakończono przetwarzanie w Azure (${azureTime}ms)`);
 
     if (!result.documents?.[0]?.fields) {
-      const emptyResult: ProcessingResult = {
-        fileName: fileName,
-        modelResults: [{
-          modelId,
-          fields: {},
-          confidence: 0,
-          pageCount: result.pages?.length || 1
-        }],
-        processingTime: Date.now() - startTime,
-        uploadTime,
-        ocrTime,
-        analysisTime: Date.now() - (azureStartTime + ocrTime),
-        mappedData: {
-          metadata: {
-            technicalData: {
-              content: '',
-              pages: result.pages?.map(page => ({
-                pageNumber: page.pageNumber,
-                width: page.width || 0,
-                height: page.height || 0,
-                unit: page.unit || 'pixel'
-              }))
-            }
-          }
-        },
-        confidence: 0,
-        cacheStats: {
-          size: 0,
-          maxSize: 1000,
-          ttl: 3600
-        },
-        performanceStats: [{
-          name: 'azure_processing',
-          duration: azureTime,
-          timestamp: new Date().toISOString()
-        }],
-        mimeType: file instanceof File ? file.type : 'application/octet-stream'
-      };
-      
-      if (file instanceof File) {
-        cacheManager.set(file.name, modelId, emptyResult);
-      }
-      
-      return emptyResult;
+      throw new Error('Nie znaleziono pól w dokumencie');
     }
 
-    const convertedFields: Record<string, DocumentField> = {};
-    for (const [key, field] of Object.entries(result.documents[0].fields)) {
-      if (!modelId.startsWith('prebuilt-') && (key.startsWith('_') || key === 'Locale')) {
-        continue;
-      }
+    const fields = result.documents[0].fields;
+    const documentConfidence = calculateDocumentConfidence(fields as Record<string, DocumentField>);
+    const mappedData = mapFieldsToGroups(fields as Record<string, DocumentField>);
 
-      const mappedKey = mapFieldName(key);
-      const group = determineFieldGroup(mappedKey);
-      console.log(`[${index}] Mapowanie pola: ${key} -> ${mappedKey} (grupa: ${group})`);
-
-      convertedFields[mappedKey] = {
-        content: field.content || '',
-        confidence: field.confidence || 0,
-        metadata: {
-          fieldType: field.kind || 'text',
-          transformationType: 'initial',
-          source: 'azure',
-          group,
-          originalKey: key,
-          boundingRegions: field.boundingRegions?.map(region => ({
-            pageNumber: region.pageNumber,
-            polygon: region.polygon?.map(point => ({
-              x: point.x,
-              y: point.y
-            })) || []
-          })) || [],
-          spans: field.spans || []
-        }
-      };
-    }
-
-    const finalResult: ProcessingResult = {
-      fileName: fileName,
-      modelResults: [{
-        modelId,
-        fields: convertedFields,
-        confidence: result.documents[0].confidence,
-        pageCount: result.pages?.length || 1
-      }],
-      processingTime: Date.now() - startTime,
-      uploadTime,
-      ocrTime,
-      analysisTime: Date.now() - (azureStartTime + ocrTime),
-      mappedData: mapDocumentAnalysisResult(result.documents[0].fields),
-      confidence: result.documents[0].confidence,
-      cacheStats: {
-        size: 0,
-        maxSize: 1000,
-        ttl: 3600
-      },
-      performanceStats: [{
-        name: 'azure_processing',
-        duration: azureTime,
-        timestamp: new Date().toISOString()
-      }],
-      mimeType: file instanceof File ? file.type : 'application/octet-stream',
-      timing: {
-        uploadTime,
-        ocrTime,
-        analysisTime: Date.now() - (azureStartTime + ocrTime),
-        totalTime: Date.now() - startTime
-      },
-      usability: result.documents[0].confidence > 0.95
+    const timing: ProcessingTiming = {
+      upload: uploadTime,
+      ocr: ocrTime,
+      analysis: analysisTime,
+      total: Date.now() - startTime
     };
 
+    const processingResult: ProcessingResult = {
+      fileName,
+      timing,
+      documentConfidence,
+      usability: documentConfidence.confidence,
+      status: 'success',
+      mappedData
+    };
+
+    // Zapisz wynik do cache
     if (file instanceof File) {
-      console.log(`[${index}] Zapisuję wynik do cache: ${file.name}`);
-      cacheManager.set(file.name, modelId, finalResult);
+      cacheManager.set(file.name, modelId, processingResult);
     }
 
-    return finalResult;
+    return processingResult;
+  } catch (error) {
+    console.error(`[${index}] Błąd podczas przetwarzania pliku ${fileName}:`, error);
+    return {
+      fileName,
+      timing: {
+        upload: uploadTime,
+        ocr: ocrTime,
+        analysis: analysisTime,
+        total: Date.now() - startTime
+      },
+      documentConfidence: {
+        overall: 0,
+        confidence: 0,
+        groups: {
+          delivery_point: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+          ppe: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+          postal_address: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+          buyer_data: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+          supplier: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+          consumption_info: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+          billing: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 }
+        }
+      },
+      usability: 0,
+      status: 'error',
+      error: error instanceof Error ? error.message : 'Nieznany błąd',
+      mappedData: {
+        delivery_point: {},
+        ppe: {},
+        postal_address: {},
+        buyer_data: {},
+        supplier: {},
+        consumption_info: {},
+        billing: {}
+      }
+    };
   } finally {
     clearInterval(progressInterval);
   }
-}
-
-// Funkcja do przetwarzania dokumentów z wieloma modelami
-async function processDocumentsWithModels(
-  client: DocumentAnalysisClient,
-  files: File[],
-  modelIds: string[],
-  sessionId: string
-): Promise<ProcessingResult[]> {
-  console.log(`\n=== INICJALIZACJA PRZETWARZANIA WSADOWEGO ===`);
-  console.log(`Sesja: ${sessionId}`);
-  console.log(`Liczba plików: ${files.length}`);
-  console.log(`Modele: ${modelIds.join(', ')}`);
-  console.log(`Maksymalna liczba równoległych żądań: ${MAX_CONCURRENT_REQUESTS}`);
-  console.log(`Timestamp rozpoczęcia: ${new Date().toISOString()}`);
-  
-  const results: ProcessingResult[] = [];
-  const startTime = Date.now();
-  
-  // Przygotuj wszystkie kombinacje plik-model
-  const tasks = files.flatMap((file, fileIndex) =>
-    modelIds.map((modelId, modelIndex) => ({
-      file,
-      modelId,
-      index: fileIndex * modelIds.length + modelIndex,
-      fileIndex
-    }))
-  );
-
-  console.log(`\nPrzygotowano ${tasks.length} zadań do przetworzenia`);
-  console.log(`Szacowany czas: ${(tasks.length * 5000 / MAX_CONCURRENT_REQUESTS / 1000).toFixed(1)}s\n`);
-
-  const totalTasks = tasks.length;
-  const processedFiles = new Set<number>();
-  const isSingleFile = files.length === 1;
-
-  // Przetwarzaj zadania w grupach po MAX_CONCURRENT_REQUESTS
-  for (let i = 0; i < tasks.length; i += MAX_CONCURRENT_REQUESTS) {
-    const batchStartTime = Date.now();
-    const batch = tasks.slice(i, i + MAX_CONCURRENT_REQUESTS);
-    console.log(`\nPrzetwarzam grupę ${Math.floor(i/MAX_CONCURRENT_REQUESTS) + 1} (${batch.length} zadań)`);
-    
-    const batchPromises = batch.map(({ file, modelId, index, fileIndex }) => {
-      // Wyślij informację o rozpoczęciu przetwarzania pliku
-      const startProgress = {
-        currentFileIndex: fileIndex,
-        currentFileName: file.name,
-        currentModelIndex: index % modelIds.length,
-        currentModelId: modelId,
-        fileProgress: 0,
-        totalProgress: (processedFiles.size / files.length) * 100,
-        totalFiles: files.length,
-        results
-      };
-      console.log('Sending start progress:', startProgress);
-      sendProgress(sessionId, startProgress);
-
-      return analyzeDocument(client, file, modelId, index, sessionId, isSingleFile).then(result => {
-        // Wyślij informację o zakończeniu przetwarzania pliku
-        results.push(result);
-        processedFiles.add(fileIndex);
-        const endProgress = {
-          currentFileIndex: fileIndex,
-          currentFileName: file.name,
-          currentModelIndex: index % modelIds.length,
-          currentModelId: modelId,
-          fileProgress: 100,
-          totalProgress: (processedFiles.size / files.length) * 100,
-          totalFiles: files.length,
-          results
-        };
-        console.log('Sending end progress:', endProgress);
-        sendProgress(sessionId, endProgress);
-        return result;
-      });
-    });
-
-    const batchResults = await Promise.all(batchPromises);
-    console.log(`Zakończono grupę w ${Date.now() - batchStartTime}ms, przetworzono ${batchResults.length} plików`);
-  }
-  
-  const totalTime = Date.now() - startTime;
-  console.log(`\n=== ZAKOŃCZONO PRZETWARZANIE WSADOWE ===`);
-  console.log(`Timestamp zakończenia: ${new Date().toISOString()}`);
-  console.log(`Całkowity czas: ${totalTime}ms`);
-  console.log(`Średni czas na zadanie: ${Math.round(totalTime / totalTasks)}ms`);
-  console.log(`Liczba przetworzonych plików: ${processedFiles.size}`);
-  console.log(`Średnia pewność: ${(results.reduce((sum, r) => sum + r.confidence, 0) / results.length * 100).toFixed(1)}%\n`);
-  
-  return results;
 }
 
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const files = formData.getAll('files') as File[];
-    const modelIds = formData.getAll('modelId') as string[];
+    const modelId = formData.get('modelId') as string;
     const sessionId = formData.get('sessionId') as string;
 
-    if (!files.length || !modelIds.length) {
+    if (!files.length || !modelId) {
       return NextResponse.json(
-        { error: 'Brak plików lub ID modeli' },
+        { error: 'Brak plików lub identyfikatora modelu' },
         { status: 400 }
       );
     }
 
-    if (!sessionId) {
+    // Sprawdź czy mamy dostęp do Azure Document Intelligence
+    const endpoint = process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT;
+    const key = process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY;
+
+    if (!endpoint || !key) {
       return NextResponse.json(
-        { error: 'Brak ID sesji' },
-        { status: 400 }
+        { error: 'Brak konfiguracji Azure Document Intelligence' },
+        { status: 500 }
       );
     }
 
-    const client = new DocumentAnalysisClient(
-      process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT!,
-      { key: process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY! }
-    );
+    const client = new DocumentAnalysisClient(endpoint, { key });
+    const isSingleFile = files.length === 1;
 
-    const results = await processDocumentsWithModels(client, files, modelIds, sessionId);
-    return NextResponse.json(results);
+    // Przetwarzaj pliki równolegle, ale nie więcej niż MAX_CONCURRENT_REQUESTS na raz
+    const results: ProcessingResult[] = [];
+    for (let i = 0; i < files.length; i += MAX_CONCURRENT_REQUESTS) {
+      const batch = files.slice(i, i + MAX_CONCURRENT_REQUESTS);
+      const batchResults = await Promise.all(
+        batch.map((file, index) => 
+          analyzeDocument(client, file, modelId, i + index, sessionId, isSingleFile)
+        )
+      );
+      results.push(...batchResults);
 
+      // Wyślij informację o postępie
+      if (!isSingleFile) {
+        const progress = Math.round(((i + batch.length) / files.length) * 100);
+        sendProgress(sessionId, {
+          currentFileIndex: i + batch.length,
+          currentFileName: batch[batch.length - 1].name,
+          currentModelId: modelId,
+          fileProgress: progress,
+          totalProgress: progress,
+          totalFiles: files.length,
+          results
+        });
+      }
+    }
+
+    return NextResponse.json({ results });
   } catch (error) {
-    console.error('Error processing batch:', error);
+    console.error('Błąd podczas przetwarzania żądania:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Błąd przetwarzania wsadu' },
+      { error: error instanceof Error ? error.message : 'Nieznany błąd' },
       { status: 500 }
     );
   }

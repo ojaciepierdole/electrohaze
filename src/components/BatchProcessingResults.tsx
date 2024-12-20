@@ -14,7 +14,7 @@ export function BatchProcessingResults({ results }: BatchProcessingResultsProps)
 
   return (
     <div className="space-y-4">
-      <DocumentList documents={results} />
+      <DocumentList documents={results} isProcessing={false} />
     </div>
   );
 } 

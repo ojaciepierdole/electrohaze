@@ -1,113 +1,79 @@
 'use client';
 
 import React from 'react';
+import { FileList } from '@/components/FileList';
+import { DocumentList } from '@/components/DocumentList';
+import { ModelSelector } from '@/components/ModelSelector';
 import { Button } from '@/components/ui/button';
-import { ModelSelector } from './ModelSelector';
-import { SelectedFilesList } from './SelectedFilesList';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertCircle } from 'lucide-react';
+import type { ProcessingResult } from '@/types/processing';
 import type { ModelDefinition } from '@/types/processing';
 
 interface BatchProcessingControlsProps {
   files: File[];
-  onFilesChange: (files: File[]) => void;
-  selectedModels: string[];
-  onModelSelect: (models: string[]) => void;
-  onStart: () => void;
-  onStop: () => void;
+  onRemoveFile: (file: File) => void;
+  onStartProcessing: (selectedModels: string[]) => void;
   isProcessing: boolean;
+  currentFileIndex?: number;
+  totalFiles?: number;
+  error: string | null;
+  results: ProcessingResult[];
   models: ModelDefinition[];
-  isLoadingModels: boolean;
-  modelsError: Error | null;
+  selectedModels: string[];
+  onModelSelect: (modelId: string) => void;
 }
 
 export function BatchProcessingControls({
   files,
-  onFilesChange,
-  selectedModels,
-  onModelSelect,
-  onStart,
-  onStop,
+  onRemoveFile,
+  onStartProcessing,
   isProcessing,
+  currentFileIndex,
+  totalFiles,
+  error,
+  results,
   models,
-  isLoadingModels,
-  modelsError
+  selectedModels,
+  onModelSelect
 }: BatchProcessingControlsProps) {
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = event.target.files;
-    if (!selectedFiles) return;
-
-    const newFiles = Array.from(selectedFiles).filter(
-      file => file.type === 'application/pdf'
-    );
-    const updatedFiles = [...files, ...newFiles].slice(0, 20);
-    onFilesChange(updatedFiles);
-  };
-
-  const handleRemoveFile = (fileToRemove: File) => {
-    onFilesChange(files.filter(file => file !== fileToRemove));
-  };
-
-  const canStart = files.length > 0 && selectedModels.length > 0 && !isProcessing;
-  const canStop = isProcessing;
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium mb-2">Pliki PDF</h3>
-        <div className="space-y-4">
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => document.getElementById('file-input')?.click()}
-            disabled={isProcessing}
-          >
-            Wybierz pliki PDF (max. 20)
-          </Button>
-          <input
-            id="file-input"
-            type="file"
-            className="hidden"
-            multiple
-            accept=".pdf"
-            onChange={handleFileSelect}
-            disabled={isProcessing}
-          />
-          <SelectedFilesList 
-            files={files} 
-            onRemoveFile={handleRemoveFile}
-            disabled={isProcessing}
-          />
-        </div>
-      </div>
+    <div className="space-y-4">
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-      <div>
-        <h3 className="text-lg font-medium mb-2">Modele OCR</h3>
+      <div className="space-y-4">
+        <FileList 
+          files={files}
+          isProcessing={isProcessing}
+        />
+
         <ModelSelector
           models={models}
           selectedModels={selectedModels}
-          onSelectionChange={onModelSelect}
-          isDisabled={isProcessing}
-          isLoading={isLoadingModels}
-          error={modelsError?.message}
+          onSelect={onModelSelect}
+          disabled={isProcessing}
         />
+
+        <Button
+          onClick={() => onStartProcessing(selectedModels)}
+          disabled={files.length === 0 || selectedModels.length === 0 || isProcessing}
+          className="w-full"
+        >
+          {isProcessing ? 'Przetwarzanie...' : 'Rozpocznij przetwarzanie'}
+        </Button>
       </div>
 
-      <div className="flex gap-4">
-        <Button
-          onClick={onStart}
-          disabled={!canStart}
-          className="flex-1"
-        >
-          Rozpocznij przetwarzanie
-        </Button>
-        {canStop && (
-          <Button
-            variant="destructive"
-            onClick={onStop}
-          >
-            Zatrzymaj
-          </Button>
-        )}
-      </div>
+      {results.length > 0 && (
+        <DocumentList
+          documents={results}
+          isProcessing={isProcessing}
+        />
+      )}
     </div>
   );
 } 

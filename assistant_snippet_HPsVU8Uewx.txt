@@ -1,0 +1,2 @@
+1|- Property 'groups' does not exist on type 'number'
+2|- Property 'confidence' does not exist on type 'number' 

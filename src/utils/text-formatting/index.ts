@@ -181,4 +181,35 @@ import type { FieldWithConfidence } from '@/types/processing';
 export function shouldProcessField(field: FieldWithConfidence | undefined | null, threshold = 0.3): boolean {
   if (!field?.content) return false;
   return field.confidence >= threshold;
+}
+
+export function formatFieldValue(key: string, field: FieldWithConfidence): string {
+  if (!field.content) {
+    return 'n/d';
+  }
+
+  // Formatowanie dat
+  if (key.toLowerCase().includes('date')) {
+    try {
+      const date = new Date(field.content);
+      return date.toLocaleDateString('pl-PL');
+    } catch {
+      return field.content;
+    }
+  }
+
+  // Formatowanie liczb
+  if (key.toLowerCase().includes('usage') || 
+      key.toLowerCase().includes('amount') ||
+      key.toLowerCase().includes('consumption')) {
+    const num = parseFloat(field.content);
+    if (!isNaN(num)) {
+      return num.toLocaleString('pl-PL', { 
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+  }
+
+  return field.content;
 } 

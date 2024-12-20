@@ -2,140 +2,106 @@
 
 import * as React from 'react';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
-import type { ProcessingResult, DocumentField, FieldWithConfidence } from '@/types/processing';
-import { cn } from '@/lib/utils';
-import { ConfidenceSummary } from './ConfidenceSummary';
-import { ConfidenceStats, FieldConfidence } from '../types/confidence';
-import { DocumentSections } from '@/utils/data-processing/completeness/confidence';
-import { ConfidenceCalculator } from '../utils/confidence-calculator';
-import { TimingStats } from '../types/timing';
+import { Progress } from '@/components/ui/progress';
+import { DocumentStatus } from '@/types/processing';
 
 interface AnalysisSummaryProps {
-  sections?: DocumentSections;
-  processingTimes: TimingStats;
-  documentCount: number;
-  validDocuments: number;
+  documents: Array<{
+    documentConfidence: {
+      confidence: number;
+      overall: number;
+    };
+    timing?: {
+      upload: number;
+      ocr: number;
+      analysis: number;
+      total: number;
+    };
+  }>;
 }
 
-export function AnalysisSummary({ 
-  sections, 
-  processingTimes,
-  documentCount,
-  validDocuments 
-}: AnalysisSummaryProps) {
-  console.log('AnalysisSummary props:', { sections, processingTimes, documentCount, validDocuments });
+export function AnalysisSummary({ documents }: AnalysisSummaryProps) {
+  // Oblicz średnie wartości
+  const stats = documents.reduce((acc, doc) => {
+    acc.totalConfidence += doc.documentConfidence.confidence;
+    acc.totalCompleteness += doc.documentConfidence.overall;
+    acc.completeCount += doc.documentConfidence.overall >= 0.8 ? 1 : 0;
+    
+    if (doc.timing) {
+      acc.totalUploadTime += doc.timing.upload;
+      acc.totalOcrTime += doc.timing.ocr;
+      acc.totalAnalysisTime += doc.timing.analysis;
+      acc.totalTime += doc.timing.total;
+    }
+    
+    return acc;
+  }, {
+    totalConfidence: 0,
+    totalCompleteness: 0,
+    completeCount: 0,
+    totalUploadTime: 0,
+    totalOcrTime: 0,
+    totalAnalysisTime: 0,
+    totalTime: 0
+  });
 
-  if (documentCount === 0 || !processingTimes) {
-    return null;
-  }
-
-  const times = {
-    uploadTime: processingTimes?.uploadTime ?? 0,
-    ocrTime: processingTimes?.ocrTime ?? 0,
-    analysisTime: processingTimes?.analysisTime ?? 0,
-    totalTime: processingTimes?.totalTime ?? 0
-  };
-
-  const averageTime = documentCount > 0 ? times.totalTime / documentCount : 0;
-
-  const confidenceFields: FieldConfidence[] = Object.entries(sections || {})
-    .flatMap(([_, fields]) => 
-      Object.entries(fields as Record<string, FieldWithConfidence>)
-        .filter(([_, field]) => field.confidence !== undefined)
-        .map(([fieldName, field]) => ({
-          fieldName,
-          confidence: field.confidence
-        }))
-    );
-
-  const confidenceStats = ConfidenceCalculator.calculateStats(confidenceFields);
-  const averageConfidence = ConfidenceCalculator.getAverageConfidence(confidenceFields);
-  const completenessPercentage = (validDocuments / documentCount) * 100;
+  const avgConfidence = (stats.totalConfidence / documents.length) * 100;
+  const avgCompleteness = (stats.totalCompleteness / documents.length) * 100;
+  const completePercentage = (stats.completeCount / documents.length) * 100;
+  
+  const avgUploadTime = stats.totalUploadTime / documents.length;
+  const avgOcrTime = stats.totalOcrTime / documents.length;
+  const avgAnalysisTime = stats.totalAnalysisTime / documents.length;
+  const avgProcessingTime = stats.totalTime / documents.length;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-      <div className="rounded-lg bg-white p-3 shadow-sm">
-        <h3 className="text-sm font-medium text-gray-600 mb-2">Przeanalizowane dokumenty</h3>
-        <div>
-          <div className="flex items-baseline gap-2">
-            <div className="text-lg font-bold">{documentCount}</div>
-            <div className="text-xs text-gray-500">
-              {formatTime(times.totalTime / documentCount)} / dokument
-            </div>
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <Card className="p-4">
+        <h3 className="text-sm font-medium text-gray-500">Średnia pewność</h3>
+        <div className="mt-2">
+          <div className="text-2xl font-bold text-gray-900">{avgConfidence.toFixed(1)}%</div>
+          <Progress value={avgConfidence} className="mt-2" />
+        </div>
+      </Card>
+
+      <Card className="p-4">
+        <h3 className="text-sm font-medium text-gray-500">Średnia kompletność</h3>
+        <div className="mt-2">
+          <div className="text-2xl font-bold text-gray-900">{avgCompleteness.toFixed(1)}%</div>
+          <Progress value={avgCompleteness} className="mt-2" />
+        </div>
+      </Card>
+
+      <Card className="p-4">
+        <h3 className="text-sm font-medium text-gray-500">Kompletne dokumenty</h3>
+        <div className="mt-2">
+          <div className="text-2xl font-bold text-gray-900">{completePercentage.toFixed(1)}%</div>
+          <div className="text-sm text-gray-500 mt-1">
+            {stats.completeCount} z {documents.length} dokumentów
           </div>
-          <div className="space-y-0.5 text-xs text-gray-600 mt-2">
-            <div className="flex justify-between items-center">
+        </div>
+      </Card>
+
+      <Card className="p-4">
+        <h3 className="text-sm font-medium text-gray-500">Średni czas przetwarzania</h3>
+        <div className="mt-2">
+          <div className="text-2xl font-bold text-gray-900">{(avgProcessingTime / 1000).toFixed(1)}s</div>
+          <div className="space-y-1 text-sm text-gray-500 mt-2">
+            <div className="flex justify-between">
               <span>Upload:</span>
-              <div>
-                <span>{formatTime(times.uploadTime)}</span>
-                <span className="text-gray-400 ml-1">({formatTime(times.uploadTime / documentCount)} / dok.)</span>
-              </div>
+              <span>{(avgUploadTime / 1000).toFixed(2)}s</span>
             </div>
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between">
               <span>OCR:</span>
-              <span>{formatTime(times.ocrTime)}</span>
+              <span>{(avgOcrTime / 1000).toFixed(2)}s</span>
             </div>
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between">
               <span>Analiza:</span>
-              <span>{formatTime(times.analysisTime)}</span>
-            </div>
-            <div className="flex justify-between items-center font-medium">
-              <span>Całkowity:</span>
-              <span>{formatTime(times.totalTime)}</span>
+              <span>{(avgAnalysisTime / 1000).toFixed(2)}s</span>
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="rounded-lg bg-white p-3 shadow-sm">
-        <h3 className="text-sm font-medium text-gray-600 mb-2">Średnia pewność</h3>
-        <div>
-          <div className="text-lg font-bold text-green-600 mb-2">
-            {averageConfidence.toFixed(1)}%
-          </div>
-          <div className="space-y-0.5 text-xs">
-            <div className="flex justify-between items-center bg-green-50 text-green-700 rounded px-2 py-1">
-              <span>Wysoka (≥90%)</span>
-              <span>{confidenceStats.high} ({((confidenceStats.high / confidenceStats.total) * 100).toFixed(1)}%)</span>
-            </div>
-            <div className="flex justify-between items-center bg-yellow-50 text-yellow-700 rounded px-2 py-1">
-              <span>Średnia (70-89%)</span>
-              <span>{confidenceStats.medium} ({((confidenceStats.medium / confidenceStats.total) * 100).toFixed(1)}%)</span>
-            </div>
-            <div className="flex justify-between items-center bg-red-50 text-red-700 rounded px-2 py-1">
-              <span>Niska (&lt;70%)</span>
-              <span>{confidenceStats.low} ({((confidenceStats.low / confidenceStats.total) * 100).toFixed(1)}%)</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-lg bg-white p-3 shadow-sm">
-        <h3 className="text-sm font-medium text-gray-600 mb-2">Formaty dokumentów</h3>
-        <div className="flex items-baseline justify-between">
-          <span className="text-xs text-gray-600">PDF</span>
-          <span className="text-lg font-bold">{documentCount}</span>
-        </div>
-      </div>
-
-      <div className="rounded-lg bg-white p-3 shadow-sm">
-        <h3 className="text-sm font-medium text-gray-600 mb-2">Minimalny komplet danych</h3>
-        <div>
-          <div className="flex items-baseline gap-2">
-            <div className="text-lg font-bold">{validDocuments} z {documentCount}</div>
-            <div className="text-xs text-gray-500">
-              {completenessPercentage.toFixed(1)}%
-            </div>
-          </div>
-        </div>
-      </div>
+      </Card>
     </div>
   );
-}
-
-function formatTime(ms: number): string {
-  return `${(ms / 1000).toFixed(1)}s`;
 } 

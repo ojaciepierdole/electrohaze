@@ -6,22 +6,21 @@ import type { ModelDefinition } from '@/types/processing';
 const fetcher = async (url: string) => {
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error('Błąd pobierania modeli');
+    const errorText = await response.text();
+    throw new Error(`Błąd pobierania modeli: ${response.statusText}\n${errorText}`);
   }
   const data = await response.json();
-  return data
-    .filter((model: ModelDefinition) => !model.id.startsWith('prebuilt-'))
-    .sort((a: ModelDefinition, b: ModelDefinition) => {
-      const dateRegex = /model-(\d{8}-\d{6})/;
-      const matchA = a.id.match(dateRegex);
-      const matchB = b.id.match(dateRegex);
+  return data.sort((a: ModelDefinition, b: ModelDefinition) => {
+    const dateRegex = /model-(\d{8}-\d{6})/;
+    const matchA = a.id.match(dateRegex);
+    const matchB = b.id.match(dateRegex);
 
-      if (matchA && matchB) {
-        return matchB[1].localeCompare(matchA[1]);
-      }
+    if (matchA && matchB) {
+      return matchB[1].localeCompare(matchA[1]);
+    }
 
-      return b.id.localeCompare(a.id);
-    });
+    return b.id.localeCompare(a.id);
+  });
 };
 
 export function useDocumentIntelligenceModels() {

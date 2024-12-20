@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import type { ModelDefinition, FieldGroupKey } from '@/types/processing';
+import type { ModelDefinition } from '@/types/processing';
+import type { FieldGroupKey } from '@/types/fields';
 
 export async function GET() {
   try {
@@ -15,6 +16,7 @@ export async function GET() {
     };
 
     console.log('Pobieranie listy modeli...');
+    console.log('Endpoint:', endpoint);
 
     // Pobierz listę modeli
     const listModelsUrl = `${endpoint}/documentintelligence/documentModels?api-version=${apiVersion}`;
@@ -36,7 +38,12 @@ export async function GET() {
     const { value: modelsList } = JSON.parse(responseText);
     
     // Filtruj tylko modele niestandardowe
-    const customModels = modelsList.filter((model: any) => !model.modelId.startsWith('prebuilt-'));
+    const customModels = modelsList.filter((model: any) => {
+      const isCustom = !model.modelId.startsWith('prebuilt-');
+      console.log(`Model ${model.modelId}: isCustom=${isCustom}`);
+      return isCustom;
+    });
+    
     console.log('Lista modeli niestandardowych:', customModels);
 
     // Pobierz szczegóły każdego modelu
@@ -68,7 +75,10 @@ export async function GET() {
           id: model.modelId,
           name: model.description || model.modelId,
           description: modelDetails.description || `Model ID: ${model.modelId}`,
-          fields
+          fields,
+          version: modelDetails.version || '1.0',
+          isCustom: true,
+          status: 'ready'
         };
       } catch (err) {
         console.warn(`Nie udało się pobrać szczegółów modelu ${model.modelId}:`, err);
@@ -76,7 +86,10 @@ export async function GET() {
           id: model.modelId,
           name: model.description || model.modelId,
           description: `Model ID: ${model.modelId}`,
-          fields: []
+          fields: [],
+          version: '1.0',
+          isCustom: true,
+          status: 'ready'
         };
       }
     }));

@@ -13,9 +13,8 @@ import { CustomerDataGroup } from '@/components/data-groups/CustomerDataGroup';
 import { SupplierDataGroup } from '@/components/data-groups/SupplierDataGroup';
 import { CorrespondenceDataGroup } from './data-groups/CorrespondenceDataGroup';
 import { BillingDataGroup } from './data-groups/BillingDataGroup';
-import { processSupplierData, calculateSupplierConfidence, calculateSupplierCompleteness } from '@/utils/document-mapping';
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
-import type { DocumentField, FieldWithConfidence } from '@/types/processing';
+import type { DocumentField, FieldType, TransformationType, DataSource, FieldMetadata } from '@/types/processing';
 import type { DocumentSections } from '@/utils/data-processing/completeness/confidence';
 import { ConfidenceCalculator } from '../utils/confidence-calculator';
 import { ConfidenceSummary } from './ConfidenceSummary';
@@ -40,6 +39,83 @@ interface AnalysisResultCardProps {
   processingTime?: ProcessingTime;
 }
 
+interface FieldWithMetadata {
+  content: string;
+  confidence: number;
+  metadata?: {
+    fieldType?: FieldType;
+    transformationType?: TransformationType;
+    source?: DataSource;
+    boundingRegions?: Array<{
+      pageNumber: number;
+      polygon: Array<{ x: number; y: number }>;
+    }>;
+    spans?: Array<{
+      offset: number;
+      length: number;
+      text?: string;
+    }>;
+  };
+}
+
+function convertField(value: FieldWithMetadata): DocumentField {
+  const kind = value.metadata?.fieldType || 'string';
+  const metadata: FieldMetadata = {
+    fieldType: kind,
+    transformationType: value.metadata?.transformationType || 'initial',
+    source: value.metadata?.source || 'manual',
+    boundingRegions: value.metadata?.boundingRegions?.map(region => ({
+      pageNumber: region.pageNumber,
+      polygon: region.polygon?.map(point => ({ x: point.x, y: point.y })) || []
+    })) || [],
+    spans: value.metadata?.spans?.map(span => ({
+      offset: span.offset,
+      length: span.length,
+      text: span.text || ''
+    })) || []
+  };
+
+  const field: DocumentField = {
+    content: value.content || '',
+    confidence: value.confidence || 0,
+    kind,
+    value: null,
+    metadata
+  };
+
+  switch (kind) {
+    case 'number':
+    case 'currency':
+    case 'integer':
+      field.value = Number(value.content || 0);
+      break;
+    case 'date':
+      field.value = value.content ? new Date(value.content) : null;
+      break;
+    case 'object':
+      try {
+        field.value = value.content ? JSON.parse(value.content) : {};
+      } catch {
+        field.value = {};
+      }
+      break;
+    case 'array':
+      try {
+        field.value = value.content ? JSON.parse(value.content) : [];
+      } catch {
+        field.value = [];
+      }
+      break;
+    case 'selectionMark':
+      field.value = value.content === 'selected';
+      break;
+    default:
+      field.value = value.content || '';
+  }
+
+  return field;
+}
+
 export function AnalysisResultCard({ 
   fileName,
   confidence: rawConfidence,
@@ -55,73 +131,33 @@ export function AnalysisResultCard({
 
   // Konwertuj dane do wymaganego formatu
   const sections: DocumentSections = {
-    ppe: Object.entries(ppeData || {}).reduce<Record<string, FieldWithConfidence>>((acc, [key, value]) => {
+    ppe: Object.entries(ppeData || {}).reduce<Record<string, DocumentField>>((acc, [key, value]) => {
       if (value) {
-        acc[key] = {
-          content: value.content,
-          confidence: value.confidence || 0,
-          metadata: {
-            fieldType: value.metadata?.fieldType || 'text',
-            transformationType: value.metadata?.transformationType || 'initial',
-            source: value.metadata?.source || 'raw'
-          }
-        };
+        acc[key] = convertField(value);
       }
       return acc;
     }, {}),
-    customer: Object.entries(customerData || {}).reduce<Record<string, FieldWithConfidence>>((acc, [key, value]) => {
+    customer: Object.entries(customerData || {}).reduce<Record<string, DocumentField>>((acc, [key, value]) => {
       if (value) {
-        acc[key] = {
-          content: value.content,
-          confidence: value.confidence || 0,
-          metadata: {
-            fieldType: value.metadata?.fieldType || 'text',
-            transformationType: value.metadata?.transformationType || 'initial',
-            source: value.metadata?.source || 'raw'
-          }
-        };
+        acc[key] = convertField(value);
       }
       return acc;
     }, {}),
-    correspondence: Object.entries(correspondenceData || {}).reduce<Record<string, FieldWithConfidence>>((acc, [key, value]) => {
+    correspondence: Object.entries(correspondenceData || {}).reduce<Record<string, DocumentField>>((acc, [key, value]) => {
       if (value) {
-        acc[key] = {
-          content: value.content,
-          confidence: value.confidence || 0,
-          metadata: {
-            fieldType: value.metadata?.fieldType || 'text',
-            transformationType: value.metadata?.transformationType || 'initial',
-            source: value.metadata?.source || 'raw'
-          }
-        };
+        acc[key] = convertField(value);
       }
       return acc;
     }, {}),
-    supplier: Object.entries(supplierData || {}).reduce<Record<string, FieldWithConfidence>>((acc, [key, value]) => {
+    supplier: Object.entries(supplierData || {}).reduce<Record<string, DocumentField>>((acc, [key, value]) => {
       if (value) {
-        acc[key] = {
-          content: value.content,
-          confidence: value.confidence || 0,
-          metadata: {
-            fieldType: value.metadata?.fieldType || 'text',
-            transformationType: value.metadata?.transformationType || 'initial',
-            source: value.metadata?.source || 'raw'
-          }
-        };
+        acc[key] = convertField(value);
       }
       return acc;
     }, {}),
-    billing: Object.entries(billingData || {}).reduce<Record<string, FieldWithConfidence>>((acc, [key, value]) => {
+    billing: Object.entries(billingData || {}).reduce<Record<string, DocumentField>>((acc, [key, value]) => {
       if (value) {
-        acc[key] = {
-          content: value.content,
-          confidence: value.confidence || 0,
-          metadata: {
-            fieldType: value.metadata?.fieldType || 'text',
-            transformationType: value.metadata?.transformationType || 'initial',
-            source: value.metadata?.source || 'raw'
-          }
-        };
+        acc[key] = convertField(value);
       }
       return acc;
     }, {})
@@ -134,7 +170,7 @@ export function AnalysisResultCard({
   // Przygotuj dane o pewności dla wszystkich pól
   const confidenceFields: FieldConfidence[] = Object.entries(sections)
     .flatMap(([_, fields]) => 
-      Object.entries(fields as Record<string, FieldWithConfidence>)
+      Object.entries(fields || {})
         .filter(([_, field]) => field.confidence !== undefined)
         .map(([fieldName, field]) => ({
           fieldName,

@@ -1,5 +1,6 @@
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
-import type { DocumentField } from '@/types/processing';
+import type { DocumentField, GroupConfidence, DocumentConfidence } from '@/types/processing';
+import { FIELD_GROUPS } from '@/config/fields';
 
 export interface DocumentSections {
   [key: string]: Record<string, DocumentField> | undefined;
@@ -368,271 +369,148 @@ function calculateSectionConfidence(
   };
 }
 
-// Aktualizujemy funkcję calculateAverageConfidence
-export function calculateAverageConfidence(sections: DocumentSections): {
-  confidence: number;
-  validFields: number;
-  totalFields: number;
-  sectionConfidences: Record<string, { confidence: number; validFields: number; totalFields: number }>;
-} {
-  const sectionConfidences: Record<string, { confidence: number; validFields: number; totalFields: number }> = {};
-  let totalWeightedConfidence = 0;
-  let totalWeight = 0;
-  let totalValidFields = 0;
-  let totalFields = 0;
-
-  // Oblicz pewność dla każdej sekcji
-  for (const [sectionName, definition] of Object.entries(requiredFields)) {
-    const sectionData = sections[sectionName as keyof DocumentSections];
-    const result = calculateSectionConfidence(sectionData, definition);
-    
-    if (result.totalFields > 0) {
-      sectionConfidences[sectionName] = result;
-      const sectionWeight = defaultWeights[sectionName as keyof SectionWeights] || 0;
-
-      if (result.confidence > 0) {
-        totalWeightedConfidence += result.confidence * sectionWeight;
-        totalWeight += sectionWeight;
-      }
-
-      totalValidFields += result.validFields;
-      totalFields += result.totalFields;
-    }
-  }
-
-  const finalConfidence = totalWeight > 0 ? totalWeightedConfidence / totalWeight : 0;
-
-  return {
-    confidence: Number.isFinite(finalConfidence) ? finalConfidence : 0,
-    validFields: totalValidFields,
-    totalFields,
-    sectionConfidences
-  };
-}
-
-// Aktualizujemy definicję requiredFields z nowym typem
-const requiredFields: RequiredFields = {
-  ppe: {
-    required: ['ppeNum', 'TariffGroup', 'dpStreet', 'dpBuilding', 'dpPostalCode', 'dpCity'],
-    optional: ['MeterNumber', 'dpUnit', 'dpMunicipality', 'dpDistrict', 'dpProvince'],
-    alternatives: {
-      'ppeNum': ['PPENumber', 'PointNumber'],
-      'TariffGroup': ['Tariff', 'TariffName']
-    }
-  },
-  customer: {
-    required: ['Street', 'Building', 'PostalCode', 'City'],
-    optional: ['Unit', 'Municipality', 'District', 'Province'],
-    alternatives: {
-      'FirstName': ['BusinessName'],
-      'LastName': ['taxID']
-    }
-  },
-  correspondence: {
-    required: ['paStreet', 'paBuilding', 'paPostalCode', 'paCity'],
-    optional: ['paUnit', 'paMunicipality', 'paDistrict', 'paProvince'],
-    alternatives: {
-      'paFirstName': ['paBusinessName'],
-      'paLastName': ['paTaxID']
-    }
-  },
-  supplier: {
-    required: ['supplierName', 'OSD_name'],
-    optional: ['OSD_region', 'supplierTaxID', 'supplierStreet', 'supplierBuilding', 'supplierPostalCode', 'supplierCity', 'supplierBankAccount', 'supplierBankName', 'supplierEmail', 'supplierPhone', 'supplierWebsite'],
-    alternatives: {}
-  },
-  billing: {
-    required: ['billingStartDate', 'billingEndDate', 'billedUsage'],
-    optional: ['usage12m'],
-    alternatives: {}
-  }
-};
-
-// Interfejs dla metryk wydajności
-interface PerformanceMetrics {
-  startTime: number;
-  endTime: number;
-  duration: number;
-  operation: string;
-  details?: Record<string, number>;
-}
-
-// Klasa do monitorowania wydajności
-class PerformanceMonitor {
-  private static metrics: PerformanceMetrics[] = [];
-  private static enabled = true;
-
-  static start(operation: string): number {
-    if (!this.enabled) return 0;
-    return performance.now();
-  }
-
-  static end(operation: string, startTime: number, details?: Record<string, number>) {
-    if (!this.enabled || !startTime) return;
-    
-    const endTime = performance.now();
-    const duration = endTime - startTime;
-    
-    this.metrics.push({
-      startTime,
-      endTime,
-      duration,
-      operation,
-      details
-    });
-
-    // Log tylko dla długich operacji (>100ms)
-    if (duration > 100) {
-      console.warn(`Długa operacja: ${operation} (${duration.toFixed(2)}ms)`, details);
-    }
-  }
-
-  static getMetrics(): PerformanceMetrics[] {
-    return this.metrics;
-  }
-
-  static clear(): void {
-    this.metrics = [];
-  }
-
-  static disable(): void {
-    this.enabled = false;
-  }
-
-  static enable(): void {
-    this.enabled = true;
-  }
-}
-
-// Zoptymalizowana funkcja obliczająca kompletność dokumentu
-export function calculateDocumentCompleteness(sections: DocumentSections): {
-  completeness: number;
-  sectionCompleteness: Record<string, number>;
-  validFields: number;
-  totalFields: number;
-  metrics?: PerformanceMetrics[];
-} {
-  const totalStart = PerformanceMonitor.start('calculateDocumentCompleteness');
-  
-  // Wyczyść cache przed rozpoczęciem nowych obliczeń
-  normalizedContentCache.clear();
-  fieldValueCache.clear();
-
-  const sectionCompleteness: Record<string, number> = {};
-  let totalWeightedCompleteness = 0;
-  let totalWeight = 0;
-  let totalValidFields = 0;
-  let totalFields = 0;
-
-  // Pre-oblicz wartości dla często używanych operacji
-  const sectionEntries = Object.entries(requiredFields);
-  const sectionCount = sectionEntries.length;
-  
-  // Przygotuj tablicę wyników o znanym rozmiarze
-  const sectionResults = new Array(sectionCount);
-  
-  // Przetwarzaj sekcje
-  const processStart = PerformanceMonitor.start('processSections');
-  
-  for (let i = 0; i < sectionCount; i++) {
-    const [section, definition] = sectionEntries[i];
-    const sectionStart = PerformanceMonitor.start(`processSection:${section}`);
-    
-    const sectionData = sections[section as keyof DocumentSections];
-    if (!sectionData) {
-      sectionResults[i] = {
-        section,
-        completeness: 0,
-        validFields: 0,
-        totalFields: definition.required.length + definition.optional.length
-      };
-      continue;
-    }
-
-    // Deduplikuj dane sekcji
-    const deduplicateStart = PerformanceMonitor.start('deduplicateFields');
-    const deduplicatedData = deduplicateFields(sectionData);
-    PerformanceMonitor.end('deduplicateFields', deduplicateStart);
-
-    // Pre-oblicz wartości dla sekcji
-    const requiredLength = definition.required.length;
-    const optionalLength = definition.optional.length;
-    
-    // Oblicz wypełnienie pól
-    const validateStart = PerformanceMonitor.start('validateFields');
-    let filledRequired = 0;
-    let filledOptional = 0;
-
-    // Sprawdź pola wymagane
-    for (let j = 0; j < requiredLength; j++) {
-      if (hasFieldValue(deduplicatedData, definition.required[j], definition.alternatives[definition.required[j]])) {
-        filledRequired++;
-      }
-    }
-
-    // Sprawdź pola opcjonalne
-    for (let j = 0; j < optionalLength; j++) {
-      if (hasFieldValue(deduplicatedData, definition.optional[j], definition.alternatives[definition.optional[j]])) {
-        filledOptional++;
-      }
-    }
-    PerformanceMonitor.end('validateFields', validateStart);
-
-    const requiredCompleteness = filledRequired / requiredLength;
-    const optionalCompleteness = optionalLength > 0 ? filledOptional / optionalLength : 1;
-
-    const sectionCompletenessValue = 
-      (requiredCompleteness * 0.7) + 
-      (optionalCompleteness * 0.3);
-
-    // Sprawdź wymagane pola tylko jeśli sekcja ma jakąś wartość
-    const requiredFieldsComplete = sectionCompletenessValue > 0 && filledRequired === requiredLength;
-
-    sectionResults[i] = {
-      section,
-      completeness: requiredFieldsComplete ? sectionCompletenessValue : sectionCompletenessValue * 0.8,
-      validFields: filledRequired + filledOptional,
-      totalFields: requiredLength + optionalLength
+// Oblicza kompletność grupy pól
+export function calculateGroupCompleteness(
+  fields: Record<string, DocumentField> | undefined,
+  groupKey: string
+): GroupConfidence {
+  if (!fields) {
+    return {
+      completeness: 0,
+      confidence: 0,
+      filledRequired: 0,
+      totalRequired: 0,
+      filledOptional: 0,
+      totalOptional: 0
     };
-
-    PerformanceMonitor.end(`processSection:${section}`, sectionStart, {
-      requiredFields: requiredLength,
-      optionalFields: optionalLength,
-      filledRequired,
-      filledOptional
-    });
   }
 
-  PerformanceMonitor.end('processSections', processStart);
-
-  // Agreguj wyniki
-  const aggregateStart = PerformanceMonitor.start('aggregateResults');
-  
-  for (const result of sectionResults) {
-    sectionCompleteness[result.section] = result.completeness;
-    
-    const sectionWeight = defaultWeights[result.section as keyof SectionWeights] || 0;
-    totalWeightedCompleteness += result.completeness * sectionWeight;
-    totalWeight += sectionWeight;
-    
-    totalValidFields += result.validFields;
-    totalFields += result.totalFields;
+  const fieldGroup = FIELD_GROUPS[groupKey as keyof typeof FIELD_GROUPS];
+  if (!fieldGroup) {
+    return {
+      completeness: 0,
+      confidence: 0,
+      filledRequired: 0,
+      totalRequired: 0,
+      filledOptional: 0,
+      totalOptional: 0
+    };
   }
 
-  PerformanceMonitor.end('aggregateResults', aggregateStart);
+  const requiredFields = fieldGroup.requiredFields;
+  const optionalFields = fieldGroup.fields.filter(field => !requiredFields.includes(field));
 
-  const finalCompleteness = totalWeight > 0 ? totalWeightedCompleteness / totalWeight : 0;
+  const filledRequired = requiredFields.filter(fieldName => {
+    const field = fields[fieldName];
+    return field?.content;
+  }).length;
 
-  PerformanceMonitor.end('calculateDocumentCompleteness', totalStart);
+  const filledOptional = optionalFields.filter(fieldName => {
+    const field = fields[fieldName];
+    return field?.content;
+  }).length;
+
+  // Oblicz średnią pewność dla wszystkich wypełnionych pól
+  const filledFields = Object.values(fields).filter(field => field?.content);
+  const confidence = filledFields.length > 0
+    ? filledFields.reduce((sum, field) => sum + (field?.confidence || 0), 0) / filledFields.length
+    : 0;
+
+  // Oblicz kompletność jako średnią ważoną wymaganych i opcjonalnych pól
+  const requiredWeight = 0.7; // Waga pól wymaganych
+  const optionalWeight = 0.3; // Waga pól opcjonalnych
+
+  const requiredCompleteness = requiredFields.length > 0
+    ? filledRequired / requiredFields.length
+    : 1;
+
+  const optionalCompleteness = optionalFields.length > 0
+    ? filledOptional / optionalFields.length
+    : 1;
+
+  const completeness = (requiredCompleteness * requiredWeight) + (optionalCompleteness * optionalWeight);
 
   return {
-    completeness: Number.isFinite(finalCompleteness) ? finalCompleteness : 0,
-    sectionCompleteness,
-    validFields: totalValidFields,
-    totalFields,
-    metrics: PerformanceMonitor.getMetrics()
+    completeness,
+    confidence,
+    filledRequired,
+    totalRequired: requiredFields.length,
+    filledOptional,
+    totalOptional: optionalFields.length
   };
 }
 
-// Eksportuj monitor wydajności do użycia w innych modułach
-export const performanceMonitor = PerformanceMonitor; 
+// Oblicza kompletność całego dokumentu
+export function calculateDocumentCompleteness(sections: DocumentSections): DocumentConfidence {
+  const documentConfidence: DocumentConfidence = {
+    overall: 0,
+    confidence: 0,
+    groups: {
+      delivery_point: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+      ppe: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+      postal_address: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+      buyer_data: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+      supplier: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+      consumption_info: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+      billing: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 }
+    }
+  };
+
+  // Oblicz kompletność dla każdej grupy
+  for (const [groupKey, fields] of Object.entries(sections)) {
+    if (groupKey in documentConfidence.groups) {
+      documentConfidence.groups[groupKey as keyof typeof documentConfidence.groups] = 
+        calculateGroupCompleteness(fields, groupKey);
+    }
+  }
+
+  // Oblicz ogólną kompletność i pewność dokumentu
+  const groupValues = Object.values(documentConfidence.groups);
+  if (groupValues.length > 0) {
+    const overallCompleteness = groupValues.reduce((sum, group) => sum + group.completeness, 0) / groupValues.length;
+    const overallConfidence = groupValues.reduce((sum, group) => sum + group.confidence, 0) / groupValues.length;
+
+    documentConfidence.overall = overallCompleteness;
+    documentConfidence.confidence = overallConfidence;
+  }
+
+  return documentConfidence;
+}
+
+// Oblicza średnią pewność dla dokumentu
+export function calculateAverageConfidence(sections: DocumentSections): DocumentConfidence {
+  const documentConfidence: DocumentConfidence = {
+    overall: 0,
+    confidence: 0,
+    groups: {
+      delivery_point: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+      ppe: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+      postal_address: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+      buyer_data: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+      supplier: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+      consumption_info: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+      billing: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 }
+    }
+  };
+
+  // Oblicz pewność dla każdej grupy
+  for (const [groupKey, fields] of Object.entries(sections)) {
+    if (groupKey in documentConfidence.groups && fields) {
+      const groupFields = Object.values(fields);
+      if (groupFields.length > 0) {
+        const groupConfidence = groupFields.reduce((sum, field) => sum + (field?.confidence || 0), 0) / groupFields.length;
+        documentConfidence.groups[groupKey as keyof typeof documentConfidence.groups].confidence = groupConfidence;
+      }
+    }
+  }
+
+  // Oblicz ogólną pewność dokumentu
+  const groupValues = Object.values(documentConfidence.groups);
+  if (groupValues.length > 0) {
+    const overallConfidence = groupValues.reduce((sum, group) => sum + group.confidence, 0) / groupValues.length;
+    documentConfidence.overall = overallConfidence;
+    documentConfidence.confidence = overallConfidence;
+  }
+
+  return documentConfidence;
+} 

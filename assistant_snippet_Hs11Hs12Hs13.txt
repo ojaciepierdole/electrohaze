@@ -1,0 +1,1 @@
+Object literal may only specify known properties, but 'currentFileIndex' does not exist in type 'BatchProcessingStatus' 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { DocumentAnalysisClient } from '@azure/ai-form-recognizer';
-import type { AnalysisField, FieldGroupKey } from '@/types/processing';
+import type { AnalysisField, FieldType } from '@/types/processing';
+import type { FieldGroupKey } from '@/types/fields';
 import { FIELD_GROUPS } from '@/config/fields';
 
 interface FieldGroup {
@@ -15,6 +16,25 @@ interface AzureFieldSchema {
   isRequired?: boolean;
   description?: string;
   confidence?: number;
+}
+
+function determineFieldType(type: string | undefined): FieldType {
+  switch (type?.toLowerCase()) {
+    case 'number':
+    case 'currency':
+    case 'integer':
+    case 'date':
+    case 'time':
+    case 'phonenumber':
+    case 'address':
+    case 'string':
+    case 'signature':
+    case 'countryregion':
+    case 'selectionmark':
+      return type.toLowerCase() as FieldType;
+    default:
+      return 'string';
+  }
 }
 
 export async function GET(
@@ -37,7 +57,7 @@ export async function GET(
         for (const field of groupFields) {
           fields.push({
             name: field,
-            type: 'string',
+            type: 'string' as FieldType,
             isRequired: group.requiredFields.includes(field),
             description: field,
             group: groupKey
@@ -87,7 +107,7 @@ export async function GET(
           console.warn(`Nieprawidłowa schema dla pola ${name}:`, rawSchema);
           return {
             name,
-            type: 'string',
+            type: 'string' as FieldType,
             isRequired: false,
             description: name,
             group: determineFieldGroup(name)
@@ -96,7 +116,7 @@ export async function GET(
 
         return {
           name,
-          type: rawSchema.type || 'string',
+          type: determineFieldType(rawSchema.type),
           isRequired: rawSchema.isRequired || false,
           description: rawSchema.description || name,
           group: determineFieldGroup(name)

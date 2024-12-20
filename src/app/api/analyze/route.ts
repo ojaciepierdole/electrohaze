@@ -1,226 +1,302 @@
 import { NextResponse } from 'next/server';
-import { AzureDocumentService } from '@/lib/azure-document-service';
-import { Logger } from '@/lib/logger';
-import { PerformanceMonitor } from '@/lib/performance-monitor';
-import { AlertService } from '@/lib/alert-service';
-import { mapDocumentAnalysisResult } from '@/utils/document-mapping';
-import { safeValidateProcessingResult } from '@/types/validation';
-import { AzureDocumentIntelligenceError } from '@/lib/azure-errors';
+import { DocumentAnalysisClient, type DocumentField as AzureDocumentField } from '@azure/ai-form-recognizer';
+import type { 
+  ProcessingResult, 
+  DocumentField,
+  DocumentConfidence,
+  DocumentFieldsMap,
+  FieldType,
+  DataSource,
+  TransformationType,
+  FieldMetadata
+} from '@/types/processing';
+import type { FieldGroupKey } from '@/types/fields';
+import { cacheManager } from '@/lib/cache-manager';
+import { decompressData } from '@/utils/compression';
+import { FIELD_GROUPS } from '@/config/fields';
 
-const logger = Logger.getInstance();
-const performanceMonitor = PerformanceMonitor.getInstance();
-const alertService = AlertService.getInstance();
+// Funkcja pomocnicza do określania grupy pola
+function determineFieldGroup(fieldName: string): FieldGroupKey {
+  // Sprawdź każdą grupę pól
+  for (const [groupKey, group] of Object.entries(FIELD_GROUPS)) {
+    if (group.fields.includes(fieldName)) {
+      return groupKey as FieldGroupKey;
+    }
+  }
+
+  // Jeśli pole nie zostało znalezione w żadnej grupie, użyj heurystyki
+  const normalizedField = fieldName.toLowerCase();
+
+  // Punkt Poboru Energii
+  if (normalizedField.startsWith('dp') || 
+      normalizedField === 'ppenum' || 
+      normalizedField === 'meternumber' || 
+      normalizedField.includes('tariff') || 
+      normalizedField.includes('contract') || 
+      normalizedField === 'osd_name' || 
+      normalizedField === 'osd_region') {
+    return 'delivery_point';
+  }
+
+  // Adres korespondencyjny
+  if (normalizedField.startsWith('pa')) {
+    return 'postal_address';
+  }
+
+  // Dane sprzedawcy
+  if (normalizedField.startsWith('supplier')) {
+    return 'supplier';
+  }
+
+  // Dane rozliczeniowe
+  if (normalizedField.startsWith('billing') || 
+      normalizedField.includes('invoice') || 
+      normalizedField.includes('amount') || 
+      normalizedField.includes('vat') || 
+      normalizedField === 'currency') {
+    return 'billing';
+  }
+
+  // Informacje o zużyciu
+  if (normalizedField.includes('usage') || 
+      normalizedField.includes('consumption') || 
+      normalizedField.includes('reading')) {
+    return 'consumption_info';
+  }
+
+  // Domyślnie - dane nabywcy
+  return 'buyer_data';
+}
+
+// Funkcja konwertująca pole z Azure na nasz format
+function convertAzureField(azureField: AzureDocumentField): DocumentField {
+  // Domyślnie traktujemy jako string
+  const kind = 'string' as FieldType;
+  const metadata: FieldMetadata = {
+    fieldType: kind,
+    transformationType: 'initial',
+    source: 'azure',
+    boundingRegions: [],
+    spans: []
+  };
+
+  const field: DocumentField = {
+    content: '',
+    confidence: 0,
+    kind,
+    value: null,
+    metadata
+  };
+
+  // Bezpieczne przypisanie wartości
+  if ('content' in azureField) {
+    field.content = String(azureField.content || '');
+  }
+
+  if ('confidence' in azureField) {
+    field.confidence = Number(azureField.confidence || 0);
+  }
+
+  if ('boundingRegions' in azureField && Array.isArray(azureField.boundingRegions)) {
+    metadata.boundingRegions = azureField.boundingRegions.map(region => ({
+      pageNumber: region.pageNumber,
+      polygon: Array.isArray(region.polygon) 
+        ? region.polygon.map(point => ({ x: point.x, y: point.y }))
+        : []
+    }));
+  }
+
+  if ('spans' in azureField && Array.isArray(azureField.spans)) {
+    metadata.spans = azureField.spans.map(span => ({
+      offset: span.offset,
+      length: span.length,
+      text: ''
+    }));
+  }
+
+  // Konwersja wartości
+  if ('content' in azureField) {
+    const content = azureField.content || '';
+    
+    switch (kind) {
+      case 'number':
+      case 'currency':
+      case 'integer':
+        field.value = Number(content);
+        break;
+      case 'date':
+        field.value = content ? new Date(content) : null;
+        break;
+      case 'object':
+        try {
+          field.value = content ? JSON.parse(content) : {};
+        } catch {
+          field.value = {};
+        }
+        break;
+      case 'array':
+        try {
+          field.value = content ? JSON.parse(content) : [];
+        } catch {
+          field.value = [];
+        }
+        break;
+      case 'selectionMark':
+        field.value = content === 'selected';
+        break;
+      default:
+        field.value = content;
+    }
+  }
+
+  return field;
+}
 
 export async function POST(request: Request) {
-  const operationId = performanceMonitor.startOperation('analyze-document');
-
   try {
-    // Sprawdzenie Content-Type
-    const contentType = request.headers.get('content-type');
-    if (!contentType?.includes('multipart/form-data')) {
-      logger.warn('Nieprawidłowy Content-Type', { contentType });
-      return NextResponse.json(
-        { error: 'Nieprawidłowy format danych. Wymagany jest multipart/form-data.' },
-        { status: 400 }
-      );
-    }
-
     const formData = await request.formData();
-    const file = formData.get('file');
-    const modelId = formData.get('modelId');
-    const skipCache = formData.get('skipCache') === 'true';
+    const file = formData.get('file') as File;
+    const modelId = formData.get('modelId') as string;
 
-    const context = {
-      operationId,
-      fileName: file instanceof File ? file.name : undefined,
-      fileSize: file instanceof File ? file.size : undefined,
-      modelId,
-      skipCache
-    };
-
-    // Walidacja obecności wymaganych pól
     if (!file || !modelId) {
-      logger.warn('Brak wymaganych pól', context);
       return NextResponse.json(
-        { error: 'Brak wymaganych pól: file i modelId' },
+        { error: 'Brak pliku lub identyfikatora modelu' },
         { status: 400 }
       );
     }
 
-    // Sprawdzenie typu file
-    if (!(file instanceof File)) {
-      logger.warn('Nieprawidłowy typ pliku', context);
+    // Sprawdź czy mamy dostęp do Azure Document Intelligence
+    const endpoint = process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT;
+    const key = process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY;
+
+    if (!endpoint || !key) {
       return NextResponse.json(
-        { error: 'Pole file musi być plikiem' },
-        { status: 400 }
+        { error: 'Brak konfiguracji Azure Document Intelligence' },
+        { status: 500 }
       );
     }
 
-    // Sprawdzenie typu modelId
-    if (typeof modelId !== 'string') {
-      logger.warn('Nieprawidłowy typ modelId', context);
-      return NextResponse.json(
-        { error: 'Pole modelId musi być tekstem' },
-        { status: 400 }
-      );
+    const client = new DocumentAnalysisClient(endpoint, { key });
+
+    // Przygotuj dane do wysłania
+    const arrayBuffer = await file.arrayBuffer();
+    const fileData = file.type === 'application/octet-stream' 
+      ? decompressData<ArrayBuffer>(new Uint8Array(arrayBuffer))
+      : arrayBuffer;
+
+    // Wyślij żądanie do Azure
+    const poller = await client.beginAnalyzeDocument(modelId, fileData);
+    const result = await poller.pollUntilDone();
+
+    if (!result.documents?.[0]?.fields) {
+      throw new Error('Nie znaleziono pól w dokumencie');
     }
 
-    logger.info('Rozpoczynam przetwarzanie dokumentu', context);
+    // Konwertuj pola z Azure na nasz format
+    const fields = Object.entries(result.documents[0].fields).reduce<Record<string, DocumentField>>(
+      (acc, [key, field]) => {
+        if (field) {
+          acc[key] = convertAzureField(field);
+        }
+        return acc;
+      },
+      {}
+    );
 
-    const service = AzureDocumentService.getInstance();
-    const result = await service.analyzeDocument(file, modelId, { skipCache });
-
-    // Sprawdzenie czy mamy dokumenty w wyniku
-    if (!result.documents || result.documents.length === 0) {
-      logger.error('Brak dokumentów w wyniku analizy', context);
-      return NextResponse.json(
-        { error: 'Nie znaleziono dokumentu w wyniku analizy' },
-        { status: 422 }
-      );
-    }
-
-    const document = result.documents[0];
-
-    // Mapowanie wyniku do formatu aplikacji
-    const mappedResult = mapDocumentAnalysisResult(document.fields);
-
-    const processingTime = performanceMonitor.getActiveOperations()
-      .find(op => op.operationId === operationId)?.duration || 0;
-
-    const modelResult = {
-      modelId,
-      fields: document.fields,
-      confidence: document.confidence,
-      pageCount: result.pages?.length || 1
+    // Mapuj pola na grupy
+    const mappedData: DocumentFieldsMap = {
+      delivery_point: {},
+      ppe: {},
+      postal_address: {},
+      buyer_data: {},
+      supplier: {},
+      consumption_info: {},
+      billing: {}
     };
 
-    const processingResult = {
+    // Grupuj pola według ich grup
+    for (const [fieldName, field] of Object.entries(fields)) {
+      const group = determineFieldGroup(fieldName);
+      mappedData[group][fieldName] = field;
+    }
+
+    // Oblicz pewność dla każdej grupy
+    const documentConfidence: DocumentConfidence = {
+      overall: 0,
+      confidence: 0,
+      groups: {
+        delivery_point: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+        ppe: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+        postal_address: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+        buyer_data: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+        supplier: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+        consumption_info: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 },
+        billing: { completeness: 0, confidence: 0, filledRequired: 0, totalRequired: 0, filledOptional: 0, totalOptional: 0 }
+      }
+    };
+
+    // Oblicz pewność dla każdej grupy
+    for (const [groupKey, group] of Object.entries(mappedData)) {
+      const groupFields = Object.values(group) as DocumentField[];
+      if (groupFields.length > 0) {
+        const groupConfidence = groupFields.reduce((sum, field) => sum + field.confidence, 0) / groupFields.length;
+        const fieldGroup = FIELD_GROUPS[groupKey as FieldGroupKey];
+        const requiredFields = fieldGroup.requiredFields;
+        const optionalFields = fieldGroup.fields.filter(field => !requiredFields.includes(field));
+        
+        const filledRequired = requiredFields.filter(fieldName => {
+          const field = group[fieldName] as DocumentField | undefined;
+          return field?.content;
+        }).length;
+
+        const filledOptional = optionalFields.filter(fieldName => {
+          const field = group[fieldName] as DocumentField | undefined;
+          return field?.content;
+        }).length;
+
+        const completeness = requiredFields.length > 0 ? filledRequired / requiredFields.length : 1;
+
+        documentConfidence.groups[groupKey as FieldGroupKey] = {
+          completeness,
+          confidence: groupConfidence,
+          filledRequired,
+          totalRequired: requiredFields.length,
+          filledOptional,
+          totalOptional: optionalFields.length
+        };
+      }
+    }
+
+    // Oblicz ogólną pewność dokumentu
+    const allFields = Object.values(fields) as DocumentField[];
+    if (allFields.length > 0) {
+      const overallConfidence = allFields.reduce((sum, field) => sum + field.confidence, 0) / allFields.length;
+      documentConfidence.overall = overallConfidence;
+      documentConfidence.confidence = overallConfidence;
+    }
+
+    const processingResult: ProcessingResult = {
       fileName: file.name,
-      modelResults: [modelResult],
-      processingTime,
-      mappedData: mappedResult,
-      cacheStats: service.getCacheStats(),
-      performanceStats: service.getPerformanceStats(),
-      alerts: alertService.getActiveAlerts({ acknowledged: false })
+      timing: {
+        upload: 0,
+        ocr: 0,
+        analysis: 0,
+        total: 0
+      },
+      documentConfidence,
+      usability: documentConfidence.confidence,
+      status: 'success',
+      mappedData
     };
 
-    // Walidacja wyniku przetwarzania
-    const validationResult = safeValidateProcessingResult(processingResult);
-    if (!validationResult.success) {
-      logger.error('Nieprawidłowy format wyniku przetwarzania', {
-        ...context,
-        error: validationResult.error
-      });
+    // Zapisz wynik do cache
+    cacheManager.set(file.name, modelId, processingResult);
 
-      return NextResponse.json(
-        { 
-          error: 'Błąd walidacji danych',
-          details: validationResult.error
-        },
-        { status: 422 }
-      );
-    }
-
-    // Sprawdzenie warunków alertów
-    await alertService.checkAndTrigger({
-      ...context,
-      processingTime,
-      confidence: document.confidence,
-      validationError: validationResult.error
-    });
-
-    logger.info('Zakończono przetwarzanie dokumentu', {
-      ...context,
-      confidence: document.confidence,
-      pageCount: result.pages?.length || 1,
-      processingTime
-    });
-
-    performanceMonitor.endOperation(operationId);
-    return NextResponse.json(validationResult.data);
-
+    return NextResponse.json(processingResult);
   } catch (error) {
-    const errorContext = {
-      operationId,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      statusCode: error instanceof AzureDocumentIntelligenceError ? error.statusCode : 500
-    };
-
-    logger.error('Błąd podczas przetwarzania dokumentu', errorContext);
-
-    // Sprawdzenie warunków alertów dla błędu
-    await alertService.checkAndTrigger(errorContext);
-
-    performanceMonitor.endOperation(operationId, {
-      error: errorContext.error,
-      statusCode: errorContext.statusCode
-    });
-
-    if (error instanceof AzureDocumentIntelligenceError) {
-      return NextResponse.json(
-        { error: error.userMessage },
-        { status: error.statusCode || 500 }
-      );
-    }
-
-    // Dla nieznanych błędów zwracamy ogólny komunikat
+    console.error('Błąd podczas przetwarzania żądania:', error);
     return NextResponse.json(
-      { error: 'Wystąpił nieoczekiwany błąd podczas przetwarzania dokumentu' },
-      { status: 500 }
-    );
-  }
-}
-
-// Endpoint do czyszczenia cache'a
-export async function DELETE() {
-  const operationId = performanceMonitor.startOperation('clear-cache');
-
-  try {
-    logger.info('Czyszczenie cache', { operationId });
-
-    const service = AzureDocumentService.getInstance();
-    service.clearCache();
-
-    performanceMonitor.endOperation(operationId);
-    return NextResponse.json({ 
-      message: 'Cache wyczyszczony',
-      performanceStats: service.getPerformanceStats()
-    });
-  } catch (error) {
-    const errorContext = {
-      operationId,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
-
-    logger.error('Błąd podczas czyszczenia cache', errorContext);
-    await alertService.checkAndTrigger(errorContext);
-
-    performanceMonitor.endOperation(operationId, errorContext);
-
-    return NextResponse.json(
-      { error: 'Wystąpił błąd podczas czyszczenia cache' },
-      { status: 500 }
-    );
-  }
-}
-
-// Endpoint do pobierania statystyk
-export async function GET() {
-  try {
-    const service = AzureDocumentService.getInstance();
-    return NextResponse.json({
-      cacheStats: service.getCacheStats(),
-      performanceStats: service.getPerformanceStats(),
-      activeOperations: service.getActiveOperations(),
-      alerts: alertService.getActiveAlerts({ acknowledged: false })
-    });
-  } catch (error) {
-    logger.error('Błąd podczas pobierania statystyk', {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-
-    return NextResponse.json(
-      { error: 'Wystąpił błąd podczas pobierania statystyk' },
+      { error: error instanceof Error ? error.message : 'Nieznany błąd' },
       { status: 500 }
     );
   }
