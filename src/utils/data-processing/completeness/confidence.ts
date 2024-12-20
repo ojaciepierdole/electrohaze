@@ -2,6 +2,7 @@ import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingDa
 import type { DocumentField } from '@/types/processing';
 
 export interface DocumentSections {
+  [key: string]: Record<string, DocumentField> | undefined;
   ppe?: Record<string, DocumentField>;
   customer?: Record<string, DocumentField>;
   correspondence?: Record<string, DocumentField>;

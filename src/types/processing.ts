@@ -179,26 +179,21 @@ export interface BoundingRegion {
   polygon: Point2D[];
 }
 
+export interface Span {
+  offset: number;
+  length: number;
+  text: string;
+}
+
 export interface DocumentField {
   content: string;
   confidence: number;
-  boundingRegions?: BoundingRegion[];
-  spans?: Array<{
-    offset: number;
-    length: number;
-  }>;
-  properties?: Record<string, DocumentField>;
-  kind?: string;
   metadata?: {
     fieldType?: string;
     transformationType?: string;
-    originalValue?: string;
     source?: string;
     boundingRegions?: BoundingRegion[];
-    spans?: Array<{
-      offset: number;
-      length: number;
-    }>;
+    spans?: Span[];
     [key: string]: unknown;
   };
 }
@@ -206,12 +201,12 @@ export interface DocumentField {
 export interface FieldWithConfidence {
   content: string;
   confidence: number;
-  isEnriched?: boolean;
-  metadata: {
+  metadata?: {
     fieldType?: string;
     transformationType?: string;
-    originalValue?: string;
     source?: string;
+    boundingRegions?: BoundingRegion[];
+    spans?: Span[];
     [key: string]: unknown;
   };
 }
@@ -460,26 +455,38 @@ export interface ModelResult {
   pageCount: number;
 }
 
+export type ResultField = {
+  content: string;
+  confidence: number;
+  metadata?: {
+    fieldType: string;
+    transformationType: string;
+    source: string;
+  };
+};
+
 export interface ProcessingResult {
   fileName: string;
-  modelResults: ModelResult[];
-  processingTime: number;
-  mappedData: DocumentAnalysisResult;
   confidence: number;
-  completeness: number;
-  isUsable: boolean;
+  modelResults: Array<{ fields: Record<string, ResultField>; confidence: number }>;
+  mappedData: {
+    metadata: {
+      processedAt: string;
+      status: string;
+    };
+  };
   cacheStats: {
     size: number;
     maxSize: number;
     ttl: number;
   };
-  performanceStats?: PerformanceStats[];
-  alerts?: Alert[];
-  uploadTime?: number;
-  ocrTime?: number;
-  analysisTime?: number;
-  mimeType?: string;
-  usability: boolean;
+  timing: {
+    uploadTime: number;
+    ocrTime: number;
+    analysisTime: number;
+    totalTime: number;
+  };
+  usability?: boolean;
 }
 
 export interface GroupedResult {
@@ -559,7 +566,7 @@ export interface DocumentAnalysisResult {
   metadata?: Record<string, unknown>;
 }
 
-export interface ExtendedDocumentField extends DocumentField {
+export interface ExtendedDocumentField extends Omit<DocumentField, 'metadata'> {
   name: string;
   type: string;
   isRequired: boolean;
@@ -573,10 +580,7 @@ export interface ExtendedDocumentField extends DocumentField {
     originalValue: string;
     source: string;
     boundingRegions?: BoundingRegion[];
-    spans?: Array<{
-      offset: number;
-      length: number;
-    }>;
+    spans?: Span[];
     [key: string]: unknown;
   };
 }

@@ -145,113 +145,42 @@ export function AnalysisResultCard({
   const confidenceStats = ConfidenceCalculator.calculateStats(confidenceFields);
   const averageConfidence = confidenceResult.confidence;
 
-  const handleRowClick = (event: React.MouseEvent) => {
-    if (!(event.target as HTMLElement).closest('button')) {
-      setIsExpanded(!isExpanded);
-    }
-  };
-
   return (
-    <>
-      <tr 
-        className="bg-white hover:bg-gray-50 cursor-pointer transition-colors" 
-        onClick={handleRowClick}
-      >
-        <td className="flex-[2] px-6 py-4">
-          <div className="text-sm font-medium text-gray-900">
-            {supplierData?.supplierName?.content || 'Nieznany dostawca'}
-          </div>
-          <div className="text-sm text-gray-500 truncate max-w-[300px] md:max-w-[400px]" title={fileName}>
-            {fileName}
-          </div>
-        </td>
-        <td className="hidden sm:table-cell flex-1 px-6 py-4 text-center">
-          <Badge variant="secondary" className="bg-gray-50 text-gray-600">
-            PDF
-          </Badge>
-        </td>
-        <td className="hidden sm:table-cell flex-1 px-6 py-4 text-center">
-          <Badge variant="secondary" className={cn(
-            confidenceResult.confidence >= 0.9 ? 'bg-green-50 text-green-700' : 
-            confidenceResult.confidence >= 0.7 ? 'bg-yellow-50 text-yellow-700' : 
-            'bg-red-50 text-red-700'
-          )}>
-            {(confidenceResult.confidence * 100).toFixed(1)}%
-          </Badge>
-        </td>
-        <td className="hidden sm:table-cell flex-1 px-6 py-4 text-center">
-          <Badge variant="secondary" className={cn(
-            completenessResult.completeness >= 0.8 ? 'bg-green-50 text-green-700' : 
-            completenessResult.completeness >= 0.6 ? 'bg-yellow-50 text-yellow-700' : 
-            'bg-red-50 text-red-700'
-          )}>
-            {(completenessResult.completeness * 100).toFixed(1)}%
-          </Badge>
-        </td>
-        <td className="hidden sm:table-cell flex-1 px-6 py-4 text-center">
-          {usability ? (
-            <CheckCircle2 className="w-5 h-5 text-green-500 mx-auto" />
-          ) : (
-            <XCircle className="w-5 h-5 text-red-500 mx-auto" />
-          )}
-        </td>
-        <td className="w-[60px] px-6 py-4 flex justify-center">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="text-blue-600 hover:text-blue-900"
-          >
-            {isExpanded ? (
-              <ChevronUp className="h-5 w-5" />
-            ) : (
-              <ChevronDown className="h-5 w-5" />
-            )}
-          </Button>
-        </td>
-      </tr>
-      {isExpanded && (
-        <tr>
-          <td colSpan={6} className="px-6 py-4 border-t border-gray-200">
-            <div className="space-y-6">
-              <div className="pb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium">Dane dostawcy</h3>
-                </div>
-                <SupplierDataGroup data={supplierData} />
-              </div>
+    <div className="space-y-6">
+      <div className="pb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium">Dane dostawcy</h3>
+        </div>
+        <SupplierDataGroup data={supplierData} />
+      </div>
 
-              <div className="border-t border-gray-300 pt-6 pb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium">Dane PPE</h3>
-                </div>
-                <PPEDataGroup data={ppeData} />
-              </div>
+      <div className="border-t border-gray-300 pt-6 pb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium">Dane PPE</h3>
+        </div>
+        <PPEDataGroup data={ppeData} />
+      </div>
 
-              <div className="border-t border-gray-300 pt-6 pb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium">Dane klienta</h3>
-                </div>
-                <CustomerDataGroup data={customerData} />
-              </div>
+      <div className="border-t border-gray-300 pt-6 pb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium">Dane klienta</h3>
+        </div>
+        <CustomerDataGroup data={customerData} />
+      </div>
 
-              <div className="border-t border-gray-300 pt-6 pb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium">Adres korespondencyjny</h3>
-                </div>
-                <CorrespondenceDataGroup data={correspondenceData} />
-              </div>
+      <div className="border-t border-gray-300 pt-6 pb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium">Adres korespondencyjny</h3>
+        </div>
+        <CorrespondenceDataGroup data={correspondenceData} />
+      </div>
 
-              <div className="border-t border-gray-300 pt-6 pb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium">Dane rozliczeniowe</h3>
-                </div>
-                <BillingDataGroup data={billingData} />
-              </div>
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
+      <div className="border-t border-gray-300 pt-6 pb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium">Dane rozliczeniowe</h3>
+        </div>
+        <BillingDataGroup data={billingData} />
+      </div>
+    </div>
   );
 } 

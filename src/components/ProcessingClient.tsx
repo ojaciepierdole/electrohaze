@@ -136,14 +136,21 @@ export function ProcessingClient() {
       const endTime = Date.now();
       const startTime = processingStartTime || endTime;
       
-      // Zbieramy czasy z wszystkich wyników
-      const times = processingStatus.results.reduce((acc, result) => {
+      // Oblicz czasy przetwarzania
+      const times = processingStatus.results.reduce((acc, doc) => {
+        const timing = doc.timing || { uploadTime: 0, ocrTime: 0, analysisTime: 0, totalTime: 0 };
         return {
-          uploadTime: acc.uploadTime + (result.uploadTime || 0),
-          ocrTime: acc.ocrTime + (result.ocrTime || 0),
-          analysisTime: acc.analysisTime + (result.analysisTime || 0)
+          uploadTime: acc.uploadTime + timing.uploadTime,
+          ocrTime: acc.ocrTime + timing.ocrTime,
+          analysisTime: acc.analysisTime + timing.analysisTime,
+          totalTime: acc.totalTime + timing.totalTime
         };
-      }, { uploadTime: 0, ocrTime: 0, analysisTime: 0 });
+      }, {
+        uploadTime: 0,
+        ocrTime: 0,
+        analysisTime: 0,
+        totalTime: 0
+      });
       
       // Aktualizacja czasów z rzeczywistymi wartościami
       setProcessingTimes({
@@ -158,34 +165,23 @@ export function ProcessingClient() {
       
       // Aktualizacja sekcji z konwersją typów
       const lastResult = processingStatus.results[processingStatus.results.length - 1];
-      setSections(convertToDocumentSections(lastResult.mappedData));
+      if (lastResult) {
+        setSections(convertToDocumentSections(lastResult.mappedData));
+      }
       
       // Aktualizacja liczników
       setDocumentCount(processingStatus.results.length);
       
       // Liczymy dokumenty z zieloną flagą (przydatne do podpisania umowy)
-      const validDocs = processingStatus.results.filter(result => {
-        // Sprawdzamy flagę usability z wyników analizy
-        return result.usability === true;
-      }).length;
-
-      console.log('Documents with usability:', {
-        total: processingStatus.results.length,
-        usable: validDocs,
-        results: processingStatus.results.map(r => ({
-          fileName: r.fileName,
-          usability: r.usability
-        }))
-      });
-
+      const validDocs = processingStatus.results.filter(result => result.usability === true).length;
       setValidDocumentsCount(validDocs);
     }
   }, [processingStatus.results, processingStartTime]);
 
   return (
     <div className="space-y-4">
-      {/* Statystyki przed wynikami */}
-      {processingStatus.results.length > 0 && (
+      {/* Wyświetlamy statystyki tylko jeśli mamy wyniki i nie trwa przetwarzanie */}
+      {!isProcessing && processingStatus.results.length > 0 && (
         <AnalysisSummary
           sections={sections}
           processingTimes={processingTimes}

@@ -7,14 +7,9 @@ export interface PPEData {
   [key: string]: FieldWithConfidence | undefined;
   ppeNum?: FieldWithConfidence;
   MeterNumber?: FieldWithConfidence;
-  Tariff?: FieldWithConfidence;
+  TariffGroup?: FieldWithConfidence;
   ContractNumber?: FieldWithConfidence;
   ContractType?: FieldWithConfidence;
-  OSD_name?: FieldWithConfidence;
-  OSD_region?: FieldWithConfidence;
-  ProductName?: FieldWithConfidence;
-  dpFirstName?: FieldWithConfidence;
-  dpLastName?: FieldWithConfidence;
   dpStreet?: FieldWithConfidence;
   dpBuilding?: FieldWithConfidence;
   dpUnit?: FieldWithConfidence;
@@ -59,6 +54,9 @@ export interface CorrespondenceData {
   paUnit?: FieldWithConfidence;
   paPostalCode?: FieldWithConfidence;
   paCity?: FieldWithConfidence;
+  paProvince?: FieldWithConfidence;
+  paMunicipality?: FieldWithConfidence;
+  paDistrict?: FieldWithConfidence;
 }
 
 /**
@@ -73,12 +71,16 @@ export interface SupplierData {
   supplierUnit?: FieldWithConfidence;
   supplierPostalCode?: FieldWithConfidence;
   supplierCity?: FieldWithConfidence;
+  supplierProvince?: FieldWithConfidence;
+  supplierMunicipality?: FieldWithConfidence;
+  supplierDistrict?: FieldWithConfidence;
   supplierBankAccount?: FieldWithConfidence;
   supplierBankName?: FieldWithConfidence;
   supplierEmail?: FieldWithConfidence;
   supplierPhone?: FieldWithConfidence;
   supplierWebsite?: FieldWithConfidence;
   OSD_name?: FieldWithConfidence;
+  OSD_region?: FieldWithConfidence;
 }
 
 /**
@@ -86,10 +88,10 @@ export interface SupplierData {
  */
 export interface BillingData {
   [key: string]: FieldWithConfidence | undefined;
-  billingStartDate?: FieldWithConfidence;
-  billingEndDate?: FieldWithConfidence;
-  billedUsage?: FieldWithConfidence;
-  usage12m?: FieldWithConfidence;
+  BillingStartDate?: FieldWithConfidence;
+  BillingEndDate?: FieldWithConfidence;
+  BilledUsage?: FieldWithConfidence;
+  '12mUsage'?: FieldWithConfidence;
 }
 
 // Komponenty adresowe

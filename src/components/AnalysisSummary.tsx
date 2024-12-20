@@ -63,13 +63,16 @@ export function AnalysisSummary({
           <div className="flex items-baseline gap-2">
             <div className="text-lg font-bold">{documentCount}</div>
             <div className="text-xs text-gray-500">
-              {formatTime(averageTime)} / dokument
+              {formatTime(times.totalTime / documentCount)} / dokument
             </div>
           </div>
           <div className="space-y-0.5 text-xs text-gray-600 mt-2">
             <div className="flex justify-between items-center">
               <span>Upload:</span>
-              <span>{formatTime(times.uploadTime)}</span>
+              <div>
+                <span>{formatTime(times.uploadTime)}</span>
+                <span className="text-gray-400 ml-1">({formatTime(times.uploadTime / documentCount)} / dok.)</span>
+              </div>
             </div>
             <div className="flex justify-between items-center">
               <span>OCR:</span>

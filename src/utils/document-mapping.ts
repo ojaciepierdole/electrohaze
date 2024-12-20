@@ -213,19 +213,17 @@ function convertAzureFieldToDocumentField(field: AzureDocumentField): DocumentFi
   return {
     content: field.content || '',
     confidence: field.confidence || 0,
-    kind: field.kind || 'string',
-    boundingRegions: field.boundingRegions?.map((region: AzureBoundingRegion) => ({
-      pageNumber: region.pageNumber,
-      polygon: region.polygon?.map((point: AzurePoint2D) => ({
-        x: point.x,
-        y: point.y
-      })) || []
-    })) || [],
-    spans: field.spans || [],
     metadata: {
       fieldType: field.kind || 'text',
       transformationType: 'initial',
-      source: 'azure'
+      source: 'azure',
+      boundingRegions: field.boundingRegions?.map((region: AzureBoundingRegion) => ({
+        pageNumber: region.pageNumber,
+        polygon: region.polygon?.map((point: AzurePoint2D) => ({
+          x: point.x,
+          y: point.y
+        })) || []
+      })) || []
     }
   };
 }
@@ -254,11 +252,15 @@ export function mapDocumentAnalysisResult(fields: Record<string, AzureDocumentFi
   }
 
   // Mapowanie pól PPE
-  const ppeFields = ['ppeNum', 'MeterNumber', 'Tariff', 'ContractNumber', 'ContractType', 'OSD_name', 'OSD_region', 'ProductName', 
+  const ppeFields = ['ppeNum', 'MeterNumber', 'TariffGroup', 'ContractNumber', 'ContractType', 'OSD_name', 'OSD_region', 'ProductName', 
     'dpFirstName', 'dpLastName', 'dpStreet', 'dpBuilding', 'dpUnit', 'dpPostalCode', 'dpCity', 'dpProvince', 'dpMunicipality', 'dpDistrict', 'dpMeterID'];
   for (const field of ppeFields) {
     if (fields[field]) {
       result.ppe![field as keyof PPEData] = convertToFieldWithConfidence(convertAzureFieldToDocumentField(fields[field]));
+    }
+    // Specjalne mapowanie dla TariffGroup
+    if (field === 'TariffGroup' && fields['Tariff']) {
+      result.ppe!.TariffGroup = convertToFieldWithConfidence(convertAzureFieldToDocumentField(fields['Tariff']));
     }
   }
 
@@ -280,7 +282,7 @@ export function mapDocumentAnalysisResult(fields: Record<string, AzureDocumentFi
   }
 
   // Mapowanie pól rozliczeniowych
-  const billingFields = ['billingStartDate', 'billingEndDate', 'billedUsage', 'usage12m'];
+  const billingFields = ['BillingStartDate', 'BillingEndDate', 'BilledUsage', '12mUsage'];
   for (const field of billingFields) {
     if (fields[field]) {
       result.billing![field as keyof BillingData] = convertToFieldWithConfidence(convertAzureFieldToDocumentField(fields[field]));
@@ -434,4 +436,35 @@ export function calculateSupplierCompleteness(data: Record<string, FieldWithConf
   const requiredFields = ['supplierName', 'OSD_name', 'OSD_region'];
   const filledRequiredFields = requiredFields.filter(key => data[key]?.content).length;
   return Math.round((filledRequiredFields / requiredFields.length) * 100);
-} 
+}
+
+function mapField(field: DocumentField): FieldWithConfidence {
+  return {
+    content: field.content,
+    confidence: field.confidence,
+    metadata: field.metadata ? {
+      fieldType: field.metadata.fieldType || 'text',
+      transformationType: field.metadata.transformationType || 'initial',
+      source: field.metadata.source || 'raw',
+      ...(field.metadata.boundingRegions && { boundingRegions: field.metadata.boundingRegions }),
+      ...(field.metadata.spans && { spans: field.metadata.spans })
+    } : {
+      fieldType: 'text',
+      transformationType: 'initial',
+      source: 'raw'
+    }
+  };
+}
+
+export function mapDocumentField(field: any): DocumentField {
+  return {
+    content: field.content || '',
+    confidence: field.confidence || 0,
+    metadata: {
+      fieldType: field.metadata?.fieldType || 'text',
+      transformationType: field.metadata?.transformationType || 'initial',
+      source: field.metadata?.source || 'raw'
+    }
+  };
+}
+  
