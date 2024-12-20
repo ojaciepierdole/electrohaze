@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -20,8 +20,8 @@ import {
 import type { Model } from '@/types/models';
 
 interface ModelSelectorProps {
-  onSelectionChange: (modelIds: string[]) => void;
-  selectedModels: string[];
+  onSelectionChange: (modelId: string) => void;
+  selectedModel: string | null;
   models: Model[];
   isLoading?: boolean;
   disabled?: boolean;
@@ -29,23 +29,23 @@ interface ModelSelectorProps {
 
 export function ModelSelector({
   onSelectionChange,
-  selectedModels,
+  selectedModel,
   models,
   isLoading = false,
   disabled = false
 }: ModelSelectorProps) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  const selectedModelNames = selectedModels
-    .map(id => models.find(m => m.id === id)?.name)
-    .filter(Boolean)
-    .join(', ');
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  const toggleModel = (modelId: string) => {
-    const newSelection = selectedModels.includes(modelId)
-      ? selectedModels.filter(id => id !== modelId)
-      : [...selectedModels, modelId];
-    onSelectionChange(newSelection);
+  const selectedModelId = selectedModel || '';
+
+  const selectModel = (modelId: string) => {
+    onSelectionChange(modelId);
+    setOpen(false);
   };
 
   return (
@@ -58,17 +58,14 @@ export function ModelSelector({
           className="w-full justify-between"
           disabled={disabled || isLoading}
         >
-          {selectedModels.length > 0 ? (
-            <div className="flex items-center gap-2 text-left">
-              <span className="flex-1 truncate">
-                {selectedModelNames}
-              </span>
-              <Badge variant="secondary" className="ml-2">
-                {selectedModels.length} {selectedModels.length === 1 ? 'model' : 'modele'}
-              </Badge>
-            </div>
+          {!mounted ? (
+            <span>Ładowanie modeli...</span>
+          ) : selectedModel ? (
+            <span className="flex-1 truncate text-left">
+              {selectedModel}
+            </span>
           ) : (
-            <span>{isLoading ? 'Ładowanie modeli...' : 'Wybierz modele...'}</span>
+            <span>{isLoading ? 'Ładowanie modeli...' : 'Wybierz model...'}</span>
           )}
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -82,28 +79,25 @@ export function ModelSelector({
               <CommandItem
                 key={model.id}
                 value={model.id}
-                onSelect={() => toggleModel(model.id)}
+                onSelect={() => selectModel(model.id)}
                 className="flex flex-col items-start py-2 px-3"
               >
                 <div className="flex items-center w-full">
                   <Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      selectedModels.includes(model.id) ? "opacity-100" : "opacity-0"
+                      selectedModelId === model.id ? "opacity-100" : "opacity-0"
                     )}
                   />
                   <div className="flex flex-col flex-1">
                     <div className="flex items-center justify-between w-full">
-                      <span className="font-medium">{model.name}</span>
+                      <span className="font-medium">{model.id}</span>
                       {model.isCustom && (
                         <Badge variant="secondary" className="ml-2">
                           Custom
                         </Badge>
                       )}
                     </div>
-                    <span className="text-xs text-muted-foreground mt-1">
-                      {model.id}
-                    </span>
                     {model.description && (
                       <span className="text-xs text-muted-foreground mt-1">
                         {model.description}

@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { useDropzone } from 'react-dropzone';
 import { useToast } from '@/components/ui/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { Card } from '@/components/ui/card';
@@ -10,13 +9,19 @@ import { ModelSelector } from './ModelSelector';
 import { AnalysisResultCard } from './AnalysisResultCard';
 import { AnalysisResult } from '@/lib/types';
 import type { Model } from '@/types/models';
-import { Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Upload, Trash2, X } from 'lucide-react';
 
 export function ProcessingClient() {
   const { toast } = useToast();
   const [files, setFiles] = useState<File[]>([]);
   const [models, setModels] = useState<Model[]>([]);
-  const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string | null>(() => {
+    // Wczytaj zapisany wybór modelu
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('selectedModel');
+    }
+    return null;
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<AnalysisResult[]>([]);
@@ -29,6 +34,13 @@ export function ProcessingClient() {
   useEffect(() => {
     loadModels();
   }, []);
+
+  // Zapisz wybór modelu
+  useEffect(() => {
+    if (typeof window !== 'undefined' && selectedModel) {
+      localStorage.setItem('selectedModel', selectedModel);
+    }
+  }, [selectedModel]);
 
   const loadModels = async () => {
     try {
@@ -51,17 +63,11 @@ export function ProcessingClient() {
     }
   };
 
-  // Obsługa upuszczania plików
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    setFiles(prev => [...prev, ...acceptedFiles]);
+  const handleFileSelect = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files || []);
+    setFiles(prev => [...prev, ...selectedFiles]);
+    // Tymczasowo wyłączone buforowanie plików
   }, []);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'application/pdf': ['.pdf']
-    }
-  });
 
   // Usuwanie plików
   const removeFile = useCallback((file: File) => {
@@ -74,7 +80,7 @@ export function ProcessingClient() {
 
   // Rozpoczęcie przetwarzania
   const startProcessing = async () => {
-    if (!files.length || !selectedModels.length) {
+    if (!files.length || !selectedModel) {
       toast({
         title: 'Błąd',
         description: 'Wybierz pliki i model przed rozpoczęciem analizy.',
@@ -91,7 +97,11 @@ export function ProcessingClient() {
 
     const formData = new FormData();
     files.forEach(file => formData.append('files', file));
-    selectedModels.forEach(model => formData.append('models', model));
+    formData.append('models[]', selectedModel);
+
+    console.log('Wysyłane pliki:', files.map(f => f.name));
+    console.log('Wysyłany model:', selectedModel);
+    console.log('FormData keys:', Array.from(formData.keys()));
 
     try {
       const response = await fetch('/api/analyze/batch', {
@@ -100,15 +110,20 @@ export function ProcessingClient() {
       });
 
       if (!response.ok) {
-        throw new Error('Błąd podczas przetwarzania plików');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Wystąpił błąd podczas przetwarzania');
       }
 
       const data = await response.json();
+      console.log('Odpowiedź z serwera:', data);
+      
       if (!data.sessionId) {
         throw new Error('Nie otrzymano identyfikatora sesji');
       }
 
       setSessionId(data.sessionId);
+      // Dodajemy opóźnienie przed rozpoczęciem pollingu
+      await new Promise(resolve => setTimeout(resolve, 1000));
       pollProgress(data.sessionId);
 
     } catch (error) {
@@ -126,107 +141,162 @@ export function ProcessingClient() {
 
   // Polling postępu
   const pollProgress = async (sid: string) => {
-    try {
-      const response = await fetch(`/api/analyze/progress?sessionId=${sid}`);
-      if (!response.ok) {
-        throw new Error('Błąd podczas pobierania postępu');
-      }
-      
-      const data = await response.json();
-      
-      if (data.error) {
-        setError(data.error);
-        setIsProcessing(false);
-        setIsFilesExpanded(true);
-        toast({
-          title: 'Błąd',
-          description: data.error,
-          variant: 'destructive'
-        });
-        return;
-      }
+    let retryCount = 0;
+    const maxRetries = 15;
+    const retryDelay = 2000;
 
-      if (data.progress !== undefined && data.progress > progress) {
-        setProgress(data.progress);
-      }
-
-      if (data.status === 'success') {
-        setProgress(100);
-        await new Promise(resolve => setTimeout(resolve, 500));
+    const poll = async () => {
+      try {
+        console.log(`[${new Date().toISOString()}] Próba pobrania postępu (${retryCount + 1}/${maxRetries}), sessionId: ${sid}`);
+        const response = await fetch(`/api/analyze/progress?sessionId=${sid}`);
         
-        const resultsResponse = await fetch(`/api/analyze/results?sessionId=${sid}`);
-        if (!resultsResponse.ok) {
-          throw new Error('Błąd podczas pobierania wyników');
+        if (!response.ok) {
+          console.error(`[${new Date().toISOString()}] Błąd odpowiedzi:`, {
+            status: response.status,
+            statusText: response.statusText,
+            sessionId: sid
+          });
+          
+          if (response.status === 404) {
+            console.log(`[${new Date().toISOString()}] Sesja ${sid} nie jest jeszcze gotowa`);
+            if (retryCount < maxRetries) {
+              retryCount++;
+              await new Promise(resolve => setTimeout(resolve, retryDelay));
+              return poll();
+            } else {
+              throw new Error('Przekroczono limit prób pobierania postępu');
+            }
+          }
+          throw new Error(`Błąd podczas pobierania postępu: ${response.status}`);
         }
-        
-        const resultsData = await resultsResponse.json();
-        setResults(resultsData.results || []);
-        setIsProcessing(false);
-        setIsFilesExpanded(true);
-        toast({
-          title: 'Sukces',
-          description: 'Przetwarzanie zakończone pomyślnie.',
-          variant: 'default'
-        });
-        return;
-      }
 
-      if (data.status === 'error') {
-        setError(data.error || 'Wystąpił błąd podczas przetwarzania');
+        // Resetujemy licznik prób po udanym żądaniu
+        retryCount = 0;
+        
+        const data = await response.json();
+        console.log(`[${new Date().toISOString()}] Otrzymane dane:`, data);
+        
+        if (data.error) {
+          console.error('Błąd postępu:', data.error);
+          setError(data.error);
+          setIsProcessing(false);
+          setIsFilesExpanded(true);
+          toast({
+            title: 'Błąd',
+            description: data.error,
+            variant: 'destructive'
+          });
+          return;
+        }
+
+        if (data.progress !== undefined && data.progress > progress) {
+          setProgress(data.progress);
+        }
+
+        if (data.status === 'success') {
+          console.log('Status success - pobieram wyniki');
+          setProgress(100);
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          try {
+            const resultsResponse = await fetch(`/api/analyze/results?sessionId=${sid}`);
+            if (!resultsResponse.ok) {
+              throw new Error('Błąd podczas pobierania wyników');
+            }
+            
+            const resultsData = await resultsResponse.json();
+            console.log('Pobrane wyniki:', resultsData);
+            
+            if (!resultsData.results || resultsData.results.length === 0) {
+              console.error('Otrzymano pustą tablicę wyników');
+              throw new Error('Nie otrzymano żadnych wyników analizy');
+            }
+
+            setResults(resultsData.results);
+            setIsProcessing(false);
+            setIsFilesExpanded(true);
+            setFiles([]); // Czyścimy listę plików po zakończeniu analizy
+            toast({
+              title: 'Sukces',
+              description: 'Przetwarzanie zakończone pomyślnie.',
+              variant: 'default'
+            });
+          } catch (error) {
+            console.error('Błąd podczas pobierania wyników:', error);
+            setIsProcessing(false);
+            setIsFilesExpanded(true);
+            toast({
+              title: 'Błąd',
+              description: error instanceof Error ? error.message : 'Wystąpił błąd podczas pobierania wyników.',
+              variant: 'destructive'
+            });
+          }
+          return;
+        }
+
+        if (data.status === 'error') {
+          setError(data.error || 'Wystąpił błąd podczas przetwarzania');
+          setIsProcessing(false);
+          setIsFilesExpanded(true);
+          toast({
+            title: 'Błąd',
+            description: data.error || 'Wystąpił błąd podczas przetwarzania',
+            variant: 'destructive'
+          });
+          return;
+        }
+
+        // Kontynuuj polling
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        poll();
+
+      } catch (error) {
+        console.error('Błąd podczas pollingu:', error);
+        setError('Wystąpił błąd podczas przetwarzania');
         setIsProcessing(false);
         setIsFilesExpanded(true);
         toast({
           title: 'Błąd',
-          description: data.error || 'Wystąpił błąd podczas przetwarzania',
+          description: 'Wystąpił błąd podczas przetwarzania.',
           variant: 'destructive'
         });
-        return;
       }
+    };
 
-      setTimeout(() => pollProgress(sid), 1000);
-
-    } catch (error) {
-      console.error('Błąd podczas pollingu:', error);
-      setError('Wystąpił błąd podczas przetwarzania');
-      setIsProcessing(false);
-      setIsFilesExpanded(true);
-      toast({
-        title: 'Błąd',
-        description: 'Wystąpił błąd podczas przetwarzania.',
-        variant: 'destructive'
-      });
-    }
+    // Rozpocznij polling
+    poll();
   };
 
   return (
-    <div className="space-y-4">
+    <div className="container max-w-3xl mx-auto space-y-4">
       {/* Selektor modeli */}
       <ModelSelector
         models={models}
-        selectedModels={selectedModels}
-        onSelectionChange={setSelectedModels}
+        selectedModel={selectedModel}
+        onSelectionChange={setSelectedModel}
         isLoading={isLoading}
         disabled={isProcessing}
       />
 
-      {/* Strefa upuszczania plików */}
+      {/* Przycisk wgrywania plików */}
       <Card className="p-4">
-        <div {...getRootProps()} className="space-y-4">
-          <input {...getInputProps()} />
-          <div
-            className={`
-              border-2 border-dashed rounded-lg p-6
-              flex flex-col items-center justify-center gap-2
-              cursor-pointer transition-colors
-              ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'}
-            `}
+        <div className="space-y-4">
+          <input
+            type="file"
+            multiple
+            accept=".pdf"
+            onChange={handleFileSelect}
+            className="hidden"
+            id="file-upload"
+          />
+          <Button
+            onClick={() => document.getElementById('file-upload')?.click()}
+            className="w-full"
+            disabled={isProcessing}
           >
-            <p className="text-sm text-center text-muted-foreground">
-              {isDragActive
-                ? 'Upuść pliki tutaj...'
-                : 'Przeciągnij i upuść pliki PDF tutaj lub kliknij aby wybrać'}
-            </p>
-          </div>
+            <Upload className="w-4 h-4 mr-2" />
+            Wgraj pliki
+          </Button>
         </div>
       </Card>
 
@@ -234,26 +304,25 @@ export function ProcessingClient() {
       {files.length > 0 && (
         <Card className="p-4">
           <div className="space-y-2">
-            <div className="flex justify-between items-center">
+            <div
+              onClick={() => setIsFilesExpanded(!isFilesExpanded)}
+              className="flex justify-between items-center w-full hover:bg-gray-50 p-2 rounded-md cursor-pointer"
+            >
               <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsFilesExpanded(!isFilesExpanded)}
-                  className="p-0 h-auto"
-                >
-                  {isFilesExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </Button>
+                {isFilesExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 <h3 className="text-sm font-medium">Pliki ({files.length})</h3>
               </div>
               <Button
-                variant="ghost"
+                variant="destructive"
                 size="sm"
-                onClick={removeAllFiles}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeAllFiles();
+                }}
                 disabled={isProcessing}
-                className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                className="flex items-center gap-1"
               >
-                <Trash2 className="h-4 w-4 mr-2" />
+                <X className="h-4 w-4" />
                 Usuń wszystkie
               </Button>
             </div>
@@ -264,12 +333,12 @@ export function ProcessingClient() {
                     <span className="text-sm truncate flex-1 mr-2">{file.name}</span>
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="icon"
                       onClick={() => removeFile(file)}
                       disabled={isProcessing}
-                      className="text-red-500 hover:text-red-600 hover:bg-red-50 shrink-0"
+                      className="h-8 w-8 text-gray-500 hover:text-red-600 hover:bg-red-50 shrink-0"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <X className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}
@@ -283,7 +352,7 @@ export function ProcessingClient() {
       <div className="flex justify-end">
         <Button
           onClick={startProcessing}
-          disabled={isProcessing || !files.length || !selectedModels.length}
+          disabled={isProcessing || !files.length || !selectedModel}
         >
           {isProcessing ? 'Przetwarzanie...' : 'Rozpocznij analizę'}
         </Button>

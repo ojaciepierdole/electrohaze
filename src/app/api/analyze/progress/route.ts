@@ -1,28 +1,18 @@
 import { NextResponse } from 'next/server';
 import { Logger } from '@/lib/logger';
+import { sessionStore } from '@/lib/session-store';
+import type { SessionState } from '@/lib/session-store';
 
 const logger = Logger.getInstance();
 
-interface SessionState {
-  status: 'processing' | 'success' | 'error';
-  progress: number;
-  error?: string | null;
-}
-
-const sessions = new Map<string, SessionState>();
-
 export function updateSessionState(sessionId: string, update: Partial<SessionState>) {
-  const currentState = sessions.get(sessionId) || {
-    status: 'processing',
-    progress: 0,
-    error: null
-  };
+  logger.info('Aktualizacja stanu sesji', { 
+    sessionId, 
+    update,
+    currentSessions: sessionStore.getAllSessionIds()
+  });
 
-  if (update.progress !== undefined && update.progress < currentState.progress) {
-    update.progress = currentState.progress;
-  }
-
-  sessions.set(sessionId, { ...currentState, ...update });
+  sessionStore.update(sessionId, update);
 }
 
 export async function GET(request: Request) {
@@ -30,21 +20,33 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get('sessionId');
 
+    logger.info('Otrzymano żądanie GET /progress', { 
+      sessionId,
+      availableSessions: sessionStore.getAllSessionIds(),
+      requestUrl: request.url
+    });
+
     if (!sessionId) {
+      logger.warn('Brak identyfikatora sesji w żądaniu');
       return NextResponse.json(
         { error: 'Brak identyfikatora sesji' },
         { status: 400 }
       );
     }
 
-    const state = sessions.get(sessionId);
+    const state = sessionStore.get(sessionId);
     if (!state) {
+      logger.warn('Nie znaleziono stanu dla sesji', { 
+        sessionId,
+        availableSessions: sessionStore.getAllSessionIds()
+      });
       return NextResponse.json(
         { error: 'Nie znaleziono stanu dla podanej sesji' },
         { status: 404 }
       );
     }
 
+    logger.info('Stan sesji', { sessionId, state });
     return NextResponse.json(state);
 
   } catch (error) {
@@ -56,7 +58,6 @@ export async function GET(request: Request) {
   }
 }
 
-// Dodaj endpoint do aktualizacji postępu
 export async function POST(request: Request) {
   const url = new URL(request.url);
   const sessionId = url.searchParams.get('sessionId');

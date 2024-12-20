@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { cacheManager } from '@/lib/cache-manager';
+import { sessionStore } from '@/lib/session-store';
 import { Logger } from '@/lib/logger';
 
 const logger = Logger.getInstance();
@@ -16,17 +16,40 @@ export async function GET(request: Request) {
       );
     }
 
-    // Pobierz wyniki z cache
-    const results = cacheManager.getBySessionId(sessionId);
-
-    if (!results) {
+    // Pobierz stan sesji
+    const state = sessionStore.get(sessionId);
+    if (!state) {
       return NextResponse.json(
         { error: 'Nie znaleziono wyników dla podanej sesji' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({ results });
+    // Sprawdź czy przetwarzanie zostało zakończone
+    if (state.status === 'processing') {
+      return NextResponse.json(
+        { error: 'Przetwarzanie jest w toku' },
+        { status: 202 }
+      );
+    }
+
+    // Sprawdź czy wystąpił błąd
+    if (state.status === 'error') {
+      return NextResponse.json(
+        { error: state.error || 'Wystąpił błąd podczas przetwarzania' },
+        { status: 500 }
+      );
+    }
+
+    // Zwróć wyniki
+    if (!state.results || state.results.length === 0) {
+      return NextResponse.json(
+        { error: 'Nie otrzymano żadnych wyników analizy' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ results: state.results });
 
   } catch (error) {
     logger.error('Błąd podczas pobierania wyników', { error });
