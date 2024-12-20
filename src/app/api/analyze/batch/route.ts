@@ -13,25 +13,66 @@ import { cacheManager } from '@/lib/cache-manager';
 import { decompressData } from '@/utils/compression';
 import { sendProgress } from '@/lib/progress-emitter';
 import { mapDocumentAnalysisResult } from '@/utils/document-mapping';
+import { FIELD_GROUPS, FIELD_NAME_MAP } from '@/config/fields';
 
 // Azure Document Intelligence pozwala na maksymalnie 15 równoległych żądań
 const MAX_CONCURRENT_REQUESTS = 15;
 
+// Funkcja pomocnicza do mapowania nazwy pola
+function mapFieldName(fieldName: string): string {
+  return FIELD_NAME_MAP[fieldName as keyof typeof FIELD_NAME_MAP] || fieldName;
+}
+
 // Funkcja pomocnicza do określania grupy pola
 function determineFieldGroup(fieldName: string): FieldGroupKey {
-  if (fieldName.startsWith('dp') || fieldName === 'ppeNum' || fieldName === 'MeterNumber' || fieldName === 'Tariff' || 
-      fieldName === 'ContractNumber' || fieldName === 'ContractType' || fieldName === 'OSD_name' || fieldName === 'OSD_region') {
+  // Sprawdź każdą grupę pól
+  for (const [groupKey, group] of Object.entries(FIELD_GROUPS)) {
+    if (group.fields.includes(fieldName)) {
+      return groupKey as FieldGroupKey;
+    }
+  }
+
+  // Jeśli pole nie zostało znalezione w żadnej grupie, użyj heurystyki
+  const normalizedField = fieldName.toLowerCase();
+
+  // Punkt Poboru Energii
+  if (normalizedField.startsWith('dp') || 
+      normalizedField === 'ppenum' || 
+      normalizedField === 'meternumber' || 
+      normalizedField.includes('tariff') || 
+      normalizedField.includes('contract') || 
+      normalizedField === 'osd_name' || 
+      normalizedField === 'osd_region') {
     return 'delivery_point';
   }
-  if (fieldName.startsWith('pa')) {
+
+  // Adres korespondencyjny
+  if (normalizedField.startsWith('pa')) {
     return 'postal_address';
   }
-  if (fieldName.startsWith('supplier')) {
+
+  // Dane sprzedawcy
+  if (normalizedField.startsWith('supplier')) {
     return 'supplier';
   }
-  if (fieldName.startsWith('Billing') || fieldName.includes('Usage')) {
+
+  // Dane rozliczeniowe
+  if (normalizedField.startsWith('billing') || 
+      normalizedField.includes('invoice') || 
+      normalizedField.includes('amount') || 
+      normalizedField.includes('vat') || 
+      normalizedField === 'currency') {
     return 'billing';
   }
+
+  // Informacje o zużyciu
+  if (normalizedField.includes('usage') || 
+      normalizedField.includes('consumption') || 
+      normalizedField.includes('reading')) {
+    return 'consumption_info';
+  }
+
+  // Domyślnie - dane nabywcy
   return 'buyer_data';
 }
 
@@ -71,13 +112,7 @@ async function analyzeDocument(
         });
       }
       
-      return {
-        ...cachedResult,
-        processingTime: 0,
-        uploadTime: 0,
-        ocrTime: 0,
-        analysisTime: 0
-      };
+      return cachedResult;
     }
   }
 
@@ -153,7 +188,6 @@ async function analyzeDocument(
         ocrTime,
         analysisTime: Date.now() - (azureStartTime + ocrTime),
         mappedData: {
-          modelId: modelId,
           metadata: {
             technicalData: {
               content: '',
@@ -187,55 +221,33 @@ async function analyzeDocument(
       return emptyResult;
     }
 
-    const fields: Record<string, ProcessedField> = {};
-    const documentFields = result.documents[0].fields;
-    const isCustomModel = !modelId.startsWith('prebuilt-');
-
-    for (const [key, field] of Object.entries(documentFields)) {
-      if (!isCustomModel && (key.startsWith('_') || key === 'Locale')) {
-        continue;
-      }
-
-      fields[key] = {
-        confidence: field.confidence || 0,
-        fieldType: field.kind || 'unknown',
-        content: field.content || '',
-        page: field.boundingRegions?.[0]?.pageNumber || 1,
-        name: key,
-        type: field.kind || 'unknown',
-        description: key,
-        definition: {
-          name: key,
-          type: field.kind || 'unknown',
-          isRequired: false,
-          description: key,
-          group: determineFieldGroup(key)
-        }
-      };
-    }
-
     const convertedFields: Record<string, DocumentField> = {};
-    for (const [key, field] of Object.entries(documentFields)) {
-      if (!isCustomModel && (key.startsWith('_') || key === 'Locale')) {
+    for (const [key, field] of Object.entries(result.documents[0].fields)) {
+      if (!modelId.startsWith('prebuilt-') && (key.startsWith('_') || key === 'Locale')) {
         continue;
       }
 
-      convertedFields[key] = {
+      const mappedKey = mapFieldName(key);
+      const group = determineFieldGroup(mappedKey);
+      console.log(`[${index}] Mapowanie pola: ${key} -> ${mappedKey} (grupa: ${group})`);
+
+      convertedFields[mappedKey] = {
         content: field.content || '',
         confidence: field.confidence || 0,
-        kind: field.kind || 'string',
-        boundingRegions: field.boundingRegions?.map(region => ({
-          pageNumber: region.pageNumber,
-          polygon: region.polygon?.map(point => ({
-            x: point.x,
-            y: point.y
-          })) || []
-        })) || [],
-        spans: field.spans || [],
         metadata: {
           fieldType: field.kind || 'text',
           transformationType: 'initial',
-          source: 'azure'
+          source: 'azure',
+          group,
+          originalKey: key,
+          boundingRegions: field.boundingRegions?.map(region => ({
+            pageNumber: region.pageNumber,
+            polygon: region.polygon?.map(point => ({
+              x: point.x,
+              y: point.y
+            })) || []
+          })) || [],
+          spans: field.spans || []
         }
       };
     }
@@ -252,7 +264,7 @@ async function analyzeDocument(
       uploadTime,
       ocrTime,
       analysisTime: Date.now() - (azureStartTime + ocrTime),
-      mappedData: mapDocumentAnalysisResult(documentFields),
+      mappedData: mapDocumentAnalysisResult(result.documents[0].fields),
       confidence: result.documents[0].confidence,
       cacheStats: {
         size: 0,
@@ -264,7 +276,14 @@ async function analyzeDocument(
         duration: azureTime,
         timestamp: new Date().toISOString()
       }],
-      mimeType: file instanceof File ? file.type : 'application/octet-stream'
+      mimeType: file instanceof File ? file.type : 'application/octet-stream',
+      timing: {
+        uploadTime,
+        ocrTime,
+        analysisTime: Date.now() - (azureStartTime + ocrTime),
+        totalTime: Date.now() - startTime
+      },
+      usability: result.documents[0].confidence > 0.95
     };
 
     if (file instanceof File) {

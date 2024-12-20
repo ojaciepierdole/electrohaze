@@ -13,6 +13,28 @@ interface FieldGroup {
   requiredFields: readonly string[];
 }
 
+// Mapa nazw pól z Azure API na nazwy w aplikacji
+export const FIELD_NAME_MAP = {
+  'Tariff': 'TariffGroup',
+  'TariffGroup': 'TariffGroup',
+  'tariff': 'TariffGroup',
+  'tariffGroup': 'TariffGroup',
+  'TariffType': 'TariffGroup',
+  'billingStartDate': 'BillingStartDate',
+  'billingEndDate': 'BillingEndDate',
+  'billedUsage': 'BilledUsage',
+  'usage12m': '12mUsage',
+  'BillingPeriodStart': 'BillingStartDate',
+  'BillingPeriodEnd': 'BillingEndDate',
+  'ConsumptionValue': 'BilledUsage',
+  'AnnualConsumption': '12mUsage',
+  'BillingStart': 'BillingStartDate',
+  'BillingEnd': 'BillingEndDate',
+  'Consumption': 'BilledUsage',
+  'YearlyConsumption': '12mUsage'
+} as const;
+
+// Grupy pól
 export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
   buyer_data: {
     name: 'Dane nabywcy',
@@ -40,29 +62,26 @@ export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
     fields: [
       'ppeNum',
       'MeterNumber',
-      'Tariff',
+      'TariffGroup',
       'ContractNumber',
       'ContractType',
       'OSD_name',
       'OSD_region',
       'ProductName'
     ] as const,
-    requiredFields: ['ppeNum', 'Tariff']
+    requiredFields: ['ppeNum', 'TariffGroup']
   },
 
   consumption_info: {
     name: 'Informacje o zużyciu',
     icon: Gauge,
     fields: [
-      'Tariff',
-      'InvoiceType',
-      'BillingStartDate',
-      'BillingEndDate',
       'BilledUsage',
       'ReadingType',
-      'Usage12m'
+      '12mUsage',
+      'ConsumptionUnit'
     ] as const,
-    requiredFields: ['BilledUsage', 'Usage12m']
+    requiredFields: ['BilledUsage']
   },
 
   postal_address: {
@@ -111,16 +130,19 @@ export const FIELD_GROUPS: Record<FieldGroupKey, FieldGroup> = {
     fields: [
       'BillingStartDate',
       'BillingEndDate',
-      'ProductName',
-      'Tariff',
-      'BilledUsage',
-      'ReadingType',
-      '12mUsage',
+      'InvoiceNumber',
+      'InvoiceDate',
+      'DueDate',
+      'TotalAmount',
+      'Currency',
       'InvoiceType',
+      'NetAmount',
+      'VatAmount',
+      'VatRate',
       'BillBreakdown',
       'EnergySaleBreakdown'
     ] as const,
-    requiredFields: ['BilledUsage']
+    requiredFields: ['BillingStartDate', 'BillingEndDate']
   }
 };
 
@@ -145,7 +167,7 @@ export const FIELD_LABELS: Record<string, string> = {
   City: 'Miejscowość',
   PostalCode: 'Kod pocztowy',
   Province: 'Województwo',
-  Tariff: 'Taryfa',
+  TariffGroup: 'Grupa taryfowa',
   InvoiceType: 'Typ dokumentu',
   taxID: 'NIP',
 
@@ -159,15 +181,24 @@ export const FIELD_LABELS: Record<string, string> = {
   paPostalCode: 'Kod pocztowy',
   paBusinessName: 'Nazwa firmy',
 
-  // Informacje o zużyciu
+  // Informacje o zużyciu i rozliczeniach
   ConsumptionValue: 'Naliczone zużycie',
   ConsumptionUnit: 'Jednostka',
-  Usage12m: 'Roczne zużycie',
+  '12mUsage': 'Roczne zużycie',
   ReadingType: 'Typ odczytu',
   BillingStartDate: 'Okres od',
   BillingEndDate: 'Okres do',
-  EnergyUsage: 'Zużycie energii',
+  BilledUsage: 'Zużycie w okresie',
+  InvoiceNumber: 'Numer faktury',
+  InvoiceDate: 'Data wystawienia',
+  DueDate: 'Termin płatności',
+  TotalAmount: 'Kwota brutto',
+  Currency: 'Waluta',
+  NetAmount: 'Kwota netto',
+  VatAmount: 'Kwota VAT',
+  VatRate: 'Stawka VAT',
   BillBreakdown: 'Szczegóły rozliczenia',
+  EnergySaleBreakdown: 'Szczegóły sprzedaży',
   Zone1UnitNetPrice: 'Cena netto strefa 1',
   Zone2UnitNetPrice: 'Cena netto strefa 2',
   UnitNetPrice: 'Cena jednostkowa netto',

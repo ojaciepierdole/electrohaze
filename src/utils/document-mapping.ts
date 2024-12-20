@@ -8,6 +8,7 @@ import { formatDate, formatConsumption } from './text-formatting';
 import { normalizeAddress } from './data-processing/normalizers/address';
 import { determineOSDByPostalCode } from './data-processing/rules/osd';
 import { cleanOSDName, cleanOSDRegion } from '@/utils/data-processing/text-formatting';
+import { FIELD_NAME_MAP, FIELD_GROUPS } from '@/config/fields';
 
 const logger = Logger.getInstance();
 
@@ -228,6 +229,11 @@ function convertAzureFieldToDocumentField(field: AzureDocumentField): DocumentFi
   };
 }
 
+// Funkcja pomocnicza do mapowania nazwy pola
+function mapFieldName(fieldName: string): string {
+  return FIELD_NAME_MAP[fieldName as keyof typeof FIELD_NAME_MAP] || fieldName;
+}
+
 export function mapDocumentAnalysisResult(fields: Record<string, AzureDocumentField>): DocumentAnalysisResult {
   const result: DocumentAnalysisResult = {
     customer: {},
@@ -244,48 +250,47 @@ export function mapDocumentAnalysisResult(fields: Record<string, AzureDocumentFi
   };
 
   // Mapowanie pól klienta
-  const customerFields = ['FirstName', 'LastName', 'BusinessName', 'taxID', 'Street', 'Building', 'Unit', 'PostalCode', 'City', 'Municipality', 'District', 'Province'];
+  const customerFields = FIELD_GROUPS.buyer_data.fields;
   for (const field of customerFields) {
-    if (fields[field]) {
-      result.customer![field as keyof CustomerData] = convertToFieldWithConfidence(convertAzureFieldToDocumentField(fields[field]));
+    const azureField = fields[field] || fields[mapFieldName(field)];
+    if (azureField) {
+      result.customer![field as keyof CustomerData] = convertToFieldWithConfidence(convertAzureFieldToDocumentField(azureField));
     }
   }
 
   // Mapowanie pól PPE
-  const ppeFields = ['ppeNum', 'MeterNumber', 'TariffGroup', 'ContractNumber', 'ContractType', 'OSD_name', 'OSD_region', 'ProductName', 
-    'dpFirstName', 'dpLastName', 'dpStreet', 'dpBuilding', 'dpUnit', 'dpPostalCode', 'dpCity', 'dpProvince', 'dpMunicipality', 'dpDistrict', 'dpMeterID'];
+  const ppeFields = FIELD_GROUPS.delivery_point.fields;
   for (const field of ppeFields) {
-    if (fields[field]) {
-      result.ppe![field as keyof PPEData] = convertToFieldWithConfidence(convertAzureFieldToDocumentField(fields[field]));
-    }
-    // Specjalne mapowanie dla TariffGroup
-    if (field === 'TariffGroup' && fields['Tariff']) {
-      result.ppe!.TariffGroup = convertToFieldWithConfidence(convertAzureFieldToDocumentField(fields['Tariff']));
+    const azureField = fields[field] || fields[mapFieldName(field)];
+    if (azureField) {
+      result.ppe![field as keyof PPEData] = convertToFieldWithConfidence(convertAzureFieldToDocumentField(azureField));
     }
   }
 
   // Mapowanie pól korespondencyjnych
-  const correspondenceFields = ['paFirstName', 'paLastName', 'paBusinessName', 'paTitle', 'paStreet', 'paBuilding', 'paUnit', 'paPostalCode', 'paCity'];
+  const correspondenceFields = FIELD_GROUPS.postal_address.fields;
   for (const field of correspondenceFields) {
-    if (fields[field]) {
-      result.correspondence![field as keyof CorrespondenceData] = convertToFieldWithConfidence(convertAzureFieldToDocumentField(fields[field]));
+    const azureField = fields[field] || fields[mapFieldName(field)];
+    if (azureField) {
+      result.correspondence![field as keyof CorrespondenceData] = convertToFieldWithConfidence(convertAzureFieldToDocumentField(azureField));
     }
   }
 
   // Mapowanie pól dostawcy
-  const supplierFields = ['supplierName', 'supplierTaxID', 'supplierStreet', 'supplierBuilding', 'supplierUnit', 'supplierPostalCode', 'supplierCity',
-    'supplierBankAccount', 'supplierBankName', 'supplierEmail', 'supplierPhone', 'supplierWebsite', 'OSD_name'];
+  const supplierFields = FIELD_GROUPS.supplier.fields;
   for (const field of supplierFields) {
-    if (fields[field]) {
-      result.supplier![field as keyof SupplierData] = convertToFieldWithConfidence(convertAzureFieldToDocumentField(fields[field]));
+    const azureField = fields[field] || fields[mapFieldName(field)];
+    if (azureField) {
+      result.supplier![field as keyof SupplierData] = convertToFieldWithConfidence(convertAzureFieldToDocumentField(azureField));
     }
   }
 
   // Mapowanie pól rozliczeniowych
-  const billingFields = ['BillingStartDate', 'BillingEndDate', 'BilledUsage', '12mUsage'];
+  const billingFields = FIELD_GROUPS.billing.fields;
   for (const field of billingFields) {
-    if (fields[field]) {
-      result.billing![field as keyof BillingData] = convertToFieldWithConfidence(convertAzureFieldToDocumentField(fields[field]));
+    const azureField = fields[field] || fields[mapFieldName(field)];
+    if (azureField) {
+      result.billing![field as keyof BillingData] = convertToFieldWithConfidence(convertAzureFieldToDocumentField(azureField));
     }
   }
 

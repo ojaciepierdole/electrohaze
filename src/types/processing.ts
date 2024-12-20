@@ -182,7 +182,7 @@ export interface BoundingRegion {
 export interface Span {
   offset: number;
   length: number;
-  text: string;
+  text?: string;
 }
 
 export interface DocumentField {
@@ -468,19 +468,29 @@ export type ResultField = {
 export interface ProcessingResult {
   fileName: string;
   confidence: number;
-  modelResults: Array<{ fields: Record<string, ResultField>; confidence: number }>;
-  mappedData: {
-    metadata: {
-      processedAt: string;
-      status: string;
-    };
-  };
+  modelResults: Array<{
+    modelId: string;
+    fields: Record<string, DocumentField>;
+    confidence: number;
+    pageCount: number;
+  }>;
+  mappedData: DocumentAnalysisResult;
   cacheStats: {
     size: number;
     maxSize: number;
     ttl: number;
   };
-  timing: {
+  performanceStats: Array<{
+    name: string;
+    duration: number;
+    timestamp: string;
+  }>;
+  mimeType: string;
+  processingTime: number;
+  uploadTime: number;
+  ocrTime: number;
+  analysisTime: number;
+  timing?: {
     uploadTime: number;
     ocrTime: number;
     analysisTime: number;
