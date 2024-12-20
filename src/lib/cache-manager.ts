@@ -3,55 +3,71 @@ import type { ProcessingResult } from '@/types/processing';
 class CacheManager {
   private static instance: CacheManager;
   private cache: Map<string, Map<string, ProcessingResult>>;
-  private sessionCache: Map<string, string[]>;
 
   private constructor() {
     this.cache = new Map();
-    this.sessionCache = new Map();
   }
 
-  static getInstance(): CacheManager {
+  public static getInstance(): CacheManager {
     if (!CacheManager.instance) {
       CacheManager.instance = new CacheManager();
     }
     return CacheManager.instance;
   }
 
-  set(fileName: string, modelId: string, result: ProcessingResult, sessionId?: string) {
-    if (!this.cache.has(fileName)) {
-      this.cache.set(fileName, new Map());
+  public set(fileName: string, modelId: string, result: ProcessingResult, sessionId: string): void {
+    let sessionCache = this.cache.get(sessionId);
+    if (!sessionCache) {
+      sessionCache = new Map();
+      this.cache.set(sessionId, sessionCache);
     }
-    this.cache.get(fileName)!.set(modelId, result);
+    sessionCache.set(`${fileName}-${modelId}`, result);
+  }
 
-    if (sessionId) {
-      if (!this.sessionCache.has(sessionId)) {
-        this.sessionCache.set(sessionId, []);
+  public get(fileName: string, modelId: string, sessionId: string): ProcessingResult | undefined {
+    const sessionCache = this.cache.get(sessionId);
+    if (!sessionCache) return undefined;
+    return sessionCache.get(`${fileName}-${modelId}`);
+  }
+
+  public getBySessionId(sessionId: string): ProcessingResult[] {
+    const sessionCache = this.cache.get(sessionId);
+    if (!sessionCache) return [];
+    return Array.from(sessionCache.values());
+  }
+
+  public delete(fileName: string, modelId: string, sessionId: string): void {
+    const sessionCache = this.cache.get(sessionId);
+    if (sessionCache) {
+      sessionCache.delete(`${fileName}-${modelId}`);
+      if (sessionCache.size === 0) {
+        this.cache.delete(sessionId);
       }
-      this.sessionCache.get(sessionId)!.push(fileName);
     }
   }
 
-  get(fileName: string, modelId: string): ProcessingResult | undefined {
-    return this.cache.get(fileName)?.get(modelId);
+  public deleteSession(sessionId: string): void {
+    this.cache.delete(sessionId);
   }
 
-  getBySessionId(sessionId: string): ProcessingResult[] {
-    const fileNames = this.sessionCache.get(sessionId) || [];
-    const results: ProcessingResult[] = [];
-
-    for (const fileName of fileNames) {
-      const modelResults = this.cache.get(fileName);
-      if (modelResults) {
-        results.push(...Array.from(modelResults.values()));
-      }
-    }
-
-    return results;
-  }
-
-  clear() {
+  public clear(): void {
     this.cache.clear();
-    this.sessionCache.clear();
+  }
+
+  public cleanup(maxAge: number = 3600000): void {
+    const now = Date.now();
+    for (const [sessionId, sessionCache] of this.cache.entries()) {
+      let hasExpired = false;
+      for (const [key, result] of sessionCache.entries()) {
+        if (result.timing?.start && now - result.timing.start > maxAge) {
+          sessionCache.delete(key);
+          hasExpired = true;
+        }
+      }
+      if (hasExpired && sessionCache.size === 0) {
+        this.cache.delete(sessionId);
+      }
+    }
   }
 }
 

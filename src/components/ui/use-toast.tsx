@@ -1,13 +1,17 @@
 // Adapted from https://ui.shadcn.com/docs/components/toast
 import * as React from "react"
-import { Toast, ToastActionElement, ToastProps } from "@/components/ui/toast"
+
+import type {
+  ToastActionElement,
+  ToastProps,
+} from "./toast"
 
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 5000
+const TOAST_REMOVE_DELAY = 1000000
 
-type ToasterToast = ToastProps & {
+interface ToasterToast extends Omit<ToastProps, "children" | "title"> {
   id: string
-  title?: React.ReactNode
+  title?: string
   description?: React.ReactNode
   action?: ToastActionElement
 }
@@ -132,38 +136,7 @@ function dispatch(action: Action) {
   })
 }
 
-type Toast = Omit<ToasterToast, "id">
-
-function toast({ ...props }: Toast) {
-  const id = genId()
-
-  const update = (props: ToasterToast) =>
-    dispatch({
-      type: "UPDATE_TOAST",
-      toast: { ...props, id },
-    })
-  const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
-
-  dispatch({
-    type: "ADD_TOAST",
-    toast: {
-      ...props,
-      id,
-      open: true,
-      onOpenChange: (open) => {
-        if (!open) dismiss()
-      },
-    },
-  })
-
-  return {
-    id: id,
-    dismiss,
-    update,
-  }
-}
-
-function useToast() {
+const useToast = () => {
   const [state, setState] = React.useState<State>(memoryState)
 
   React.useEffect(() => {
@@ -178,9 +151,36 @@ function useToast() {
 
   return {
     ...state,
-    toast,
+    toast: (props: Omit<ToasterToast, "id">) => {
+      const id = genId()
+
+      const update = (props: ToasterToast) =>
+        dispatch({
+          type: "UPDATE_TOAST",
+          toast: { ...props, id },
+        })
+      const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
+
+      dispatch({
+        type: "ADD_TOAST",
+        toast: {
+          ...props,
+          id,
+          open: true,
+          onOpenChange: (open: boolean) => {
+            if (!open) dismiss()
+          },
+        },
+      })
+
+      return {
+        id: id,
+        dismiss,
+        update,
+      }
+    },
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
   }
 }
 
-export { useToast, toast } 
+export { useToast, type ToasterToast } 

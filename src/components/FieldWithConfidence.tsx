@@ -1,44 +1,40 @@
 'use client';
 
 import React from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
-interface FieldWithConfidenceProps {
+export interface FieldWithConfidenceProps {
   label: string;
-  value: string;
+  value: string | number | boolean | Date | null | undefined;
   confidence: number;
-  isProcessing: boolean;
+  className?: string;
 }
 
-export function FieldWithConfidence({
-  label,
-  value,
-  confidence,
-  isProcessing
+export function FieldWithConfidence({ 
+  label, 
+  value, 
+  confidence, 
+  className = '' 
 }: FieldWithConfidenceProps) {
-  const confidenceColor = confidence > 0.8 
-    ? 'bg-green-50 text-green-700' 
-    : confidence > 0.6 
-      ? 'bg-yellow-50 text-yellow-700' 
-      : 'bg-red-50 text-red-700';
+  const displayValue = value?.toString() || '—';
+  
+  const getConfidenceVariant = (confidence: number) => {
+    if (confidence >= 0.9) return 'success';
+    if (confidence >= 0.7) return 'warning';
+    return 'destructive';
+  };
 
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      {isProcessing ? (
-        <Skeleton className="h-6 w-full" />
-      ) : (
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{value}</span>
-          <span className={cn(
-            'inline-flex items-center rounded-full px-2 py-0.5 text-xs',
-            confidenceColor
-          )}>
-            {Math.round(confidence * 100)}%
-          </span>
-        </div>
-      )}
+    <div className={`flex flex-col space-y-1 ${className}`}>
+      <div className="flex justify-between items-center">
+        <span className="text-sm font-medium text-muted-foreground">{label}</span>
+        <Badge variant={getConfidenceVariant(confidence)}>
+          {Math.round(confidence * 100)}%
+        </Badge>
+      </div>
+      <div className="min-h-[24px] p-2 bg-muted/50 rounded text-sm">
+        {displayValue}
+      </div>
     </div>
   );
 } 

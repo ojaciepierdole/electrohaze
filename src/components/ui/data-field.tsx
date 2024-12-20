@@ -2,51 +2,36 @@
 
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { DocumentField } from '@/types/processing';
 
 interface DataFieldProps {
   label: string;
-  value: string;
-  confidence: number;
-  isRequired?: boolean;
-  isProcessing?: boolean;
+  field?: DocumentField;
+  className?: string;
 }
 
-export function DataField({ 
-  label, 
-  value, 
-  confidence, 
-  isRequired = false, 
-  isProcessing = false 
-}: DataFieldProps) {
-  const confidenceLevel = confidence > 0.8 ? 'success' : confidence > 0.6 ? 'warning' : 'destructive';
-  const confidencePercent = Math.round(confidence * 100);
+export function DataField({ label, field, className = '' }: DataFieldProps) {
+  const confidence = field?.confidence || 0;
+  const content = field?.content || '';
+
+  const getConfidenceVariant = (confidence: number) => {
+    if (confidence >= 0.9) return 'success';
+    if (confidence >= 0.7) return 'warning';
+    return 'destructive';
+  };
 
   return (
-    <div className={cn(
-      'p-4 rounded-lg border',
-      isProcessing ? 'bg-gray-50' : 'bg-white',
-      isRequired ? 'border-gray-300' : 'border-gray-200'
-    )}>
-      <div className="flex justify-between items-start mb-1">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-700">{label}</span>
-          {isRequired && (
-            <Badge variant="outline" className="text-xs">
-              Wymagane
-            </Badge>
-          )}
-        </div>
-        <Badge variant={confidenceLevel} className="text-xs">
-          {confidencePercent}%
-        </Badge>
-      </div>
-      <div className="text-sm text-gray-900">
-        {isProcessing ? (
-          <div className="h-4 bg-gray-200 rounded animate-pulse" />
-        ) : (
-          value || 'N/A'
+    <div className={`flex flex-col space-y-1 ${className}`}>
+      <div className="flex justify-between items-center">
+        <span className="text-sm font-medium text-muted-foreground">{label}</span>
+        {field && (
+          <Badge variant={getConfidenceVariant(confidence)}>
+            {Math.round(confidence * 100)}%
+          </Badge>
         )}
+      </div>
+      <div className="min-h-[24px] p-2 bg-muted/50 rounded text-sm">
+        {content || '—'}
       </div>
     </div>
   );

@@ -63,10 +63,10 @@ export function DocumentList({ documents, isProcessing }: DocumentListProps) {
     });
 
     // Dodaj pola do odpowiednich grup
-    for (const [groupKey, fields] of Object.entries(doc.mappedData)) {
+    for (const [groupKey, fields] of Object.entries(doc.mappedData || {})) {
       const group = groups.get(groupKey as FieldGroupKey);
       if (group) {
-        for (const [fieldKey, field] of Object.entries(fields)) {
+        for (const [fieldKey, field] of Object.entries(fields as Record<string, DocumentField>)) {
           const typedField = field as DocumentField;
           if (typedField.content) {
             group.fields.push({
@@ -114,71 +114,78 @@ export function DocumentList({ documents, isProcessing }: DocumentListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {documents.map((doc) => (
-                <React.Fragment key={doc.fileName}>
-                  <TableRow 
-                    className={cn(
-                      "cursor-pointer hover:bg-muted/50",
-                      expandedRows.includes(doc.fileName) && "bg-muted/50"
-                    )}
-                    onClick={() => toggleRow(doc.fileName)}
-                  >
-                    <TableCell>
-                      {expandedRows.includes(doc.fileName) ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
+              {documents.map((doc) => {
+                const confidence = doc.documentConfidence?.confidence || doc.confidence || 0;
+                const completeness = doc.documentConfidence?.groups.delivery_point?.completeness || 0;
+                const timing = doc.timing?.total || (doc.timing?.end && doc.timing?.start ? 
+                  doc.timing.end - doc.timing.start : 0);
+
+                return (
+                  <React.Fragment key={doc.fileName}>
+                    <TableRow 
+                      className={cn(
+                        "cursor-pointer hover:bg-muted/50",
+                        expandedRows.includes(doc.fileName) && "bg-muted/50"
                       )}
-                    </TableCell>
-                    <TableCell>{doc.fileName}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Progress 
-                          value={doc.documentConfidence.groups.delivery_point.completeness * 100} 
-                          className="w-[60px]"
-                        />
-                        {formatCompleteness(doc.documentConfidence.groups.delivery_point.completeness)}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatConfidence(doc.documentConfidence.confidence)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatTime(doc.timing.total)}
-                    </TableCell>
-                  </TableRow>
-                  {expandedRows.includes(doc.fileName) && (
-                    <TableRow className="bg-muted/50">
-                      <TableCell colSpan={5} className="p-4">
-                        <div className="space-y-6">
-                          {groupFields(doc).map(([groupKey, group]) => (
-                            <div key={groupKey} className="space-y-2">
-                              <h4 className="font-medium">{group.label}</h4>
-                              <div className="grid gap-2">
-                                {group.fields.map((field) => (
-                                  <div key={field.key} className="flex items-center justify-between text-sm">
-                                    <span className="text-muted-foreground">{field.key}:</span>
-                                    <div className="flex items-center gap-2">
-                                      <span>{field.value || '—'}</span>
-                                      <Progress 
-                                        value={field.confidence * 100} 
-                                        className="w-[40px]"
-                                      />
-                                      <span className="text-xs text-muted-foreground">
-                                        {formatConfidence(field.confidence)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
+                      onClick={() => toggleRow(doc.fileName)}
+                    >
+                      <TableCell>
+                        {expandedRows.includes(doc.fileName) ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </TableCell>
+                      <TableCell>{doc.fileName}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Progress 
+                            value={completeness * 100} 
+                            className="w-[60px]"
+                          />
+                          {formatCompleteness(completeness)}
                         </div>
                       </TableCell>
+                      <TableCell className="text-right">
+                        {formatConfidence(confidence)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatTime(timing)}
+                      </TableCell>
                     </TableRow>
-                  )}
-                </React.Fragment>
-              ))}
+                    {expandedRows.includes(doc.fileName) && (
+                      <TableRow className="bg-muted/50">
+                        <TableCell colSpan={5} className="p-4">
+                          <div className="space-y-6">
+                            {groupFields(doc).map(([groupKey, group]) => (
+                              <div key={groupKey} className="space-y-2">
+                                <h4 className="font-medium">{group.label}</h4>
+                                <div className="grid gap-2">
+                                  {group.fields.map((field) => (
+                                    <div key={field.key} className="flex items-center justify-between text-sm">
+                                      <span className="text-muted-foreground">{field.key}:</span>
+                                      <div className="flex items-center gap-2">
+                                        <span>{field.value || '—'}</span>
+                                        <Progress 
+                                          value={field.confidence * 100} 
+                                          className="w-[40px]"
+                                        />
+                                        <span className="text-xs text-muted-foreground">
+                                          {formatConfidence(field.confidence)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </TableBody>
           </Table>
         </ScrollArea>

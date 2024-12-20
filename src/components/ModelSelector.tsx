@@ -20,7 +20,7 @@ import {
 import type { Model } from '@/types/models';
 
 interface ModelSelectorProps {
-  onSelect: (modelId: string) => void;
+  onSelectionChange: (modelIds: string[]) => void;
   selectedModels: string[];
   models: Model[];
   isLoading?: boolean;
@@ -28,7 +28,7 @@ interface ModelSelectorProps {
 }
 
 export function ModelSelector({
-  onSelect,
+  onSelectionChange,
   selectedModels,
   models,
   isLoading = false,
@@ -36,9 +36,17 @@ export function ModelSelector({
 }: ModelSelectorProps) {
   const [open, setOpen] = useState(false);
 
-  const selectedModel = selectedModels[0] 
-    ? models.find(m => m.id === selectedModels[0])
-    : null;
+  const selectedModelNames = selectedModels
+    .map(id => models.find(m => m.id === id)?.name)
+    .filter(Boolean)
+    .join(', ');
+
+  const toggleModel = (modelId: string) => {
+    const newSelection = selectedModels.includes(modelId)
+      ? selectedModels.filter(id => id !== modelId)
+      : [...selectedModels, modelId];
+    onSelectionChange(newSelection);
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -50,17 +58,17 @@ export function ModelSelector({
           className="w-full justify-between"
           disabled={disabled || isLoading}
         >
-          {selectedModel ? (
+          {selectedModels.length > 0 ? (
             <div className="flex items-center gap-2 text-left">
-              <span className="flex-1">{selectedModel.id}</span>
-              {selectedModel.isCustom && (
-                <Badge variant="secondary" className="ml-2">
-                  Custom
-                </Badge>
-              )}
+              <span className="flex-1 truncate">
+                {selectedModelNames}
+              </span>
+              <Badge variant="secondary" className="ml-2">
+                {selectedModels.length} {selectedModels.length === 1 ? 'model' : 'modele'}
+              </Badge>
             </div>
           ) : (
-            <span>{isLoading ? 'Ładowanie modeli...' : 'Wybierz model...'}</span>
+            <span>{isLoading ? 'Ładowanie modeli...' : 'Wybierz modele...'}</span>
           )}
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -74,22 +82,19 @@ export function ModelSelector({
               <CommandItem
                 key={model.id}
                 value={model.id}
-                onSelect={() => {
-                  onSelect(model.id);
-                  setOpen(false);
-                }}
+                onSelect={() => toggleModel(model.id)}
                 className="flex flex-col items-start py-2 px-3"
               >
                 <div className="flex items-center w-full">
                   <Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      selectedModels[0] === model.id ? "opacity-100" : "opacity-0"
+                      selectedModels.includes(model.id) ? "opacity-100" : "opacity-0"
                     )}
                   />
                   <div className="flex flex-col flex-1">
                     <div className="flex items-center justify-between w-full">
-                      <span className="font-medium">{model.id}</span>
+                      <span className="font-medium">{model.name}</span>
                       {model.isCustom && (
                         <Badge variant="secondary" className="ml-2">
                           Custom
@@ -97,7 +102,7 @@ export function ModelSelector({
                       )}
                     </div>
                     <span className="text-xs text-muted-foreground mt-1">
-                      {model.name}
+                      {model.id}
                     </span>
                     {model.description && (
                       <span className="text-xs text-muted-foreground mt-1">

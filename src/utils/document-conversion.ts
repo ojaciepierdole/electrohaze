@@ -1,40 +1,43 @@
 import type { DocumentField, FieldMetadata, TransformationType, DataSource, FieldType } from '@/types/processing';
-import type { AnalyzeResult } from '@azure/ai-form-recognizer';
 
-function determineFieldType(field: any): FieldType {
-  if (typeof field === 'number' || field?.kind === 'number') return 'number';
-  if (field?.kind === 'date') return 'date';
-  if (field?.kind === 'time') return 'time';
-  if (field?.kind === 'phoneNumber') return 'phoneNumber';
-  if (field?.kind === 'currency') return 'currency';
-  if (field?.kind === 'address') return 'address';
-  if (field?.kind === 'integer') return 'integer';
-  if (field?.kind === 'selectionMark') return 'selectionMark';
-  if (field?.kind === 'countryRegion') return 'countryRegion';
-  if (field?.kind === 'signature') return 'signature';
-  return 'string';
-}
-
-export function convertAzureField(field: any): DocumentField {
-  const fieldType = determineFieldType(field);
+export function convertField(
+  content: string,
+  confidence: number,
+  fieldType: FieldType = 'string',
+  transformationType: TransformationType = 'initial',
+  source: DataSource = 'azure'
+): DocumentField {
   const metadata: FieldMetadata = {
     fieldType,
-    transformationType: 'initial',
-    source: 'azure',
+    transformationType,
+    source,
     boundingRegions: [],
-    spans: []
+    spans: [],
+    confidence
   };
 
-  let value: unknown = field.content;
-  if (fieldType === 'number' || fieldType === 'currency' || fieldType === 'integer') {
-    value = Number(field.content) || 0;
-  } else {
-    value = String(field.content || '');
+  let value: string | number | boolean | Date | null = content;
+
+  // Konwersja wartości na odpowiedni typ
+  switch (fieldType) {
+    case 'number':
+    case 'currency':
+    case 'integer':
+      value = Number(content) || 0;
+      break;
+    case 'date':
+      value = content ? new Date(content) : null;
+      break;
+    case 'selectionMark':
+      value = content === 'selected';
+      break;
+    default:
+      value = content;
   }
 
   return {
-    content: String(field.content || ''),
-    confidence: field.confidence || 0,
+    content,
+    confidence,
     kind: fieldType,
     value,
     metadata
@@ -45,7 +48,13 @@ export function convertAzureFields(fields: Record<string, any>): Record<string, 
   const result: Record<string, DocumentField> = {};
 
   for (const [key, field] of Object.entries(fields)) {
-    result[key] = convertAzureField(field);
+    result[key] = convertField(
+      String(field.content || ''),
+      field.confidence || 0,
+      field.kind || 'string',
+      'initial',
+      'azure'
+    );
   }
 
   return result;

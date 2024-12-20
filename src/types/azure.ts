@@ -28,3 +28,24 @@ export type DocumentPoller = {
 
 // Własne typy bazujące na typach z Azure
 export type DocumentFields = Record<string, DocumentField>;
+
+export interface AzureDocumentField {
+  type: string;
+  content: string;
+  confidence: number;
+  boundingRegions?: {
+    pageNumber: number;
+    boundingBox: number[];
+  }[];
+}
+
+export interface AzureAnalyzeResult {
+  fields: Record<string, AzureDocumentField>;
+  confidence: number;
+}
+
+export interface AzurePoller {
+  isDone(): boolean;
+  pollUntilDone(): Promise<void>;
+  getResult(): Promise<AzureAnalyzeResult>;
+}

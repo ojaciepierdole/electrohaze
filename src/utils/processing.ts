@@ -69,7 +69,10 @@ export function processDocumentFields(fields: Record<string, DocumentField>): Do
     buyer_data: {},
     supplier: {},
     consumption_info: {},
-    billing: {}
+    billing: {},
+    seller_data: {},
+    invoice_data: {},
+    payment_data: {}
   };
 
   // Mapuj pola do odpowiednich grup

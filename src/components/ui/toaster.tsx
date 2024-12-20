@@ -7,6 +7,7 @@ import {
   ToastProvider,
   ToastTitle,
   ToastViewport,
+  ToastAction,
 } from "@/components/ui/toast"
 import { useToast } from "@/components/ui/use-toast"
 
@@ -24,7 +25,11 @@ export function Toaster() {
                 <ToastDescription>{description}</ToastDescription>
               )}
             </div>
-            {action}
+            {action && (
+              <ToastAction altText={action.altText} onClick={action.action}>
+                {action.altText}
+              </ToastAction>
+            )}
             <ToastClose />
           </Toast>
         )

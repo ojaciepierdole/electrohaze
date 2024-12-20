@@ -103,17 +103,24 @@ export function ProcessingClient() {
         throw new Error('Błąd podczas przetwarzania plików');
       }
 
-      const { sessionId } = await response.json();
-      setSessionId(sessionId);
+      const data = await response.json();
+      if (!data.sessionId) {
+        throw new Error('Nie otrzymano identyfikatora sesji');
+      }
 
-      // Rozpocznij polling postępu
-      pollProgress(sessionId);
+      setSessionId(data.sessionId);
+      pollProgress(data.sessionId);
 
     } catch (error) {
       console.error('Błąd podczas przetwarzania:', error);
       setError('Wystąpił błąd podczas przetwarzania plików');
       setIsProcessing(false);
       setIsFilesExpanded(true);
+      toast({
+        title: 'Błąd',
+        description: 'Wystąpił błąd podczas przetwarzania plików.',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -121,7 +128,9 @@ export function ProcessingClient() {
   const pollProgress = async (sid: string) => {
     try {
       const response = await fetch(`/api/analyze/progress?sessionId=${sid}`);
-      if (!response.ok) throw new Error('Błąd podczas pobierania postępu');
+      if (!response.ok) {
+        throw new Error('Błąd podczas pobierania postępu');
+      }
       
       const data = await response.json();
       
@@ -129,22 +138,36 @@ export function ProcessingClient() {
         setError(data.error);
         setIsProcessing(false);
         setIsFilesExpanded(true);
+        toast({
+          title: 'Błąd',
+          description: data.error,
+          variant: 'destructive'
+        });
         return;
       }
 
-      if (data.progress !== undefined) {
+      if (data.progress !== undefined && data.progress > progress) {
         setProgress(data.progress);
       }
 
       if (data.status === 'success') {
-        // Pobierz wyniki po zakończeniu przetwarzania
+        setProgress(100);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         const resultsResponse = await fetch(`/api/analyze/results?sessionId=${sid}`);
-        if (!resultsResponse.ok) throw new Error('Błąd podczas pobierania wyników');
+        if (!resultsResponse.ok) {
+          throw new Error('Błąd podczas pobierania wyników');
+        }
         
         const resultsData = await resultsResponse.json();
         setResults(resultsData.results || []);
         setIsProcessing(false);
         setIsFilesExpanded(true);
+        toast({
+          title: 'Sukces',
+          description: 'Przetwarzanie zakończone pomyślnie.',
+          variant: 'default'
+        });
         return;
       }
 
@@ -152,10 +175,14 @@ export function ProcessingClient() {
         setError(data.error || 'Wystąpił błąd podczas przetwarzania');
         setIsProcessing(false);
         setIsFilesExpanded(true);
+        toast({
+          title: 'Błąd',
+          description: data.error || 'Wystąpił błąd podczas przetwarzania',
+          variant: 'destructive'
+        });
         return;
       }
 
-      // Kontynuuj polling jeśli przetwarzanie nadal trwa
       setTimeout(() => pollProgress(sid), 1000);
 
     } catch (error) {
@@ -163,22 +190,25 @@ export function ProcessingClient() {
       setError('Wystąpił błąd podczas przetwarzania');
       setIsProcessing(false);
       setIsFilesExpanded(true);
+      toast({
+        title: 'Błąd',
+        description: 'Wystąpił błąd podczas przetwarzania.',
+        variant: 'destructive'
+      });
     }
   };
 
-  // Wyświetl błąd
-  if (error) {
-    return (
-      <Card className="p-6">
-        <div className="text-red-500">
-          Błąd: {error}
-        </div>
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-4">
+      {/* Selektor modeli */}
+      <ModelSelector
+        models={models}
+        selectedModels={selectedModels}
+        onSelectionChange={setSelectedModels}
+        isLoading={isLoading}
+        disabled={isProcessing}
+      />
+
       {/* Strefa upuszczania plików */}
       <Card className="p-4">
         <div {...getRootProps()} className="space-y-4">
@@ -249,52 +279,37 @@ export function ProcessingClient() {
         </Card>
       )}
 
-      {/* Wybór modelu */}
-      <ModelSelector
-        selectedModels={selectedModels}
-        onSelect={(modelId) => setSelectedModels([modelId])}
-        disabled={isProcessing}
-        models={models}
-        isLoading={isLoading}
-      />
+      {/* Przycisk rozpoczęcia przetwarzania */}
+      <div className="flex justify-end">
+        <Button
+          onClick={startProcessing}
+          disabled={isProcessing || !files.length || !selectedModels.length}
+        >
+          {isProcessing ? 'Przetwarzanie...' : 'Rozpocznij analizę'}
+        </Button>
+      </div>
 
-      {/* Postęp przetwarzania */}
+      {/* Pasek postępu */}
       {isProcessing && (
-        <Card className="p-6">
-          <div className="space-y-4">
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Przetwarzanie plików...</span>
-              <span>{Math.round(progress)}%</span>
+        <Card className="p-4">
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium">Postęp analizy</span>
+              <span className="text-sm text-muted-foreground">{progress}%</span>
             </div>
-            <Progress value={progress} />
-            <div className="text-sm text-muted-foreground">
-              {progress < 100 ? (
-                <>
-                  <p>• Przesyłanie plików do Azure Document Intelligence</p>
-                  <p>• Analiza dokumentów w toku</p>
-                  <p>• Oczekiwanie na wyniki</p>
-                </>
-              ) : (
-                <p>Zakończono przetwarzanie!</p>
-              )}
-            </div>
+            <Progress value={progress} className="h-2" />
           </div>
         </Card>
       )}
 
-      {/* Przycisk rozpoczęcia */}
-      <Button
-        className="w-full"
-        disabled={!files.length || !selectedModels.length || isProcessing}
-        onClick={startProcessing}
-      >
-        {isProcessing ? 'Przetwarzanie...' : 'Rozpocznij analizę'}
-      </Button>
-
       {/* Wyniki */}
-      {results.map((result, index) => (
-        <AnalysisResultCard key={index} result={result} />
-      ))}
+      {results.length > 0 && (
+        <div className="space-y-4">
+          {results.map((result, index) => (
+            <AnalysisResultCard key={index} result={result} />
+          ))}
+        </div>
+      )}
     </div>
   );
 } 

@@ -21,20 +21,41 @@ export class DataProcessor {
     fieldType: FieldType = 'string',
     metadata: Partial<FieldMetadata> = {}
   ): DocumentField {
+    const processedValue = this.processValue(content, fieldType);
     return {
       content: String(content),
       confidence,
       kind: fieldType,
-      value: content,
+      value: processedValue,
       metadata: {
         fieldType,
         transformationType: 'initial' as TransformationType,
         source: 'azure' as DataSource,
-        boundingRegions: [],
-        spans: [],
+        confidence: metadata.confidence ?? confidence,
+        boundingRegions: metadata.boundingRegions ?? [],
+        spans: metadata.spans ?? [],
         ...metadata
       }
     };
+  }
+
+  private processValue(value: unknown, fieldType: FieldType): string | number | boolean | Date | null {
+    if (value === null || value === undefined) return null;
+    
+    switch (fieldType) {
+      case 'number':
+      case 'integer':
+      case 'currency':
+        const num = Number(value);
+        return isNaN(num) ? null : num;
+      case 'date':
+        const date = new Date(String(value));
+        return isNaN(date.getTime()) ? null : date;
+      case 'selectionMark':
+        return Boolean(value);
+      default:
+        return String(value);
+    }
   }
 
   processPPEData(data: Partial<PPEData>): Record<string, DocumentField> {

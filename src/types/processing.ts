@@ -5,17 +5,17 @@ export type FieldType =
   | 'number'
   | 'date'
   | 'time'
-  | 'currency'
-  | 'integer'
-  | 'array'
-  | 'object'
-  | 'selectionMark'
-  | 'countryRegion'
   | 'phoneNumber'
   | 'address'
-  | 'signature';
+  | 'selectionMark'
+  | 'countryRegion'
+  | 'signature'
+  | 'array'
+  | 'object'
+  | 'currency'
+  | 'integer';
 
-export type TransformationType = 'initial' | 'enriched' | 'normalized' | 'validated';
+export type TransformationType = 'initial' | 'enriched' | 'validated' | 'normalized';
 export type DataSource = 'azure' | 'manual' | 'enrichment';
 
 export interface Point {
@@ -38,6 +38,7 @@ export interface FieldMetadata {
   fieldType: FieldType;
   transformationType: TransformationType;
   source: DataSource;
+  confidence: number;
   boundingRegions: BoundingRegion[];
   spans: Span[];
 }
@@ -46,14 +47,15 @@ export interface DocumentField {
   content: string;
   confidence: number;
   kind: FieldType;
-  value: any;
+  value: string | number | boolean | Date | null;
   metadata: FieldMetadata;
 }
 
 export interface ProcessedDocumentField {
-  field: AzureDocumentField;
-  boundingBox?: number[];
-  pageNumber?: number;
+  content: string;
+  confidence: number;
+  metadata: FieldMetadata;
+  value?: string | number | boolean | Date | null;
 }
 
 export interface GroupConfidence {
@@ -84,23 +86,31 @@ export interface DocumentFieldsMap {
   ppe: Record<string, DocumentField>;
   postal_address: Record<string, DocumentField>;
   buyer_data: Record<string, DocumentField>;
+  seller_data: Record<string, DocumentField>;
+  invoice_data: Record<string, DocumentField>;
+  payment_data: Record<string, DocumentField>;
   supplier: Record<string, DocumentField>;
   consumption_info: Record<string, DocumentField>;
   billing: Record<string, DocumentField>;
 }
 
 export interface ProcessingResult {
+  sessionId?: string;
   fileName: string;
-  timing: {
-    upload: number;
-    ocr: number;
-    analysis: number;
-    total: number;
+  modelId: string;
+  status?: 'pending' | 'processing' | 'success' | 'error';
+  progress?: number;
+  error?: string;
+  fields?: DocumentFieldsMap;
+  timing?: {
+    start: number;
+    end?: number;
+    ocr?: number;
+    total?: number;
   };
-  documentConfidence: DocumentConfidence;
-  usability: number;
-  status: 'success' | 'error';
-  mappedData: DocumentFieldsMap;
+  confidence?: number;
+  documentConfidence?: DocumentConfidence;
+  mappedData?: DocumentFieldsMap;
 }
 
 export interface AnalysisField {
@@ -110,3 +120,32 @@ export interface AnalysisField {
   description: string;
   group: string;
 }
+
+export interface FieldWithConfidence {
+  content: string;
+  confidence: number;
+  metadata: FieldMetadata;
+  value?: string | number | boolean | null;
+}
+
+export interface DocumentAnalysisResult {
+  fields: Record<string, DocumentField>;
+  confidence: number;
+}
+
+export interface ModelDefinition {
+  id: string;
+  name: string;
+  description?: string;
+  version?: string;
+}
+
+export interface ProcessingProgress {
+  status: 'processing' | 'success' | 'error';
+  progress: number;
+  totalProgress?: number;
+  error?: string;
+  results?: ProcessingResult[];
+}
+
+export type DocumentStatus = 'processing' | 'success' | 'error';

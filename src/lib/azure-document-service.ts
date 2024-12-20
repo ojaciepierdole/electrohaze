@@ -2,7 +2,7 @@ import { DocumentAnalysisClient, AzureKeyCredential, AnalyzeResult } from '@azur
 import { DocumentAnalysisResponse } from '@/types/azure';
 import { DocumentValidator } from './document-validator';
 import { AzureDocumentIntelligenceError } from './azure-errors';
-import { DocumentCache } from './cache-service';
+import { CacheService } from './cache-service';
 import { RetryHandler } from './retry-handler';
 import { Logger } from './logger';
 import { PerformanceMonitor } from './performance-monitor';
@@ -23,7 +23,7 @@ interface BatchProgress {
 
 export class AzureDocumentService {
   private client: DocumentAnalysisClient;
-  private cache: DocumentCache;
+  private cache: CacheService;
   private retryHandler: RetryHandler;
   private logger: Logger;
   private performanceMonitor: PerformanceMonitor;
@@ -47,7 +47,7 @@ export class AzureDocumentService {
       new AzureKeyCredential(key)
     );
 
-    this.cache = DocumentCache.getInstance();
+    this.cache = CacheService.getInstance();
     this.retryHandler = new RetryHandler();
     this.logger = Logger.getInstance();
     this.performanceMonitor = PerformanceMonitor.getInstance();

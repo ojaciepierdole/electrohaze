@@ -23,4 +23,25 @@ export interface ModelDetails extends Model {
 export interface ModelCache {
   models: Model[];
   timestamp: number;
+}
+
+export interface ModelDefinition {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  type: 'prebuilt' | 'custom';
+  capabilities: string[];
+  fields: string[];
+  status: 'active' | 'inactive' | 'training';
+}
+
+export interface ModelGroup {
+  name: string;
+  models: ModelDefinition[];
+}
+
+export interface ModelConfig {
+  groups: ModelGroup[];
+  defaultModel: string;
 } 

@@ -1,19 +1,16 @@
-'use client';
-
-import React from 'react';
 import { DataGroup } from './DataGroup';
 import type { DocumentField } from '@/types/processing';
 
-interface SupplierDataGroupProps {
+interface DeliveryPointDataGroupProps {
   fields: Record<string, DocumentField>;
   confidence: number;
   onEdit?: () => void;
 }
 
-export function SupplierDataGroup({ fields, confidence, onEdit }: SupplierDataGroupProps) {
+export function DeliveryPointDataGroup({ fields, confidence, onEdit }: DeliveryPointDataGroupProps) {
   return (
     <DataGroup
-      title="Dane sprzedawcy"
+      title="Miejsce dostawy"
       fields={fields}
       confidence={confidence}
       onEdit={onEdit}

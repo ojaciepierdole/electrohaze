@@ -1,81 +1,66 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Eraser } from 'lucide-react';
-import type { FieldMetadata } from '@/types/processing';
-import { Skeleton } from '@/components/ui/skeleton';
-
-interface DataGroupField {
-  label: string;
-  value?: string | null;
-  confidence?: number;
-  isEnriched?: boolean;
-  metadata?: FieldMetadata;
-}
+import { formatPercentage } from '@/lib/utils';
+import type { DocumentField } from '@/types/processing';
 
 interface DataGroupProps {
   title: string;
   icon?: React.ReactNode;
-  fields: DataGroupField[];
-  confidence?: number;
-  isLoading?: boolean;
+  fields: Record<string, DocumentField>;
+  confidence: number;
+  onEdit?: () => void;
 }
 
-export function DataGroup({ title, icon, fields, confidence = 0, isLoading }: DataGroupProps) {
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-6 w-32" />
-          <Skeleton className="h-6 w-16" />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="space-y-2">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-8 w-full" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+export function DataGroup({ title, icon, fields, confidence, onEdit }: DataGroupProps) {
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  const getConfidenceVariant = (confidence: number) => {
+    if (confidence >= 0.9) return 'success';
+    if (confidence >= 0.7) return 'warning';
+    return 'destructive';
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {icon}
-          <h3 className="text-lg font-semibold">{title}</h3>
+    <Card className="mb-4">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-2xl font-bold">{title}</CardTitle>
+        <div className="flex items-center space-x-2">
+          <Badge variant={getConfidenceVariant(confidence)}>
+            {formatPercentage(confidence)}
+          </Badge>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            {isExpanded ? <ChevronUp /> : <ChevronDown />}
+          </Button>
         </div>
-        <Badge variant={confidence >= 0.8 ? 'success' : confidence >= 0.5 ? 'warning' : 'destructive'}>
-          {Math.round(confidence * 100)}%
-        </Badge>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {fields.map((field, index) => (
-          <div key={index} className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">{field.label}</span>
-              {field.isEnriched && (
-                <Badge variant="secondary" className="text-xs">
-                  <Eraser className="h-3 w-3 mr-1" />
-                  Wzbogacone
+      </CardHeader>
+      {isExpanded && (
+        <CardContent>
+          <div className="grid gap-4">
+            {Object.entries(fields).map(([key, field]) => (
+              <div key={key} className="flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium">{key}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {field.content || 'Brak danych'}
+                  </span>
+                </div>
+                <Badge variant={getConfidenceVariant(field.confidence)}>
+                  {formatPercentage(field.confidence)}
                 </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm">{field.value || '-'}</span>
-              {field.confidence !== undefined && (
-                <Badge variant={field.confidence >= 0.8 ? 'success' : field.confidence >= 0.5 ? 'warning' : 'destructive'}>
-                  {Math.round(field.confidence * 100)}%
-                </Badge>
-              )}
-            </div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-    </div>
+        </CardContent>
+      )}
+    </Card>
   );
 } 
