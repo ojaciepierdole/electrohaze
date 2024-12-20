@@ -5,14 +5,29 @@ import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ProcessingResult, DocumentField } from '@/types/processing';
+import { Progress } from '@/components/ui/progress';
 
 export interface DocumentListProps {
   files?: File[];
   results?: ProcessingResult[];
   onRemove?: (index: number) => void;
+  isProcessing?: boolean;
+  progress?: number;
 }
 
-export function DocumentList({ files, results, onRemove }: DocumentListProps) {
+export function DocumentList({ files, results, onRemove, isProcessing, progress }: DocumentListProps) {
+  if (isProcessing) {
+    return (
+      <div className="space-y-2 bg-white rounded-lg p-4 border">
+        <div className="flex justify-between text-sm text-slate-600">
+          <span>Postęp analizy</span>
+          <span>{progress}%</span>
+        </div>
+        <Progress value={progress} className="h-2" />
+      </div>
+    );
+  }
+
   if (files && files.length > 0) {
     return (
       <div className="space-y-1 p-2">
@@ -43,7 +58,8 @@ export function DocumentList({ files, results, onRemove }: DocumentListProps) {
       <div className="space-y-4">
         {results.map((result, index) => (
           <Card key={index} className="p-4">
-            <div className="space-y-2">
+            <div className="space-y-4">
+              {/* Nagłówek z nazwą pliku i ogólną pewnością */}
               <div className="flex justify-between items-center pb-2 border-b">
                 <h3 className="text-lg font-medium">{result.fileName}</h3>
                 <span className="text-sm text-muted-foreground">
@@ -51,7 +67,49 @@ export function DocumentList({ files, results, onRemove }: DocumentListProps) {
                 </span>
               </div>
               
-              {/* Wyświetl zmapowane dane */}
+              {/* Statystyki przetwarzania */}
+              <div className="bg-slate-50 rounded-lg p-4 space-y-2">
+                <h4 className="text-sm font-medium text-slate-700">Statystyki przetwarzania</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-slate-600">Średnia pewność</p>
+                    <p className="text-lg font-medium">{(result.stats.averageConfidence * 100).toFixed(1)}%</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-600">Czas przetwarzania</p>
+                    <p className="text-lg font-medium">{(result.stats.processingTime / 1000).toFixed(2)}s</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-600">Typ pliku</p>
+                    <p className="text-lg font-medium">{result.stats.mimeType}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-600">Liczba pól</p>
+                    <p className="text-lg font-medium">{result.stats.totalFields}</p>
+                  </div>
+                </div>
+                
+                {/* Zakresy pewności */}
+                <div className="mt-4">
+                  <p className="text-sm text-slate-600 mb-2">Rozkład pewności pól</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-green-600">Wysoka (&gt;90%)</span>
+                      <span className="text-sm font-medium">{result.stats.confidenceRanges.high}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-yellow-600">Średnia (70-90%)</span>
+                      <span className="text-sm font-medium">{result.stats.confidenceRanges.medium}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-red-600">Niska (&lt;70%)</span>
+                      <span className="text-sm font-medium">{result.stats.confidenceRanges.low}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Zmapowane dane */}
               {Object.entries(result.mappedData || {}).map(([group, fields]) => (
                 <div key={group} className="space-y-1 py-2">
                   <h4 className="text-sm font-medium capitalize">{group.replace(/_/g, ' ')}</h4>

@@ -282,12 +282,6 @@ export function ProcessingClient() {
                       <span>{(fileStats.processingTime / 1000).toFixed(2)}s</span>
                     </>
                   )}
-                  {isProcessing && (
-                    <>
-                      <span className="mx-2">•</span>
-                      <span className="text-blue-600">Przetwarzanie: {progress}%</span>
-                    </>
-                  )}
                 </div>
               ) : (
                 <span className="text-sm text-slate-600">Wybierz pliki do analizy</span>
@@ -309,7 +303,7 @@ export function ProcessingClient() {
         </div>
 
         {/* Rozwinięta zawartość */}
-        {isFilesExpanded && (
+        {isFilesExpanded && !isProcessing && (
           <div className="mt-4 space-y-4">
             <ModelSelector
               models={models}
@@ -361,23 +355,16 @@ export function ProcessingClient() {
                 </div>
               </div>
             )}
-
-            {/* Pasek postępu */}
-            {isProcessing && (
-              <div className="space-y-2 bg-white rounded-lg p-4 border">
-                <div className="flex justify-between text-sm text-slate-600">
-                  <span>Postęp analizy</span>
-                  <span>{progress}%</span>
-                </div>
-                <Progress value={progress} className="h-2" />
-              </div>
-            )}
           </div>
         )}
       </div>
 
-      {/* Wyniki analizy */}
-      {sessionId && <DocumentList results={results} />}
+      {/* Pasek postępu lub wyniki */}
+      {isProcessing ? (
+        <DocumentList isProcessing={true} progress={progress} />
+      ) : (
+        sessionId && <DocumentList results={results} />
+      )}
     </div>
   );
 } 

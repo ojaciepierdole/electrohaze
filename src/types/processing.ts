@@ -46,9 +46,7 @@ export interface FieldMetadata {
 export interface DocumentField {
   content: string;
   confidence: number;
-  kind: FieldType;
-  value: string | number | boolean | Date | null;
-  metadata: FieldMetadata;
+  boundingBox?: number[];
 }
 
 export interface ProcessedDocumentField {
@@ -82,16 +80,19 @@ export interface DocumentConfidence {
 }
 
 export interface DocumentFieldsMap {
-  delivery_point: Record<string, DocumentField>;
-  ppe: Record<string, DocumentField>;
-  postal_address: Record<string, DocumentField>;
-  buyer_data: Record<string, DocumentField>;
-  seller_data: Record<string, DocumentField>;
-  invoice_data: Record<string, DocumentField>;
-  payment_data: Record<string, DocumentField>;
-  supplier: Record<string, DocumentField>;
-  consumption_info: Record<string, DocumentField>;
-  billing: Record<string, DocumentField>;
+  [key: string]: Record<string, DocumentField>;
+}
+
+export interface ProcessingStats {
+  averageConfidence: number;
+  confidenceRanges: {
+    high: number;    // >90%
+    medium: number;  // 70-90%
+    low: number;     // <70%
+  };
+  processingTime: number;
+  mimeType: string;
+  totalFields: number;
 }
 
 export interface ProcessingResult {
@@ -111,6 +112,7 @@ export interface ProcessingResult {
   confidence?: number;
   documentConfidence?: DocumentConfidence;
   mappedData?: DocumentFieldsMap;
+  stats: ProcessingStats;
 }
 
 export interface AnalysisField {
