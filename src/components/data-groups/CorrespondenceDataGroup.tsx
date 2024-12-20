@@ -2,7 +2,7 @@
 
 import React from 'react';
 import type { CorrespondenceData } from '@/types/fields';
-import type { DocumentField } from '@/types/processing';
+import type { ProcessedDocumentField, FieldMetadata } from '@/types/processing';
 import { DataGroup } from './DataGroup';
 import { FIELD_LABELS } from '@/config/fields';
 import { Mail } from 'lucide-react';
@@ -105,22 +105,21 @@ export function CorrespondenceDataGroup({ data, confidence: groupConfidence }: C
     }
   ];
 
-  const fields = fieldsArray.reduce<Record<string, DocumentField>>((acc, field) => {
+  const fields = fieldsArray.reduce<Record<string, ProcessedDocumentField>>((acc, field) => {
     if (field.value) {
       acc[field.key] = {
         content: field.value,
         confidence: field.confidence ?? 0,
-        kind: 'string',
         value: field.value,
         metadata: field.metadata ?? {
           fieldType: 'string',
-          transformationType: field.isEnriched ? 'enriched' : 'initial',
-          source: 'azure',
+          transformationType: 'initial',
+          source: 'manual',
           confidence: field.confidence ?? 0,
           boundingRegions: [],
           spans: []
         }
-      };
+      } as ProcessedDocumentField;
     }
     return acc;
   }, {});

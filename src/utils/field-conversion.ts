@@ -1,11 +1,12 @@
-import type { 
-  DocumentField,
-  FieldType,
-  TransformationType,
-  DataSource,
-  FieldMetadata
+import { 
+  type FieldType, 
+  type DocumentField, 
+  type ProcessedDocumentField,
+  type FieldMetadata,
+  type TransformationType,
+  type DataSource
 } from '@/types/processing';
-import type { DocumentField as AzureDocumentField } from '@azure/ai-form-recognizer';
+import type { AzureDocumentField } from '@/types/azure';
 
 interface FieldWithMetadata {
   content: string;
@@ -26,30 +27,31 @@ interface FieldWithMetadata {
   };
 }
 
-export function convertAzureFieldToDocumentField(field: AzureDocumentField): DocumentField {
-  const kind = 'string' as FieldType;
+export function convertAzureFieldToDocumentField(field: AzureDocumentField): ProcessedDocumentField {
+  const fieldType = 'string' as FieldType;
   const confidence = field.confidence ?? 0;
-  
   const metadata: FieldMetadata = {
-    fieldType: kind,
+    fieldType,
     transformationType: 'initial',
     source: 'azure',
     confidence,
-    boundingRegions: (field.boundingRegions ?? []).map(region => ({
+    boundingRegions: field.boundingRegions?.map(region => ({
       pageNumber: region.pageNumber,
-      polygon: region.polygon?.map(point => ({ x: point.x, y: point.y })) ?? []
-    })),
-    spans: (field.spans ?? []).map(span => ({
-      offset: span.offset,
-      length: span.length,
-      text: String(field.content ?? '')
-    }))
+      polygon: region.boundingBox.map((value, index) => ({
+        x: index % 2 === 0 ? value : 0,
+        y: index % 2 === 1 ? value : 0
+      })).filter((_, index) => index < 8)
+    })) ?? [],
+    spans: [{
+      offset: 0,
+      length: field.content?.length ?? 0,
+      text: field.content ?? ''
+    }]
   };
 
   return {
     content: field.content ?? '',
     confidence,
-    kind,
     value: field.content ?? null,
     metadata
   };
@@ -58,82 +60,55 @@ export function convertAzureFieldToDocumentField(field: AzureDocumentField): Doc
 export function convertAzureFieldWithMetadata(
   field: AzureDocumentField, 
   metadata: Partial<FieldMetadata>
-): DocumentField {
+): ProcessedDocumentField {
   const confidence = field.confidence ?? 0;
-  
-  const boundingRegions = metadata.boundingRegions?.map(region => ({
-    pageNumber: region.pageNumber,
-    polygon: region.polygon.map(point => ({ x: point.x, y: point.y }))
-  })) ?? [];
-
-  const spans = metadata.spans?.map(span => ({
-    offset: span.offset,
-    length: span.length,
-    text: span.text
-  })) ?? [];
+  const fullMetadata: FieldMetadata = {
+    fieldType: metadata.fieldType ?? 'string',
+    transformationType: metadata.transformationType ?? 'initial',
+    source: metadata.source ?? 'azure',
+    confidence,
+    boundingRegions: field.boundingRegions?.map(region => ({
+      pageNumber: region.pageNumber,
+      polygon: region.boundingBox.map((value, index) => ({
+        x: index % 2 === 0 ? value : 0,
+        y: index % 2 === 1 ? value : 0
+      })).filter((_, index) => index < 8)
+    })) ?? [],
+    spans: [{
+      offset: 0,
+      length: field.content?.length ?? 0,
+      text: field.content ?? ''
+    }]
+  };
 
   return {
     content: field.content ?? '',
     confidence,
-    kind: metadata.fieldType ?? 'string',
     value: field.content ?? null,
-    metadata: {
-      fieldType: metadata.fieldType ?? 'string',
-      transformationType: metadata.transformationType ?? 'initial',
-      source: metadata.source ?? 'azure',
-      confidence,
-      boundingRegions,
-      spans
-    }
+    metadata: fullMetadata
   };
 }
 
-export function convertFieldWithMetadata(value: FieldWithMetadata): DocumentField {
-  const kind = value.metadata?.fieldType || 'string';
+export function convertFieldWithMetadata(value: FieldWithMetadata): ProcessedDocumentField {
+  const fieldType = value.metadata?.fieldType || 'string';
   const confidence = value.confidence || 0;
-  const field: DocumentField = {
-    content: value.content || '',
+  const metadata: FieldMetadata = {
+    fieldType,
+    transformationType: value.metadata?.transformationType ?? 'initial',
+    source: value.metadata?.source ?? 'manual',
     confidence,
-    kind,
-    value: null,
-    metadata: {
-      fieldType: kind,
-      transformationType: value.metadata?.transformationType || 'initial',
-      source: value.metadata?.source || 'manual',
-      confidence,
-      boundingRegions: value.metadata?.boundingRegions?.map(region => ({
-        pageNumber: region.pageNumber,
-        polygon: region.polygon?.map(point => ({ x: point.x, y: point.y })) || []
-      })) || [],
-      spans: value.metadata?.spans?.map(span => ({
-        offset: span.offset,
-        length: span.length,
-        text: span.text || ''
-      })) || []
-    }
+    boundingRegions: value.metadata?.boundingRegions ?? [],
+    spans: value.metadata?.spans?.map(span => ({
+      offset: span.offset,
+      length: span.length,
+      text: span.text ?? ''
+    })) ?? []
   };
 
-  switch (kind) {
-    case 'number':
-    case 'currency':
-    case 'integer':
-      field.value = Number(value.content || 0);
-      break;
-    case 'date':
-      field.value = value.content ? new Date(value.content) : null;
-      break;
-    case 'object':
-      field.value = value.content ? JSON.parse(value.content) : {};
-      break;
-    case 'array':
-      field.value = value.content ? JSON.parse(value.content) : [];
-      break;
-    case 'selectionMark':
-      field.value = value.content === 'selected';
-      break;
-    default:
-      field.value = value.content || '';
-  }
-
-  return field;
+  return {
+    content: value.content || '',
+    confidence,
+    value: value.content || null,
+    metadata
+  };
 } 

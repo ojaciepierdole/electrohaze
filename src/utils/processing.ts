@@ -2,13 +2,14 @@ import type {
   ProcessingResult,
   DocumentField,
   FieldWithConfidence,
-  DocumentFieldsMap
+  DocumentFieldsMap,
+  ProcessedDocumentField
 } from '@/types/processing';
 import type { FieldGroupKey } from '@/types/fields';
 import { FIELD_GROUPS } from '@/config/fields';
 
 // Funkcja pomocnicza do określania grupy pola
-function determineFieldGroup(fieldName: string): FieldGroupKey {
+export function determineFieldGroup(fieldName: string): FieldGroupKey {
   // Sprawdź każdą grupę pól
   for (const [groupKey, group] of Object.entries(FIELD_GROUPS)) {
     if (group.fields.includes(fieldName)) {
@@ -61,7 +62,7 @@ function determineFieldGroup(fieldName: string): FieldGroupKey {
 }
 
 // Funkcja do przetwarzania pól dokumentu
-export function processDocumentFields(fields: Record<string, DocumentField>): DocumentFieldsMap {
+export function processDocumentFields(fields: Record<string, ProcessedDocumentField>): DocumentFieldsMap {
   const result: DocumentFieldsMap = {
     delivery_point: {},
     ppe: {},
@@ -69,22 +70,17 @@ export function processDocumentFields(fields: Record<string, DocumentField>): Do
     buyer_data: {},
     supplier: {},
     consumption_info: {},
-    billing: {},
-    seller_data: {},
-    invoice_data: {},
-    payment_data: {}
+    billing: {}
   };
 
-  // Mapuj pola do odpowiednich grup
   for (const [fieldName, field] of Object.entries(fields)) {
     const group = determineFieldGroup(fieldName);
-    result[group][fieldName] = {
+    const documentField: DocumentField = {
       content: field.content,
       confidence: field.confidence,
-      kind: field.kind,
-      value: field.value,
-      metadata: field.metadata
+      boundingBox: field.metadata.boundingRegions?.[0]?.polygon.flatMap(point => [point.x, point.y]) ?? []
     };
+    result[group][fieldName] = documentField;
   }
 
   return result;

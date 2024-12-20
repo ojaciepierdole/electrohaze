@@ -3,7 +3,8 @@ import type {
   FieldType, 
   TransformationType, 
   DataSource, 
-  FieldMetadata 
+  FieldMetadata, 
+  ProcessedDocumentField 
 } from '@/types/processing';
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
 import { TextProcessor } from './text-processor';
@@ -20,12 +21,11 @@ export class DataProcessor {
     confidence: number = 0,
     fieldType: FieldType = 'string',
     metadata: Partial<FieldMetadata> = {}
-  ): DocumentField {
+  ): ProcessedDocumentField {
     const processedValue = this.processValue(content, fieldType);
     return {
       content: String(content),
       confidence,
-      kind: fieldType,
       value: processedValue,
       metadata: {
         fieldType,
