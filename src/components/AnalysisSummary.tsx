@@ -8,8 +8,20 @@ import { Download } from 'lucide-react';
 import type { ProcessingResult, DocumentField } from '@/types/processing';
 import { cn } from '@/lib/utils';
 
+interface ProcessingTime {
+  uploadTime: number;
+  ocrTime: number;
+  analysisTime: number;
+  totalTime: number;
+}
+
+interface Document {
+  processingTime?: ProcessingTime;
+  [key: string]: any;
+}
+
 interface AnalysisSummaryProps {
-  documents: any[];
+  documents: Document[];
   onExport?: () => void;
   usabilityResults: boolean[];
 }
@@ -100,6 +112,56 @@ export function AnalysisSummary({ documents, onExport, usabilityResults }: Analy
                   PDF
                 </Badge>
                 <span className="text-sm font-medium">{documents.length} (100%)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Czasy analizy */}
+        <div className="bg-white p-4 rounded-lg border col-span-2">
+          <div className="text-sm font-medium text-gray-500 mb-3">Czasy analizy</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Czas całkowity */}
+            <div className="space-y-1">
+              <div className="text-sm text-gray-500">Całkowity</div>
+              <div className="text-xl font-semibold text-gray-900">
+                {documents.length > 0 ? `${(documents.reduce((acc, doc) => acc + (doc.processingTime?.totalTime || 0), 0) / 1000).toFixed(1)}s` : '-'}
+              </div>
+              <div className="text-xs text-gray-500">
+                Średnio: {documents.length > 0 ? `${((documents.reduce((acc, doc) => acc + (doc.processingTime?.totalTime || 0), 0) / documents.length) / 1000).toFixed(1)}s` : '-'}
+              </div>
+            </div>
+
+            {/* Czas uploadu */}
+            <div className="space-y-1">
+              <div className="text-sm text-gray-500">Upload</div>
+              <div className="text-xl font-semibold text-gray-900">
+                {documents.length > 0 ? `${(documents.reduce((acc, doc) => acc + (doc.processingTime?.uploadTime || 0), 0) / 1000).toFixed(1)}s` : '-'}
+              </div>
+              <div className="text-xs text-gray-500">
+                Średnio: {documents.length > 0 ? `${((documents.reduce((acc, doc) => acc + (doc.processingTime?.uploadTime || 0), 0) / documents.length) / 1000).toFixed(1)}s` : '-'}
+              </div>
+            </div>
+
+            {/* Czas OCR */}
+            <div className="space-y-1">
+              <div className="text-sm text-gray-500">OCR</div>
+              <div className="text-xl font-semibold text-gray-900">
+                {documents.length > 0 ? `${(documents.reduce((acc, doc) => acc + (doc.processingTime?.ocrTime || 0), 0) / 1000).toFixed(1)}s` : '-'}
+              </div>
+              <div className="text-xs text-gray-500">
+                Średnio: {documents.length > 0 ? `${((documents.reduce((acc, doc) => acc + (doc.processingTime?.ocrTime || 0), 0) / documents.length) / 1000).toFixed(1)}s` : '-'}
+              </div>
+            </div>
+
+            {/* Czas analizy */}
+            <div className="space-y-1">
+              <div className="text-sm text-gray-500">Analiza</div>
+              <div className="text-xl font-semibold text-gray-900">
+                {documents.length > 0 ? `${(documents.reduce((acc, doc) => acc + (doc.processingTime?.analysisTime || 0), 0) / 1000).toFixed(1)}s` : '-'}
+              </div>
+              <div className="text-xs text-gray-500">
+                Średnio: {documents.length > 0 ? `${((documents.reduce((acc, doc) => acc + (doc.processingTime?.analysisTime || 0), 0) / documents.length) / 1000).toFixed(1)}s` : '-'}
               </div>
             </div>
           </div>

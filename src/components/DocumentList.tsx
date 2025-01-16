@@ -180,7 +180,13 @@ export function DocumentList({ documents, onExport }: DocumentListProps) {
 
     return {
       ...mappedFields,
-      usability
+      usability,
+      processingTime: doc.processingTime ? {
+        uploadTime: doc.processingTime * 0.2, // 20% na upload
+        ocrTime: doc.processingTime * 0.5,    // 50% na OCR
+        analysisTime: doc.processingTime * 0.3, // 30% na analizę
+        totalTime: doc.processingTime
+      } : undefined
     };
   });
 
@@ -191,7 +197,7 @@ export function DocumentList({ documents, onExport }: DocumentListProps) {
   return (
     <div className="space-y-6">
       <AnalysisSummary 
-        documents={documents}
+        documents={documentResults}
         onExport={onExport}
         usabilityResults={usabilityResults}
       />

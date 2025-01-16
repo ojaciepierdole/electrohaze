@@ -13,6 +13,7 @@ import { CustomerDataGroup } from '@/components/data-groups/CustomerDataGroup';
 import { SupplierDataGroup } from '@/components/data-groups/SupplierDataGroup';
 import { CorrespondenceDataGroup } from './data-groups/CorrespondenceDataGroup';
 import { BillingDataGroup } from './data-groups/BillingDataGroup';
+import { ProcessingTimeCard } from '@/components/ProcessingTimeCard';
 import { processSupplierData, calculateSupplierConfidence, calculateSupplierCompleteness } from '@/utils/document-mapping';
 import type { PPEData, CustomerData, CorrespondenceData, SupplierData, BillingData } from '@/types/fields';
 import type { DocumentField, FieldWithConfidence } from '@/types/processing';

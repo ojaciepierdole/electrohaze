@@ -1,5 +1,4 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { insertDocumentWithData, DocumentInsertData } from '@/lib/supabase/document-helpers';
 import { useToast } from '@/hooks/useToast';
 import { useProcessingStore } from '@/stores/processing-store';
 import type { ProcessingResult, BatchProcessingStatus } from '@/types/processing';
@@ -8,7 +7,7 @@ interface ProcessingState {
   isProcessing: boolean;
   error: string | null;
   progress: number;
-  lastSavedDocument: DocumentInsertData | null;
+  lastSavedDocument: null;
   isPaused: boolean;
   currentOperation: string | null;
   processedFiles: number;

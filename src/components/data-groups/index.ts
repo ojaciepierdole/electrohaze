@@ -1,6 +1,5 @@
-export { DataGroup } from './DataGroup';
+export { PPEDataGroup } from './PPEDataGroup';
 export { CustomerDataGroup } from './CustomerDataGroup';
-export { DeliveryPointDataGroup } from './DeliveryPointDataGroup';
-export { PostalAddressDataGroup } from './PostalAddressDataGroup';
+export { CorrespondenceDataGroup } from './CorrespondenceDataGroup';
 export { SupplierDataGroup } from './SupplierDataGroup';
 export { BillingDataGroup } from './BillingDataGroup'; 
