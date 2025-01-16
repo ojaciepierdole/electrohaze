@@ -163,15 +163,6 @@ export function AnalysisResultCard({
           </Badge>
         </td>
         <td className="hidden sm:table-cell flex-1 px-6 py-4 text-center">
-          <Badge variant="secondary" className={cn(
-            safeCompleteness >= 0.8 ? 'bg-green-50 text-green-700' : 
-            safeCompleteness >= 0.6 ? 'bg-yellow-50 text-yellow-700' : 
-            'bg-red-50 text-red-700'
-          )}>
-            {(safeCompleteness * 100).toFixed(1)}%
-          </Badge>
-        </td>
-        <td className="hidden sm:table-cell flex-1 px-6 py-4 text-center">
           {usability ? (
             <CheckCircle2 className="w-5 h-5 text-green-500 mx-auto" />
           ) : (
@@ -207,13 +198,6 @@ export function AnalysisResultCard({
                 'bg-red-50 text-red-700'
               )}>
                 {(safeConfidence * 100).toFixed(1)}%
-              </Badge>
-              <Badge variant="secondary" className={cn(
-                safeCompleteness >= 0.8 ? 'bg-green-50 text-green-700' : 
-                safeCompleteness >= 0.6 ? 'bg-yellow-50 text-yellow-700' : 
-                'bg-red-50 text-red-700'
-              )}>
-                {(safeCompleteness * 100).toFixed(1)}%
               </Badge>
             </div>
             {usability ? (

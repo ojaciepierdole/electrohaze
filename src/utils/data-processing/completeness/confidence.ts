@@ -211,7 +211,7 @@ function normalizeContent(content: string): string {
 }
 
 // Zoptymalizowana funkcja sprawdzająca jakość pola
-function getFieldQuality(field: DocumentField | undefined): number {
+export function getFieldQuality(field: DocumentField | undefined): number {
   if (!field?.content || !field.confidence) return 0;
 
   const content = field.content;

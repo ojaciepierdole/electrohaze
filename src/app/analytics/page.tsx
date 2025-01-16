@@ -430,7 +430,7 @@ export default function AnalyticsPage() {
                             {stats.contractReadyDocuments > 0 && (
                               <span className="text-green-500 font-medium flex items-center gap-1">
                                 <CheckCircle className="w-4 h-4" />
-                                Kompletne: {stats.contractReadyDocuments} ({((stats.contractReadyDocuments / stats.totalDocuments) * 100).toFixed(1)}%)
+                                Gotowe: {stats.contractReadyDocuments} ({((stats.contractReadyDocuments / stats.totalDocuments) * 100).toFixed(1)}%)
                               </span>
                             )}
                           </div>

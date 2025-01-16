@@ -610,3 +610,12 @@ export interface TransformationMetadata {
   }>;
   [key: string]: unknown;
 }
+
+export interface ProcessedData {
+  ppe?: PPEData;
+  customer?: CustomerData;
+  correspondence?: CorrespondenceData;
+  supplier?: SupplierData;
+  billing?: BillingData;
+  metadata?: Record<string, unknown>;
+}
