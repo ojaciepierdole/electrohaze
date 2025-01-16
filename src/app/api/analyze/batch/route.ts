@@ -37,14 +37,14 @@ function determineFieldGroup(fieldName: string): FieldGroupKey {
 
 async function analyzeDocument(
   client: DocumentAnalysisClient,
-  file: File | Blob,
+  fileData: Buffer | ArrayBuffer,
+  fileName: string,
   modelId: string,
   index: number,
   sessionId: string,
   isSingleFile: boolean = false
 ): Promise<ProcessingResult> {
   const startTime = Date.now();
-  const fileName = file instanceof File ? file.name : 'blob';
   console.log(`[${index}] Rozpoczynam analizę pliku ${fileName} modelem ${modelId}`);
 
   // Czasy przetwarzania
@@ -52,46 +52,38 @@ async function analyzeDocument(
   let ocrTime = 0;
 
   // Sprawdź cache
-  if (file instanceof File) {
-    const cachedResult = cacheManager.get(file.name, modelId);
-    if (cachedResult) {
-      console.log(`[${index}] Znaleziono w cache: ${file.name} (zaoszczędzono ${cachedResult.processingTime}ms)`);
-      
-      // Wyślij informację o postępie dla pliku z cache
-      if (isSingleFile) {
-        sendProgress(sessionId, {
-          currentFileIndex: 0,
-          currentFileName: fileName,
-          currentModelIndex: 0,
-          currentModelId: modelId,
-          fileProgress: 100,
-          totalProgress: 100,
-          totalFiles: 1,
-          results: [cachedResult]
-        });
-      }
-      
-      return {
-        ...cachedResult,
-        processingTime: 0,
-        uploadTime: 0,
-        ocrTime: 0,
-        analysisTime: 0
-      };
+  const cachedResult = cacheManager.get(fileName, modelId);
+  if (cachedResult) {
+    console.log(`[${index}] Znaleziono w cache: ${fileName} (zaoszczędzono ${cachedResult.processingTime}ms)`);
+    
+    // Wyślij informację o postępie dla pliku z cache
+    if (isSingleFile) {
+      sendProgress(sessionId, {
+        currentFileIndex: 0,
+        currentFileName: fileName,
+        currentModelIndex: 0,
+        currentModelId: modelId,
+        fileProgress: 100,
+        totalProgress: 100,
+        totalFiles: 1,
+        results: [cachedResult]
+      });
     }
+    
+    return {
+      ...cachedResult,
+      processingTime: 0,
+      uploadTime: 0,
+      ocrTime: 0,
+      analysisTime: 0
+    };
   }
 
   // Mierz czas uploadu
   const uploadStartTime = Date.now();
-  const arrayBuffer = await file.arrayBuffer();
-  const fileSize = Math.round(arrayBuffer.byteLength / 1024);
+  const fileSize = Math.round(fileData.byteLength / 1024);
   uploadTime = Date.now() - uploadStartTime;
   console.log(`[${index}] Przygotowano dane do wysłania (${fileSize}KB) w ${uploadTime}ms`);
-  
-  // Jeśli plik jest skompresowany, rozpakuj go
-  const fileData = file.type === 'application/octet-stream' 
-    ? decompressData<ArrayBuffer>(new Uint8Array(arrayBuffer))
-    : arrayBuffer;
 
   console.log(`[${index}] Wysyłam żądanie do Azure`);
   const azureStartTime = Date.now();
@@ -177,13 +169,10 @@ async function analyzeDocument(
           duration: azureTime,
           timestamp: new Date().toISOString()
         }],
-        mimeType: file instanceof File ? file.type : 'application/octet-stream'
+        mimeType: 'application/pdf'
       };
       
-      if (file instanceof File) {
-        cacheManager.set(file.name, modelId, emptyResult);
-      }
-      
+      cacheManager.set(fileName, modelId, emptyResult);
       return emptyResult;
     }
 
@@ -264,114 +253,20 @@ async function analyzeDocument(
         duration: azureTime,
         timestamp: new Date().toISOString()
       }],
-      mimeType: file instanceof File ? file.type : 'application/octet-stream'
+      mimeType: 'application/pdf'
     };
 
-    if (file instanceof File) {
-      console.log(`[${index}] Zapisuję wynik do cache: ${file.name}`);
-      cacheManager.set(file.name, modelId, finalResult);
-    }
-
+    cacheManager.set(fileName, modelId, finalResult);
     return finalResult;
   } finally {
     clearInterval(progressInterval);
   }
 }
 
-// Funkcja do przetwarzania dokumentów z wieloma modelami
-async function processDocumentsWithModels(
-  client: DocumentAnalysisClient,
-  files: File[],
-  modelIds: string[],
-  sessionId: string
-): Promise<ProcessingResult[]> {
-  console.log(`\n=== INICJALIZACJA PRZETWARZANIA WSADOWEGO ===`);
-  console.log(`Sesja: ${sessionId}`);
-  console.log(`Liczba plików: ${files.length}`);
-  console.log(`Modele: ${modelIds.join(', ')}`);
-  console.log(`Maksymalna liczba równoległych żądań: ${MAX_CONCURRENT_REQUESTS}`);
-  console.log(`Timestamp rozpoczęcia: ${new Date().toISOString()}`);
-  
-  const results: ProcessingResult[] = [];
-  const startTime = Date.now();
-  
-  // Przygotuj wszystkie kombinacje plik-model
-  const tasks = files.flatMap((file, fileIndex) =>
-    modelIds.map((modelId, modelIndex) => ({
-      file,
-      modelId,
-      index: fileIndex * modelIds.length + modelIndex,
-      fileIndex
-    }))
-  );
-
-  console.log(`\nPrzygotowano ${tasks.length} zadań do przetworzenia`);
-  console.log(`Szacowany czas: ${(tasks.length * 5000 / MAX_CONCURRENT_REQUESTS / 1000).toFixed(1)}s\n`);
-
-  const totalTasks = tasks.length;
-  const processedFiles = new Set<number>();
-  const isSingleFile = files.length === 1;
-
-  // Przetwarzaj zadania w grupach po MAX_CONCURRENT_REQUESTS
-  for (let i = 0; i < tasks.length; i += MAX_CONCURRENT_REQUESTS) {
-    const batchStartTime = Date.now();
-    const batch = tasks.slice(i, i + MAX_CONCURRENT_REQUESTS);
-    console.log(`\nPrzetwarzam grupę ${Math.floor(i/MAX_CONCURRENT_REQUESTS) + 1} (${batch.length} zadań)`);
-    
-    const batchPromises = batch.map(({ file, modelId, index, fileIndex }) => {
-      // Wyślij informację o rozpoczęciu przetwarzania pliku
-      const startProgress = {
-        currentFileIndex: fileIndex,
-        currentFileName: file.name,
-        currentModelIndex: index % modelIds.length,
-        currentModelId: modelId,
-        fileProgress: 0,
-        totalProgress: (processedFiles.size / files.length) * 100,
-        totalFiles: files.length,
-        results
-      };
-      console.log('Sending start progress:', startProgress);
-      sendProgress(sessionId, startProgress);
-
-      return analyzeDocument(client, file, modelId, index, sessionId, isSingleFile).then(result => {
-        // Wyślij informację o zakończeniu przetwarzania pliku
-        results.push(result);
-        processedFiles.add(fileIndex);
-        const endProgress = {
-          currentFileIndex: fileIndex,
-          currentFileName: file.name,
-          currentModelIndex: index % modelIds.length,
-          currentModelId: modelId,
-          fileProgress: 100,
-          totalProgress: (processedFiles.size / files.length) * 100,
-          totalFiles: files.length,
-          results
-        };
-        console.log('Sending end progress:', endProgress);
-        sendProgress(sessionId, endProgress);
-        return result;
-      });
-    });
-
-    const batchResults = await Promise.all(batchPromises);
-    console.log(`Zakończono grupę w ${Date.now() - batchStartTime}ms, przetworzono ${batchResults.length} plików`);
-  }
-  
-  const totalTime = Date.now() - startTime;
-  console.log(`\n=== ZAKOŃCZONO PRZETWARZANIE WSADOWE ===`);
-  console.log(`Timestamp zakończenia: ${new Date().toISOString()}`);
-  console.log(`Całkowity czas: ${totalTime}ms`);
-  console.log(`Średni czas na zadanie: ${Math.round(totalTime / totalTasks)}ms`);
-  console.log(`Liczba przetworzonych plików: ${processedFiles.size}`);
-  console.log(`Średnia pewność: ${(results.reduce((sum, r) => sum + r.confidence, 0) / results.length * 100).toFixed(1)}%\n`);
-  
-  return results;
-}
-
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
-    const files = formData.getAll('files') as File[];
+    const files = formData.getAll('files');
     const modelIds = formData.getAll('modelId') as string[];
     const sessionId = formData.get('sessionId') as string;
 
@@ -394,7 +289,99 @@ export async function POST(request: Request) {
       { key: process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY! }
     );
 
-    const results = await processDocumentsWithModels(client, files, modelIds, sessionId);
+    // Przygotuj wszystkie kombinacje plik-model
+    const tasks = files.flatMap((file, fileIndex) =>
+      modelIds.map((modelId, modelIndex) => ({
+        file,
+        modelId,
+        index: fileIndex * modelIds.length + modelIndex,
+        fileIndex
+      }))
+    );
+
+    console.log(`\n=== INICJALIZACJA PRZETWARZANIA WSADOWEGO ===`);
+    console.log(`Sesja: ${sessionId}`);
+    console.log(`Liczba plików: ${files.length}`);
+    console.log(`Modele: ${modelIds.join(', ')}`);
+    console.log(`Maksymalna liczba równoległych żądań: ${MAX_CONCURRENT_REQUESTS}`);
+    console.log(`Timestamp rozpoczęcia: ${new Date().toISOString()}`);
+    
+    console.log(`\nPrzygotowano ${tasks.length} zadań do przetworzenia`);
+    console.log(`Szacowany czas: ${(tasks.length * 5000 / MAX_CONCURRENT_REQUESTS / 1000).toFixed(1)}s\n`);
+
+    const results: ProcessingResult[] = [];
+    const processedFiles = new Set<number>();
+    const isSingleFile = files.length === 1;
+
+    // Przetwarzaj zadania w grupach po MAX_CONCURRENT_REQUESTS
+    for (let i = 0; i < tasks.length; i += MAX_CONCURRENT_REQUESTS) {
+      const batchStartTime = Date.now();
+      const batch = tasks.slice(i, i + MAX_CONCURRENT_REQUESTS);
+      console.log(`\nPrzetwarzam grupę ${Math.floor(i/MAX_CONCURRENT_REQUESTS) + 1} (${batch.length} zadań)`);
+
+      const batchPromises = batch.map(async ({ file, modelId, index, fileIndex }) => {
+        // Wyślij informację o rozpoczęciu przetwarzania pliku
+        const fileName = typeof file === 'object' && 'name' in file ? file.name : 'unknown';
+        const startProgress = {
+          currentFileIndex: fileIndex,
+          currentFileName: fileName,
+          currentModelIndex: index % modelIds.length,
+          currentModelId: modelId,
+          fileProgress: 0,
+          totalProgress: (processedFiles.size / files.length) * 100,
+          totalFiles: files.length,
+          results
+        };
+        console.log('Sending start progress:', startProgress);
+        sendProgress(sessionId, startProgress);
+
+        // Konwertuj plik na ArrayBuffer
+        let buffer: ArrayBuffer;
+        if (file instanceof Blob) {
+          buffer = await file.arrayBuffer();
+        } else if (typeof file === 'string') {
+          // Jeśli to string base64, konwertuj na ArrayBuffer
+          const binaryString = Buffer.from(file, 'base64');
+          buffer = binaryString.buffer.slice(
+            binaryString.byteOffset,
+            binaryString.byteOffset + binaryString.byteLength
+          );
+        } else {
+          throw new Error('Nieobsługiwany format pliku');
+        }
+
+        const result = await analyzeDocument(
+          client,
+          buffer,
+          fileName,
+          modelId,
+          index,
+          sessionId,
+          isSingleFile
+        );
+
+        // Wyślij informację o zakończeniu przetwarzania pliku
+        results.push(result);
+        processedFiles.add(fileIndex);
+        const endProgress = {
+          currentFileIndex: fileIndex,
+          currentFileName: fileName,
+          currentModelIndex: index % modelIds.length,
+          currentModelId: modelId,
+          fileProgress: 100,
+          totalProgress: (processedFiles.size / files.length) * 100,
+          totalFiles: files.length,
+          results
+        };
+        console.log('Sending end progress:', endProgress);
+        sendProgress(sessionId, endProgress);
+        return result;
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+      console.log(`Zakończono grupę w ${Date.now() - batchStartTime}ms, przetworzono ${batchResults.length} plików`);
+    }
+
     return NextResponse.json(results);
 
   } catch (error) {

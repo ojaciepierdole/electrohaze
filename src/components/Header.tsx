@@ -1,59 +1,28 @@
-'use client';
-
-import * as React from 'react';
+import React from 'react';
 import Link from 'next/link';
-import { FileText, LogOut } from 'lucide-react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { useRouter } from 'next/navigation';
+import { FileText } from 'lucide-react';
 import { Button } from './ui/button';
 
 export function Header() {
-  const router = useRouter();
-  const supabase = createClientComponentClient();
-  const [email, setEmail] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    const getUser = async () => {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      console.log('User:', user, 'Error:', error);
-      setEmail(user?.email ?? null);
-    };
-    getUser();
-  }, [supabase.auth]);
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push('/auth/login');
-    router.refresh();
-  };
-
   return (
-    <div className="border-b bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-14 items-center">
+        <div className="mr-4 flex">
+          <Link href="/" className="mr-6 flex items-center space-x-2">
             <FileText className="h-6 w-6" />
-            <span className="text-lg font-semibold">PDF Analyzer</span>
+            <span className="font-bold">PDF Analyzer</span>
           </Link>
-          
-          <div className="flex items-center gap-4">
-            {email && (
-              <>
-                <span className="text-sm text-gray-600">{email}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleSignOut}
-                  className="text-gray-600 hover:text-gray-900"
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Wyloguj
-                </Button>
-              </>
-            )}
-          </div>
+        </div>
+        <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
+          <nav className="flex items-center">
+            <Button variant="ghost" asChild>
+              <Link href="/">
+                Analizator
+              </Link>
+            </Button>
+          </nav>
         </div>
       </div>
-    </div>
+    </header>
   );
 } 
