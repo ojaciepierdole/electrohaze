@@ -212,14 +212,52 @@ export function useDocumentProcessing() {
       }
 
       console.log('Tworzenie nowego połączenia SSE');
+      const url = `/api/analyze/progress?sessionId=${sessionIdRef.current}&t=${Date.now()}`;
       eventSourceRef.current = new EventSource(url);
+      
+      let reconnectTimeout: NodeJS.Timeout;
+      let heartbeatTimeout: NodeJS.Timeout;
+      
+      const resetHeartbeatTimeout = () => {
+        if (heartbeatTimeout) clearTimeout(heartbeatTimeout);
+        heartbeatTimeout = setTimeout(() => {
+          console.warn('Brak heartbeat - ponowne połączenie');
+          reconnect();
+        }, 35000); // 35 sekund (dłużej niż interwał heartbeat)
+      };
+
+      const reconnect = () => {
+        if (retryCount < maxRetries) {
+          retryCount++;
+          console.log(`Próba ponownego połączenia (${retryCount}/${maxRetries})...`);
+          
+          if (reconnectTimeout) clearTimeout(reconnectTimeout);
+          reconnectTimeout = setTimeout(() => {
+            cleanupEventSource();
+            createEventSource();
+          }, 1000 * Math.pow(2, retryCount - 1));
+        } else {
+          console.error('Przekroczono limit prób połączenia');
+          cleanupEventSource();
+          setProcessingStatus({
+            isProcessing: false,
+            error: 'Utracono połączenie z serwerem'
+          });
+        }
+      };
       
       eventSourceRef.current.onopen = () => {
         console.log('Nawiązano połączenie SSE');
         retryCount = 0;
+        resetHeartbeatTimeout();
       };
       
       eventSourceRef.current.onmessage = (event) => {
+        resetHeartbeatTimeout();
+        
+        // Ignoruj heartbeat
+        if (event.data.trim() === '') return;
+        
         try {
           const update = JSON.parse(event.data) as ProgressUpdate & { result?: ProcessingResult };
           console.log('Otrzymano aktualizację:', update);
@@ -264,21 +302,12 @@ export function useDocumentProcessing() {
 
       eventSourceRef.current.onerror = (error) => {
         console.error('Błąd połączenia SSE:', error);
-        if (retryCount < maxRetries) {
-          retryCount++;
-          console.log(`Próba ponownego połączenia (${retryCount}/${maxRetries})...`);
-          setTimeout(() => {
-            cleanupEventSource();
-            createEventSource();
-          }, 1000 * Math.pow(2, retryCount - 1));
-        } else {
-          console.error('Przekroczono limit prób połączenia');
-          cleanupEventSource();
-          setProcessingStatus({
-            isProcessing: false,
-            error: 'Utracono połączenie z serwerem'
-          });
-        }
+        reconnect();
+      };
+
+      return () => {
+        if (reconnectTimeout) clearTimeout(reconnectTimeout);
+        if (heartbeatTimeout) clearTimeout(heartbeatTimeout);
       };
     };
 
