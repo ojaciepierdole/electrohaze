@@ -252,11 +252,15 @@ export function useDocumentProcessing() {
         resetHeartbeatTimeout();
       };
       
-      eventSourceRef.current.onmessage = (event) => {
+      // Nasłuchuj wszystkich typów zdarzeń
+      eventSourceRef.current.addEventListener('message', (event) => {
         resetHeartbeatTimeout();
         
-        // Ignoruj heartbeat
-        if (event.data.trim() === '') return;
+        // Jeśli to heartbeat, tylko zresetuj timeout
+        if (!event.data || event.data.trim() === '') {
+          console.debug('Otrzymano heartbeat');
+          return;
+        }
         
         try {
           const update = JSON.parse(event.data) as ProgressUpdate & { result?: ProcessingResult };
@@ -298,7 +302,13 @@ export function useDocumentProcessing() {
         } catch (error) {
           console.error('Błąd parsowania danych SSE:', error);
         }
-      };
+      });
+
+      // Nasłuchuj heartbeat
+      eventSourceRef.current.addEventListener('heartbeat', () => {
+        console.debug('Otrzymano dedykowany heartbeat');
+        resetHeartbeatTimeout();
+      });
 
       eventSourceRef.current.onerror = (error) => {
         console.error('Błąd połączenia SSE:', error);

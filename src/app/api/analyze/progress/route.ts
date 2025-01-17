@@ -23,17 +23,21 @@ export function GET(request: Request) {
       // Zapisz emiter dla tej sesji
       progressEmitters.set(sessionId, (data: string) => {
         console.log(`Emitting data for session ${sessionId}:`, data);
-        controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+        controller.enqueue(encoder.encode(`event: message\ndata: ${data}\n\n`));
       });
 
       // Wyślij początkowy heartbeat
       console.log(`Sending initial heartbeat for session ${sessionId}`);
-      controller.enqueue(encoder.encode(': heartbeat\n\n'));
+      controller.enqueue(encoder.encode(`event: heartbeat\ndata: ping\n\n`));
 
       // Ustaw interwał heartbeat
       const heartbeatInterval = setInterval(() => {
-        controller.enqueue(encoder.encode(': heartbeat\n\n'));
-      }, 30000); // co 30 sekund
+        if (progressEmitters.has(sessionId)) {
+          controller.enqueue(encoder.encode(`event: heartbeat\ndata: ping\n\n`));
+        } else {
+          clearInterval(heartbeatInterval);
+        }
+      }, 15000); // co 15 sekund
 
       // Cleanup przy zamknięciu
       return () => {
